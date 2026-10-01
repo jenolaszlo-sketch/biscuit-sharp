@@ -1,5 +1,23 @@
 # Verification
 
+## Current qualification — 2026-10-02
+
+The full 19-job matrix passed at SHA 412f25f63f3bb0012b504540245681218444978d
+([run 36934972104](https://github.com/jenolaszlo-sketch/biscuit-sharp/actions/runs/36934972104)):
+managed .NET 8/10 on three OSes, compatibility in both directions on three RIDs,
+native lints/release tests, staging/legal verification and NativeAOT on three
+RIDs, full package/symbol/legal-tamper checks, six clean packaged consumers, and
+strict 50-cycle Linux Valgrind. All jobs succeeded. Earlier failed/zero-test
+Valgrind results below are historical, not current blockers.
+
+Graduation preparation adds checked API inventory, synthetic budget probes and
+post-publication six-consumer verification. These changes need a new complete CI
+run. Local solution build is warning-free; inventory agrees on both TFMs; local
+consumer still passes; release budget observations are in authorizer-budget.md.
+Preview publication and the public package-validation baseline remain pending.
+
+## Historical evidence
+
 Executed evidence recorded from prior runs. The earlier full CI run passed at
 SHA `7294611c908adb17375f150890c61ebd9f8cf4a6` ([run 36878763035](https://github.com/jenolaszlo-sketch/biscuit-sharp/actions/runs/36878763035)); the audit found that its Valgrind command selected zero tests. HEAD CI at SHA `fb82be79737396da5cb4823072a94738eabd118b` ([run 36880499152](https://github.com/jenolaszlo-sketch/biscuit-sharp/actions/runs/36880499152)) also completed successfully, but the same leak-coverage limitation applies. No new CI was executed for this correction. These historical runs do not verify changes made after their SHAs or prove that the corrected leak workload passes.
 

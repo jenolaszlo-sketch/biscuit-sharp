@@ -1,10 +1,13 @@
 # Implementation plan
 
-Current delivery plan for BiscuitSharp. Status 2026-10-02: M0 complete, M1 functional
-surface implemented; prior CI passed at the SHAs recorded in [verification](verification.md),
-but the audit found that the Valgrind filter ran zero tests. The corrected leak workload
-and final release matrix need rerunning; pre-publish review and first preview publication
-remain. For scope see
+Status 2026-10-02: M0/M1 are implemented and the full 19-job distribution and
+hardening matrix passed at 412f25f (run 36934972104), including the corrected
+legal bundles and real Valgrind workload. Preview graduation adds API inventory,
+budget probes and post-publication consumers. Publication, public-feed
+qualification and the published compatibility baseline remain sequential steps.
+Detailed milestones below retain their implementation history; current evidence
+and remaining gates are in ROADMAP.md and verification.md. For scope see
+
 [architecture](architecture.md), [native boundary](native-boundary.md),
 [API contract](api-contract.md), and [security](security.md).
 

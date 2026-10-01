@@ -1,6 +1,6 @@
 # ADR 0002: wrapper authorization budget and token normalization
 
-Status: adopted as the implementation contract; maintainer/team acceptance is pending.
+Status: accepted for the preview contract under the maintainer-authorized graduation work on 2026-10-02. Hufu-specific workload qualification remains a consumer responsibility.
 Date: 2026-10-01.
 
 ## Context
@@ -44,6 +44,7 @@ imply byte or revocation-ID equality across builds.
   needed, and account for synchronous evaluation occupying a calling thread.
 - Regression tests pin tolerated suffix normalization against the canonical
   original and verify equivalent authorization and revocation behavior.
-- The implementation contract is documented for handoff; this ADR does not
-  claim independent team or Hufu maintainer sign-off. Revisit the budget using
-  representative workload and hostile-growth measurements before API freeze.
+- Synthetic release measurements are recorded in authorizer-budget.md. They
+  exercise ordinary requests and hostile growth through the real bridge; they
+  do not establish a universal Hufu latency/memory budget. Integration should
+  set explicit limits after measuring its actual policies.

@@ -24,6 +24,9 @@ jobs:
           toolchain: 1.89.0
       - run: cargo build --locked --manifest-path native/Cargo.toml
       - run: dotnet build BiscuitSharp.slnx
+      - run: dotnet run --project tests/BiscuitSharp.ApiSurface --framework net8.0 -- --verify docs/public-api.txt
+      - run: dotnet run --project tests/BiscuitSharp.ApiSurface --framework net10.0 -- --verify docs/public-api.txt
+      - run: dotnet run --configuration Release --project tests/BiscuitSharp.BudgetProbe --framework net8.0
       - run: dotnet run --project tests/BiscuitSharp.Tests --framework net8.0
       - run: dotnet run --project tests/BiscuitSharp.Tests --framework net10.0
 
@@ -144,6 +147,7 @@ jobs:
       - run: |
           $pkg = Get-ChildItem artifacts/packages/BiscuitSharp.*.nupkg | Where-Object { $_.Name -notlike '*.snupkg' } | Select-Object -First 1 -ExpandProperty FullName
           ./eng/Verify-NuGetPackage.ps1 -Package $pkg -Rids win-x64,linux-x64,osx-arm64
+          dotnet run --project tests/BiscuitSharp.ApiSurface --framework net8.0 -- --verify-symbols ([IO.Path]::ChangeExtension($pkg, ".snupkg")) $env:GITHUB_SHA
           foreach ($rid in @('win-x64', 'linux-x64', 'osx-arm64')) { ./eng/Test-LegalVerification.ps1 -Package $pkg -Rid $rid }
       - uses: actions/upload-artifact@v4
         with:

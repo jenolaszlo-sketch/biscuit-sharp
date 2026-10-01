@@ -13,7 +13,8 @@
 #>
 param(
     [Parameter(Mandatory = $true)][string]$Package,
-    [ValidateSet("net8.0", "net10.0")][string]$TargetFramework = "net10.0"
+    [ValidateSet("net8.0", "net10.0")][string]$TargetFramework = "net10.0",
+    [switch]$UsePublicFeed
 )
 
 $ErrorActionPreference = "Stop"
@@ -25,6 +26,7 @@ $Package = (Resolve-Path -LiteralPath $Package).Path
 $version = [System.IO.Path]::GetFileNameWithoutExtension($Package) -replace '^BiscuitSharp\.', ''
 if ($version -eq [System.IO.Path]::GetFileNameWithoutExtension($Package)) { Fail "cannot parse version from $Package" }
 
+$previousPackages = $env:NUGET_PACKAGES
 $work = Join-Path ([System.IO.Path]::GetTempPath()) ("biscuit-consumer-" + [System.Guid]::NewGuid().ToString("N"))
 New-Item -ItemType Directory -Path $work | Out-Null
 try {
@@ -47,20 +49,53 @@ try {
         $snupkg = [System.IO.Path]::ChangeExtension($Package, ".snupkg")
         if (Test-Path -LiteralPath $snupkg) { Copy-Item -LiteralPath $snupkg -Destination $feed -Force }
 
+        $sourceName = "local"
+        $sourceUrl = "./local-packages"
+        if ($UsePublicFeed) {
+            $sourceName = "nuget.org"
+            $sourceUrl = "https://api.nuget.org/v3/index.json"
+        }
         Set-Content -LiteralPath (Join-Path $work "nuget.config") -Value @"
 <?xml version="1.0" encoding="utf-8"?>
 <configuration>
   <packageSources>
     <clear />
-    <add key="local" value="./local-packages" />
+    <add key="$sourceName" value="$sourceUrl" />
   </packageSources>
 </configuration>
 "@
 
         $env:NUGET_PACKAGES = Join-Path $work "nuget-cache"
         dotnet add package BiscuitSharp --version $version 2>&1 | Out-Null
-        if ($LASTEXITCODE -ne 0) { Fail "package restore failed (isolated cache, local feed only)" }
+        if ($LASTEXITCODE -ne 0) { Fail "package restore failed (isolated cache, source=$sourceName)" }
 
+        if ($UsePublicFeed) {
+            # Repository signing adds .signature.p7s; other content must match CI.
+            Add-Type -AssemblyName System.IO.Compression.FileSystem
+            $cachedPackage = Join-Path $env:NUGET_PACKAGES "biscuitsharp/$version/biscuitsharp.$version.nupkg"
+            function ContentHashes([string]$archivePath) {
+                $archive = [IO.Compression.ZipFile]::OpenRead($archivePath)
+                try {
+                    $map = @{}
+                    foreach ($entry in $archive.Entries) {
+                        if ($entry.FullName.EndsWith("/") -or $entry.FullName -eq ".signature.p7s") { continue }
+                        if ($map.ContainsKey($entry.FullName)) { Fail "duplicate archive entry" }
+                        $stream = $entry.Open()
+                        $sha = [Security.Cryptography.SHA256]::Create()
+                        try { $map[$entry.FullName] = [BitConverter]::ToString($sha.ComputeHash($stream)) }
+                        finally { $sha.Dispose(); $stream.Dispose() }
+                    }
+                    return $map
+                } finally { $archive.Dispose() }
+            }
+            $expected = ContentHashes $Package
+            $actual = ContentHashes $cachedPackage
+            if ($actual.Count -ne $expected.Count) { Fail "published archive entry count differs from qualified artifact" }
+            foreach ($name in $expected.Keys) {
+                if ($actual[$name] -ne $expected[$name]) { Fail "published content differs: $name" }
+            }
+            Write-Output "Published archive content matches the qualified CI artifact."
+        }
         $program = @'
 // Clean packaged-consumer exercise: key, issue, serialize, parse/verify,
 // attenuate, authorize (allow + deny), seal, revocation IDs, version.
@@ -106,8 +141,15 @@ return (allow.IsAuthorized && !deny.IsAuthorized && sealedToken.Inspect().IsSeal
     finally { Pop-Location }
 }
 finally {
-    Remove-Item Env:\NUGET_PACKAGES -ErrorAction SilentlyContinue
-    Remove-Item -Recurse -Force $work -ErrorAction SilentlyContinue
+    if ($null -eq $previousPackages) { Remove-Item Env:\NUGET_PACKAGES -ErrorAction SilentlyContinue }
+    else { $env:NUGET_PACKAGES = $previousPackages }
+    $resolvedWork = [IO.Path]::GetFullPath($work)
+    $resolvedTemp = [IO.Path]::GetFullPath([IO.Path]::GetTempPath()).TrimEnd('\', '/') + [IO.Path]::DirectorySeparatorChar
+    if (-not $resolvedWork.StartsWith($resolvedTemp, [StringComparison]::OrdinalIgnoreCase) -or
+        -not ([IO.Path]::GetFileName($resolvedWork)).StartsWith("biscuit-consumer-", [StringComparison]::Ordinal)) {
+        Fail "refusing cleanup outside the consumer temporary directory"
+    }
+    Remove-Item -LiteralPath $resolvedWork -Recurse -Force -ErrorAction SilentlyContinue
 }
 
 Write-Output "Packaged-consumer test passed ($TargetFramework)."

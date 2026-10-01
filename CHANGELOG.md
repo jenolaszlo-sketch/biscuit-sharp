@@ -1,6 +1,16 @@
 # Changelog
 
-## Unreleased
+## 0.1.0-preview.1 — release candidate
+
+- Qualified three native RIDs with full legal inventories, NativeAOT, six clean
+  consumers and the corrected strict Valgrind workload.
+- Fixed concurrent native loading, mutable identity, result collection ownership,
+  malformed response taxonomy and key-store allocation cleanup.
+- Freeze the reviewed preview API inventory and documented wrapper semantics.
+- Add budget probes, SourceLink identity checks and public-feed verification.
+- Publication and published-baseline restoration are pending.
+
+## Implementation history
 
 - Establish the repository scaffolding: solution, managed API shape (keys, token,
   builder, attenuation, seal, authorizer, revocation IDs, inspection, version info),

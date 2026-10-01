@@ -118,3 +118,12 @@ failures, and ordinary denial are never flattened into one error.
   analyzer).
 - Package validation runs against the latest published preview baseline once M2
   ships the first preview.
+
+## Checked surface inventory
+
+[public-api.txt](public-api.txt) records exported types, constructors, public
+members, nullable signatures, optional defaults, record init accessors, generic
+constraints and trimming annotations. CI runs BiscuitSharp.ApiSurface on net8.0
+and net10.0 and fails on drift. Regenerate with --write only when the new surface
+has been reviewed. This is a pre-publication surface gate; package validation
+against the first published preview remains the binary compatibility gate.

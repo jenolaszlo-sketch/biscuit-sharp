@@ -6,6 +6,16 @@ Reviewed HEAD: fb82be79737396da5cb4823072a94738eabd118b.
 Original audit scope: managed public API and contract, native boundary, authorization semantics, provenance, packaging/CI, structure, and consumer usability. The follow-up below records implementation changes made after the review; publication remains pending.
 
 
+## Graduation follow-up — 2026-10-02
+
+The complete 19-job release matrix is green at 412f25f (run 36934972104),
+including all three RID/legal/NativeAOT gates, six packaged consumers and the
+corrected strict Valgrind workload. Preview semantics remain as documented in
+ADR 0002 under the maintainer-authorized graduation work. The checked API
+inventory and budget probes are implemented; see api-contract.md and
+authorizer-budget.md. Publication, public-feed consumers and package-baseline
+restoration remain sequential release steps.
+
 ## Fix follow-up — 2026-10-01
 
 The findings below describe the reviewed original commit. The initial fixes were committed and pushed as d8e24b49c84ef5da70fc1f103c6f6dea86e0e465; release qualification remains separate.
@@ -18,7 +28,7 @@ The findings below describe the reviewed original commit. The initial fixes were
 | F04 legal material | Fixed in tooling: target-aware runtime dependency graph, checksummed source identity, full LICENSE/COPYING/COPYRIGHT/NOTICE material, coverage/inventory validation; packaged legal files consolidated under third-party. | Windows staging/package checks and rejection checks recorded below. Linux/macOS final packages still require CI. |
 | F05 response taxonomy | Fixed: JSON object roots and error fields validated; malformed/unknown envelopes remain bridge failures; policy indices checked for consistency. | Scalar/array/null roots, malformed JSON/error fields, unknown codes and contradictory result regressions pass. Existing native output free remains in finally. |
 | F06 collection ownership | Fixed: constructor and record with-expression collection setters make owned read-only snapshots and reject null collections/elements. | Source-list mutation and returned-list mutation checks pass. Collection equality remains explicitly reference-based. |
-| F07 contract drift | Fixed: API/security/architecture/plan/roadmap/review ledger reconciled; ADR 0002 records defaults and normalization. | Defaults retained at 100k facts / 100k iterations / 5 s; integer millisecond truncation and tolerated framing pinned by tests. Team acceptance and Hufu workload budgeting remain human/consumer decisions. |
+| F07 contract drift | Fixed: API/security/architecture/plan/roadmap/review ledger reconciled; ADR 0002 records defaults and normalization. | Defaults retained at 100k facts / 100k iterations / 5 s; integer millisecond truncation and tolerated framing pinned by tests. Preview contract accepted under authorized graduation work; Hufu-specific workload budgeting remains a consumer decision. |
 | F08 release binding | Fixed in tooling: manual publisher binds reviewed SHA to exact completed full CI run and its package/symbol artifact; final archive verification checks expected identity, RID inventory and legal coverage. | Publication is not performed. Protected GitHub environment, NuGet trusted-publisher policy/account setting, and a new full CI run are release prerequisites. |
 
 Additional pre-freeze corrections: unknown algorithm values fail fast in raw public-key construction; duplicate typed parameter names are rejected; supported BiscuitParam construction goes through factories; private export/issuance retain the key object through native calls, and allocated key handles are cleaned up if response validation fails. NativeSha256 is captured during load rather than rehashing a possibly replaced pathname on every version query. Public ParseHex/ParsePrefixed/ToPrefixedString stay because they serve configuration and upstream interop.
@@ -192,4 +202,4 @@ Third-party blocks, snapshots, PEM/DER public keys, cancellation, fingerprint he
 6. Verify public NuGet restore plus clean consumers of the published artifact. Then restore PackageValidationBaselineVersion to 0.1.0-preview.1, and validate the next candidate version against it.
 7. Re-freeze with an explicit public API inventory and reviewed contract/ADR, update CHANGELOG/README/ROADMAP/verification ledger, and carry Hufu-specific integration into its own work.
 
-Handoff status: audit implementation fixes are in the working tree. Final release matrix, semantic acceptance, publication, baseline restoration and re-freeze remain open. Read the fix follow-up above before interpreting the historical findings.
+Historical handoff status: the original audit fixes, final release matrix and preview contract adoption are complete. Publication, public-feed qualification and baseline restoration remain open. Read the fix follow-up above before interpreting the historical findings.

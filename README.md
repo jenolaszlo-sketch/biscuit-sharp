@@ -7,11 +7,12 @@
 
 It is useful when authority must travel with the request: delegated access, offline attenuation, and capability-style checks that remain verifiable without a central policy call. BiscuitSharp preserves Biscuit semantics and keeps valid-token, authorized-request, and failure states distinct so the application can enforce explicitly.
 
-> Status: M0 and the M1 functional surface are implemented. Prior CI passed at
-> the documented SHA, but the audit found that its Valgrind filter ran zero
-> tests. The corrected leak workload needs a Linux run, and the final release
-> matrix must be rerun at the reviewed SHA before preview publication and API
-> freeze. See [verification](docs/verification.md).
+> Status: the complete 19-job release matrix passed on win-x64, linux-x64 and
+> osx-arm64, including .NET 8/10 packaged consumers, NativeAOT, full legal
+> inventories and the 50-cycle Valgrind probe. Preview publication and the
+> published-package compatibility baseline are being prepared.
+> See [verification](docs/verification.md), [roadmap](ROADMAP.md) and the
+> checked [public API inventory](docs/public-api.txt).
 
 ## Try it
 
