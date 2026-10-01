@@ -148,6 +148,7 @@ jobs:
           $pkg = Get-ChildItem artifacts/packages/BiscuitSharp.*.nupkg | Where-Object { $_.Name -notlike '*.snupkg' } | Select-Object -First 1 -ExpandProperty FullName
           ./eng/Verify-NuGetPackage.ps1 -Package $pkg -Rids win-x64,linux-x64,osx-arm64
           dotnet run --project tests/BiscuitSharp.ApiSurface --framework net8.0 -- --verify-symbols ([IO.Path]::ChangeExtension($pkg, ".snupkg")) $env:GITHUB_SHA
+          if ($LASTEXITCODE -ne 0) { throw "SourceLink verification failed" }
           foreach ($rid in @('win-x64', 'linux-x64', 'osx-arm64')) { ./eng/Test-LegalVerification.ps1 -Package $pkg -Rid $rid }
       - uses: actions/upload-artifact@v4
         with:
