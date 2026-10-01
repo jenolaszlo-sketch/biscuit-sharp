@@ -43,6 +43,17 @@ jobs:
           components: rustfmt, clippy
       - run: cargo fmt --manifest-path native/Cargo.toml -- --check
       - run: cargo clippy --locked --all-targets --manifest-path native/Cargo.toml -- -D warnings
+  dist-win-x64:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            8.0.x
+            10.0.x
+      - uses: dtolnay/rust-toolchain@1.89.0
+      - run: powershell -NoProfile -ExecutionPolicy Bypass -File eng/Test-DistWinX64.ps1
   # M2 add: native builds + tests per RID (linux-x64, osx-arm64), mutation/fuzz,
   # Valgrind, NativeAOT per RID, package verification, and six clean consumers.
   # See docs/implementation-plan.md.

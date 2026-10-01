@@ -673,6 +673,41 @@ try
     {
         try { Directory.Delete(probeDir, true); } catch { }
     }
+
+    // 39. Textual public-key encodings round-trip the validated key.
+    string edHex = Convert.ToHexString(edKey.PublicKey.Encoded).ToLowerInvariant();
+    Check(BiscuitPublicKey.ParseHex(edHex, BiscuitKeyAlgorithm.Ed25519) == edKey.PublicKey, "hex import round-trips");
+    Check(BiscuitPublicKey.ParseHex(edHex.ToUpperInvariant(), BiscuitKeyAlgorithm.Ed25519) == edKey.PublicKey, "hex import is case-insensitive");
+    string prefixed = edKey.PublicKey.ToPrefixedString();
+    Check(prefixed == $"ed25519/{edHex}", "prefixed form matches upstream display");
+    Check(BiscuitPublicKey.ParsePrefixed(prefixed) == edKey.PublicKey, "prefixed import round-trips with embedded algorithm");
+    string p256Prefixed = p256Key.PublicKey.ToPrefixedString();
+    Check(p256Prefixed.StartsWith("secp256r1/", StringComparison.Ordinal), "P-256 prefixed form carries its algorithm");
+    Check(BiscuitPublicKey.ParsePrefixed(p256Prefixed) == p256Key.PublicKey, "P-256 prefixed import round-trips");
+    Check(Throws<BiscuitKeyException>(() => BiscuitPublicKey.ParseHex("zz", BiscuitKeyAlgorithm.Ed25519)), "non-hex import fails");
+    Check(Throws<BiscuitKeyException>(() => BiscuitPublicKey.ParseHex("abc", BiscuitKeyAlgorithm.Ed25519)), "odd-length hex import fails");
+    Check(Throws<BiscuitKeyException>(() => BiscuitPublicKey.ParsePrefixed("rsa/deadbeef")), "unknown prefix fails");
+    Check(Throws<BiscuitKeyException>(() => BiscuitPublicKey.ParsePrefixed("ed25519")), "prefix without key fails");
+
+    // 40. Execution limits deny instead of allowing on breach.
+    BiscuitAuthorizationResult starved = BiscuitAuthorizer
+        .For(token)
+        .AddFact("""operation("read")""")
+        .AddPolicy("""allow if right("workspace.main", "read");""")
+        .WithLimits(new BiscuitAuthorizerLimits(1000, 100, TimeSpan.Zero))
+        .Authorize();
+    Check(starved.Decision == BiscuitDecision.Deny, "exhausted limits deny");
+    Check(starved.Errors.Any(e => e.Code == "evaluation_failure"), "limit breach is an evaluation failure");
+    BiscuitAuthorizationResult roomy = BiscuitAuthorizer
+        .For(token)
+        .AddFact("""operation("read")""")
+        .AddPolicy("""allow if right("workspace.main", "read");""")
+        .WithLimits(new BiscuitAuthorizerLimits(100000, 10000, TimeSpan.FromMinutes(1)))
+        .Authorize();
+    Check(roomy.IsAuthorized, "generous limits agree with defaults");
+    Check(BiscuitAuthorizerLimits.Default.MaxFacts == 1000 && BiscuitAuthorizerLimits.Default.MaxIterations == 100 && BiscuitAuthorizerLimits.Default.MaxTime == TimeSpan.FromMilliseconds(1), "defaults mirror upstream");
+    Check(Throws<ArgumentOutOfRangeException>(() => BiscuitAuthorizer.For(token).WithLimits(new BiscuitAuthorizerLimits(1, 1, TimeSpan.FromMilliseconds(-1)))), "negative budget fails fast");
+    Check(Throws<ArgumentNullException>(() => BiscuitAuthorizer.For(token).WithLimits(null!)), "null limits fail fast");
 }
 finally
 {

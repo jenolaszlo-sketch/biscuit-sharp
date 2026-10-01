@@ -11,10 +11,11 @@ inherent, documented), **Deferred** (planned, spec §13/14/M2),
 
 1. **Fixed 2026-10-02 — public-key import/parse.** New `key_import_public`
    bridge op (op 14) plus `BiscuitPublicKey.Parse`, validating raw public bytes
-   for an algorithm without the private half. Upstream decode is lenient about
-   non-canonical encodings (pinned by test); bogus keys still fail closed at
-   verification time. Textual encodings (hex, prefixed strings, DER/PEM
-   *public* keys) remain open.
+   for an algorithm without the private half, plus `ParseHex`/`ParsePrefixed`
+   and `ToPrefixedString()` for the upstream `ed25519/<hex>` display form.
+   Upstream decode is lenient about non-canonical encodings (pinned by test);
+   bogus keys still fail closed at verification time. DER/PEM *public* keys
+   remain open.
 2. **Fixed 2026-10-02 — authorizer rules.** `AddRule` on `BiscuitTokenBuilder`
    and `BiscuitAuthorizer`, wired through `code()` with malformed-rule tests.
 3. **Partially fixed 2026-10-02 — loader verification.** Load-time manifest
@@ -28,9 +29,10 @@ inherent, documented), **Deferred** (planned, spec §13/14/M2),
    three-RID CI matrix, `Verify-NativeStaging` / `Verify-NuGetPackage` /
    `Test-PackagedConsumer` automation, and publication stay open (M2).
 5. **Deferred — leak instrumentation.** No Valgrind/equivalent run (needs Linux).
-6. **Gap — no cancellation/timeout/tuning.** Authorization, issuance, and
-   parsing run synchronously with upstream default execution limits and no way
-   to set them or cancel. A hostile Datalog workload's ceiling is upstream's.
+6. **Fixed 2026-10-02 — execution limits.** `BiscuitAuthorizerLimits` plus
+   `WithLimits`, wired to upstream `set_limits`/`authorize_with_limits`
+   (documented 1 ms default); breaches deny with `evaluation_failure`.
+   Cancellation of a running call remains unavailable (synchronous FFI).
 7. **Gap — loader failure tests not written** for tampered/wrong-ABI/wrong-version
    assets (some depend on the M2 manifest). Current coverage: missing asset and
    relative override only.
@@ -65,8 +67,9 @@ inherent, documented), **Deferred** (planned, spec §13/14/M2),
 15. **Limit — inspection reports the root algorithm as the signature algorithm.**
     Internal chain keys follow the root, so this is accurate for the token, but
     there is no separate per-block algorithm surface.
-16. **Limit — public keys have no textual form.** `BiscuitPublicKey` is raw bytes
-    + algorithm only (see Gap 1).
+16. **Limit — public keys have no DER/PEM form.** Raw bytes, hex, and the
+    `ed25519/<hex>` display form are covered; DER/PEM *public*-key encodings
+    are not.
 17. **Limit — the native key store is process-global and unbounded.** Handles are
     freed on `Dispose`/finalization; a caller that never disposes grows the store
     until the process ends. No cap or eviction.

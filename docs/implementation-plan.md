@@ -67,15 +67,17 @@ Rust ABI details. Private keys live in opaque native handles; export is explicit
 ### Managed surface (`src/BiscuitSharp/`)
 
 Keys (generate/import/export over opaque handles with finalizer-backed disposal,
-DER/PEM export, PEM/DER import, public-key `Parse` without the private half,
-`ToString` privacy — done 2026-10-01, extended 2026-10-02), builder
+DER/PEM export, PEM/DER import, public-key `Parse`/hex/prefixed display forms
+without the private half, `ToString` privacy — done 2026-10-01, extended
+2026-10-02), builder
 (textual Datalog + parameterized overloads + rules; discourage untrusted interpolation),
 token (parse/verify, base64url, attenuate, seal, revocation IDs, inspection —
 done 2026-10-01: canonical bytes, equality, typed params incl. reflection
 convenience overload; rules added 2026-10-02),
 authorizer (facts, rules, policies, checks → `BiscuitAuthorizationResult` with
 matched-policy indices, structured errors, `RequireAuthorized()`, explicit time
-facts — done 2026-10-01, extended 2026-10-02), version discovery reporting the loaded asset (done 2026-10-01: process-lifetime
+facts, explicit execution limits defaulting to upstream — done
+2026-10-01, extended 2026-10-02), version discovery reporting the loaded asset (done 2026-10-01: process-lifetime
 loader, strict JSON decoding, file-hash identity, load-time manifest verification), and the
 `BiscuitException` taxonomy with boundary rules (bridge ≠ token ≠ Datalog ≠
 enforcement failures; Deny is a result). Per-slice check counts live in the

@@ -13,7 +13,8 @@
 //! Upstream default execution limits apply.
 
 use biscuit_auth::error::{Logic as LogicError, Token as TokenError};
-use biscuit_auth::{AuthorizerBuilder, Biscuit};
+use biscuit_auth::{AuthorizerBuilder, AuthorizerLimits, Biscuit};
+use std::time::Duration;
 
 use crate::tokens::token_error;
 use crate::{emit_error, emit_owned, BiscuitSharpBuffer, STATUS_INVALID_INPUT};
@@ -43,6 +44,31 @@ fn decode_sources(
             )),
         },
     }
+}
+
+/// Optional `"limits": {"max_facts", "max_iterations", "max_time_ms"}` override.
+/// Absent limits keep the builder (upstream) defaults; all three fields are
+/// required when present. Failures here are request-shape problems, so a limit
+/// breach at evaluation time surfaces later as `evaluation_failure`, never as
+/// an allow.
+fn apply_limits(
+    builder: AuthorizerBuilder,
+    value: &serde_json::Value,
+) -> Result<AuthorizerBuilder, String> {
+    let object = value
+        .as_object()
+        .ok_or_else(|| "field 'limits' must be an object".to_owned())?;
+    let number = |field: &str| {
+        object
+            .get(field)
+            .and_then(|v| v.as_u64())
+            .ok_or_else(|| format!("field 'limits.{field}' must be a non-negative integer"))
+    };
+    Ok(builder.set_limits(AuthorizerLimits {
+        max_facts: number("max_facts")?,
+        max_iterations: number("max_iterations")?,
+        max_time: Duration::from_millis(number("max_time_ms")?),
+    }))
 }
 
 fn failed_check_entry(check: &biscuit_auth::error::FailedCheck) -> serde_json::Value {
@@ -216,6 +242,12 @@ pub fn op_token_authorize(input: &[u8], output: *mut BiscuitSharpBuffer) -> u32 
         Err(status) => return status,
     };
     let mut builder = AuthorizerBuilder::new();
+    if let Some(limits) = req.get("limits") {
+        builder = match apply_limits(builder, limits) {
+            Ok(b) => b,
+            Err(e) => return invalid(output, e),
+        };
+    }
     for source in facts
         .iter()
         .chain(rules.iter())
@@ -456,6 +488,65 @@ mod tests {
         );
         assert_eq!(status, STATUS_INVALID_INPUT);
         assert_eq!(v["code"], "datalog_error");
+        let _ = handle;
+    }
+
+    fn authorize_with_limits_value(
+        token: &[u8],
+        root: &serde_json::Value,
+        limits: serde_json::Value,
+    ) -> (u32, serde_json::Value) {
+        call(
+            OP_TOKEN_AUTHORIZE,
+            serde_json::json!({
+                "token": base64::encode(token),
+                "root": root,
+                "facts": ["operation(\"read\")"],
+                "policies": ["allow if right(\"a\", \"read\");"],
+                "limits": limits,
+            }),
+        )
+    }
+
+    #[test]
+    fn exhausted_limits_deny_without_allowing() {
+        let (handle, root) = generate_root("ed25519");
+        let token = create(handle, vec!["right(\"a\", \"read\")"]);
+        // A zero time budget trips the upstream run limit deterministically.
+        let (status, v) = authorize_with_limits_value(
+            &token,
+            &root,
+            serde_json::json!({ "max_facts": 1000, "max_iterations": 100, "max_time_ms": 0 }),
+        );
+        assert_eq!(status, STATUS_OK);
+        assert_eq!(v["decision"], "deny");
+        let errors = v["errors"].as_array().expect("errors");
+        assert!(errors.iter().any(|e| e["code"] == "evaluation_failure"));
+        // Generous limits agree with the default path.
+        let (status, v) = authorize_with_limits_value(
+            &token,
+            &root,
+            serde_json::json!({ "max_facts": 100000, "max_iterations": 10000, "max_time_ms": 60000 }),
+        );
+        assert_eq!(status, STATUS_OK);
+        assert_eq!(v["decision"], "allow");
+        let _ = handle;
+    }
+
+    #[test]
+    fn malformed_limits_are_rejected() {
+        let (handle, root) = generate_root("ed25519");
+        let token = create(handle, vec!["right(\"a\", \"read\")"]);
+        for limits in [
+            serde_json::json!({ "max_iterations": 100, "max_time_ms": 1000 }),
+            serde_json::json!({ "max_facts": "many", "max_iterations": 100, "max_time_ms": 1000 }),
+            serde_json::json!({ "max_facts": -1, "max_iterations": 100, "max_time_ms": 1000 }),
+            serde_json::json!("unlimited"),
+        ] {
+            let (status, v) = authorize_with_limits_value(&token, &root, limits);
+            assert_eq!(status, STATUS_INVALID_INPUT);
+            assert_eq!(v["code"], "invalid_input");
+        }
         let _ = handle;
     }
 

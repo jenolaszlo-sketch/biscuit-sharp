@@ -21,7 +21,9 @@ integration tests from the first preview onward.
   the result) otherwise. An ordinary Deny is a result, not a bridge failure.
 - `BiscuitTokenBuilder` supports facts, rules, and checks (each textual, plus
   parameterized facts); the authorizer supports facts, rules, checks, policies,
-  and explicit time facts. Malformed Datalog throws `BiscuitDatalogException`
+  explicit time facts, and explicit execution limits (`WithLimits`, defaulting
+  to upstream: 1,000 facts, 100 iterations, 1 ms — a breached limit denies with
+  `evaluation_failure`). Malformed Datalog throws `BiscuitDatalogException`
   before any evaluation; completed evaluations always return a result.
 - Policies apply first-match-wins in the order supplied: place `deny` policies
   before the `allow` policies they must override. The result reports matched
@@ -78,8 +80,10 @@ failures, and ordinary denial are never flattened into one error.
   DER; `ExportPem()` the armored PEM form; `Import()` accepts PKCS#8 PEM (detected by armor) or DER with upstream
   algorithm auto-detection, and rejects ambiguous raw secrets. `BiscuitPublicKey.Parse`
   validates raw public bytes for an algorithm without needing the private half
-  (validation is upstream decode: size plus successful decode). Key-operation
-  failures surface as `BiscuitKeyException`; only native/ABI/transport problems
+  (validation is upstream decode: size plus successful decode);
+  `ParseHex`/`ParsePrefixed` accept the hex and `ed25519/<hex>` display forms,
+  and `ToPrefixedString()` renders them (public keys are safe to log).
+  Key-operation failures surface as `BiscuitKeyException`; only native/ABI/transport problems
   surface as `BiscuitBridgeException`.
 - Serialization compatibility: tokens are upstream Biscuit artifacts, verifiable
   by any conforming implementation, not just this wrapper.

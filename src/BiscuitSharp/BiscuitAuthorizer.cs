@@ -48,6 +48,21 @@ public sealed record BiscuitAuthorizationResult(
 }
 
 /// <summary>
+/// Datalog execution limits for one authorization, mirroring upstream
+/// <c>RunLimits</c>. A breached limit denies with an
+/// <c>evaluation_failure</c> error — it never allows.
+/// </summary>
+/// <param name="MaxFacts">Maximum Datalog facts (memory usage).</param>
+/// <param name="MaxIterations">Maximum rule-application iterations (prevents degenerate rules).</param>
+/// <param name="MaxTime">Maximum execution time.</param>
+public sealed record BiscuitAuthorizerLimits(ulong MaxFacts, ulong MaxIterations, TimeSpan MaxTime)
+{
+    /// <summary>Upstream defaults: 1,000 facts, 100 iterations, 1 millisecond.</summary>
+    public static BiscuitAuthorizerLimits Default { get; } =
+        new(1000, 100, TimeSpan.FromMilliseconds(1));
+}
+
+/// <summary>
 /// Fluent authorizer over one verified token plus ambient facts, checks, and
 /// policies. Malformed Datalog throws <see cref="BiscuitDatalogException"/>
 /// (no evaluation ran); a completed evaluation — allow or deny — returns a
@@ -61,6 +76,7 @@ public sealed class BiscuitAuthorizer
     private readonly List<string> _rules = new();
     private readonly List<string> _checks = new();
     private readonly List<string> _policies = new();
+    private BiscuitAuthorizerLimits? _limits;
 
     private BiscuitAuthorizer(BiscuitToken token)
     {
@@ -121,6 +137,23 @@ public sealed class BiscuitAuthorizer
         return AddFact($"time({rfc3339})");
     }
 
+    /// <summary>
+    /// Overrides the upstream default execution limits for this authorizer.
+    /// Absent limits keep upstream defaults (1,000 facts, 100 iterations,
+    /// 1 millisecond).
+    /// </summary>
+    public BiscuitAuthorizer WithLimits(BiscuitAuthorizerLimits limits)
+    {
+        ArgumentNullException.ThrowIfNull(limits);
+        if (limits.MaxTime < TimeSpan.Zero)
+        {
+            throw new ArgumentOutOfRangeException(nameof(limits), "MaxTime must not be negative.");
+        }
+
+        _limits = limits;
+        return this;
+    }
+
     public BiscuitAuthorizationResult Authorize()
     {
         byte[] request = BridgeJson.EncodeObject(w =>
@@ -131,6 +164,15 @@ public sealed class BiscuitAuthorizer
             WriteSources(w, "rules", _rules);
             WriteSources(w, "checks", _checks);
             WriteSources(w, "policies", _policies);
+            if (_limits is not null)
+            {
+                w.WriteStartObject("limits");
+                w.WriteNumber("max_facts", _limits.MaxFacts);
+                w.WriteNumber("max_iterations", _limits.MaxIterations);
+                // TimeSpan.MaxValue fits in ulong milliseconds; checked for safety.
+                w.WriteNumber("max_time_ms", checked((ulong)_limits.MaxTime.TotalMilliseconds));
+                w.WriteEndObject();
+            }
         });
         byte[] response = NativeBridge.Call(
             NativeBridge.OpTokenAuthorize,

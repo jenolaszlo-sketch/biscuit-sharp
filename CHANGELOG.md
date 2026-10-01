@@ -52,6 +52,13 @@
   test; `BiscuitPrivateKey.ExportPem()`; `BiscuitAuthorizer.AddTimeFact(...)`;
   CI pins Rust 1.89.0; package-validation baseline removed until the first
   preview is published.
+- Review fixes part 3: hex/prefixed public-key display forms
+  (`ParseHex`/`ParsePrefixed`/`ToPrefixedString`, managed-side over the
+  validated raw path — no ABI change); explicit `BiscuitAuthorizerLimits` /
+  `WithLimits` wired to upstream `set_limits` (documented 1 ms default, breach
+  denies with `evaluation_failure`); `eng/Verify-NativeStaging.ps1`,
+  `eng/Verify-NuGetPackage.ps1`, `eng/Test-PackagedConsumer.ps1`, and
+  `eng/Test-DistWinX64.ps1` implemented with a CI `dist-win-x64` job.
 - Review fixes part 2: `BiscuitPublicKey.Parse` over a new `key_import_public`
   bridge op (verification without the private half); `AddRule` on the token
   builder and the authorizer; `unsafe extern "C"` FFI entry with documented

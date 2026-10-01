@@ -217,6 +217,60 @@ public sealed class BiscuitPublicKey : IEquatable<BiscuitPublicKey>
         $"BiscuitPublicKey {{ Algorithm = {Algorithm}, Length = {Encoded.Length} }}";
 
     /// <summary>
+    /// Upstream display form (<c>ed25519/&lt;hex&gt;</c> or
+    /// <c>secp256r1/&lt;hex&gt;</c>), matching upstream <c>print()</c>. Public
+    /// keys are not secret; this form is safe to log and round-trips through
+    /// <see cref="ParsePrefixed"/>.
+    /// </summary>
+    public string ToPrefixedString() =>
+        $"{BiscuitAlgorithms.ToWireName(Algorithm)}/{Convert.ToHexString(Encoded).ToLowerInvariant()}";
+
+    /// <summary>
+    /// Parses a hex-encoded public key for the algorithm (whitespace is not
+    /// allowed; upper- and lower-case hex both accepted).
+    /// </summary>
+    public static BiscuitPublicKey ParseHex(string hex, BiscuitKeyAlgorithm algorithm)
+    {
+        ArgumentNullException.ThrowIfNull(hex);
+        byte[] bytes;
+        try
+        {
+            bytes = Convert.FromHexString(hex);
+        }
+        catch (FormatException ex)
+        {
+            throw new BiscuitKeyException($"Public key is not valid hex for {algorithm}.", ex);
+        }
+
+        return Parse(bytes, algorithm);
+    }
+
+    /// <summary>
+    /// Parses the upstream display form (<c>ed25519/&lt;hex&gt;</c> or
+    /// <c>secp256r1/&lt;hex&gt;</c>) with the algorithm embedded; no
+    /// out-of-band algorithm needed.
+    /// </summary>
+    public static BiscuitPublicKey ParsePrefixed(string prefixed)
+    {
+        ArgumentNullException.ThrowIfNull(prefixed);
+        int slash = prefixed.IndexOf('/');
+        if (slash <= 0 || slash == prefixed.Length - 1)
+        {
+            throw new BiscuitKeyException(
+                "Public key must look like \"ed25519/<hex>\" or \"secp256r1/<hex>\".");
+        }
+
+        BiscuitKeyAlgorithm algorithm = prefixed.Substring(0, slash) switch
+        {
+            "ed25519" => BiscuitKeyAlgorithm.Ed25519,
+            "secp256r1" => BiscuitKeyAlgorithm.P256,
+            string other => throw new BiscuitKeyException(
+                $"Unknown public-key algorithm prefix '{other}'."),
+        };
+        return ParseHex(prefixed.Substring(slash + 1), algorithm);
+    }
+
+    /// <summary>
     /// Validates raw public-key bytes for the algorithm through the native
     /// bridge (size plus upstream decode) and returns the canonical key. This
     /// is the verification-only entry point: a caller holding only a root

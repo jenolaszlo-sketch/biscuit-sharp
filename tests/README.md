@@ -6,11 +6,12 @@ CedarSharp shape): exit code 0 means all checks passed.
 - Version/loader slice: fail-closed loading, relative overrides, live identity
   with differential hash checks.
 - Key slice: generate/import/export round-trips (Ed25519 + P-256, DER + PEM),
-  public-key import, disposal, `ToString` privacy, concurrency.
+  public-key import (raw, hex, prefixed display), disposal, `ToString` privacy,
+  concurrency.
 - Token slice: issue/verify/attenuate/seal, rules, tamper/truncation/garbage
   rejection, revocation growth, inspection, typed params, unicode, equality,
   concurrency.
-- Authorization slice: allow/deny/failed-checks/explicit-deny, rules,
+- Authorization slice: allow/deny/failed-checks/explicit-deny, rules, limits,
   determinism, malformed-Datalog behavior, concurrency.
 - Loader manifest probes: verified load succeeds, tampered manifest refuses
   (child processes, since the loader caches per process).
