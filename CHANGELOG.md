@@ -13,5 +13,11 @@
 - M1 version slice: native `version` op with strict identity JSON and
   `{"code","message"}` error envelope (6 native tests green); managed
   process-lifetime loader with ABI check plus live `BiscuitEngine.GetVersion()`
-  with differential binary/lockfile hash verification (20 checks green on .NET 8
+  with   differential binary/lockfile hash verification (20 checks green on .NET 8
   and .NET 10 against the real `cdylib`).
+- M1 key slice: native `key_generate`/`key_import`/`key_export_*`/`key_destroy`
+  over opaque handles (Ed25519 + Secp256r1, PEM/DER with upstream
+  algorithm auto-detection, `key_error` envelope code; 12 native tests green
+  incl. differential round-trips vs direct upstream and 8×25 concurrency);
+  managed `BiscuitPrivateKey` with finalizer-backed disposal, DER export, and
+  mapped `BiscuitKeyException` failures (41 checks green on .NET 8 and .NET 10).

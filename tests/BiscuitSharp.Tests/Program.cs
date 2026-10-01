@@ -1,7 +1,9 @@
-// M1 test runner (no external test framework yet): version/loader slice against
-// the real native asset. Requires a built bridge: `cargo build --locked` in native/.
+// M1 test runner (no external test framework yet): version/loader + key slices
+// against the real native asset. Requires a built bridge:
+// `cargo build --locked` in native/.
 // Full native/managed matrices live in docs/implementation-plan.md.
 using System.Security.Cryptography;
+using System.Text;
 using BiscuitSharp;
 
 int failures = 0;
@@ -99,9 +101,87 @@ try
         Check(version.CargoLockHash == expectedLockHash, "Cargo.lock hash matches the build input");
     }
 
-    // 5. Not-yet-implemented M1 operations still fail closed (never success).
-    Check(Throws<BiscuitBridgeException>(() => BiscuitPrivateKey.Generate()), "key generate fails closed (M1 pending)");
-    Check(Throws<BiscuitBridgeException>(() => BiscuitPrivateKey.Import(new byte[] { 1, 2, 3 })), "key import fails closed (M1 pending)");
+    // 5. Keys: generate both algorithms over opaque native handles.
+    using BiscuitPrivateKey edKey = BiscuitPrivateKey.Generate(BiscuitKeyAlgorithm.Ed25519);
+    using BiscuitPrivateKey p256Key = BiscuitPrivateKey.Generate(BiscuitKeyAlgorithm.P256);
+    Check(edKey.Algorithm == BiscuitKeyAlgorithm.Ed25519, "Ed25519 generate reports its algorithm");
+    Check(p256Key.Algorithm == BiscuitKeyAlgorithm.P256, "P-256 generate reports its algorithm");
+    Check(edKey.PublicKey.Encoded.Length == 32, "Ed25519 public key is 32 bytes");
+    Check(p256Key.PublicKey.Encoded.Length > 0, "P-256 public key is non-empty");
+    using BiscuitPrivateKey edKey2 = BiscuitPrivateKey.Generate();
+    Check(!edKey.PublicKey.Encoded.SequenceEqual(edKey2.PublicKey.Encoded), "fresh keys differ");
+
+    // 6. DER export/import round-trips preserve the public half and algorithm.
+    foreach ((BiscuitPrivateKey key, string name) in new (BiscuitPrivateKey, string)[]
+             {
+                 (edKey, "Ed25519"),
+                 (p256Key, "P-256"),
+             })
+    {
+        byte[] exported = key.Export();
+        Check(exported.Length > 0, $"{name} export is non-empty DER");
+        using BiscuitPrivateKey imported = BiscuitPrivateKey.Import(exported);
+        Check(imported.Algorithm == key.Algorithm, $"{name} import preserves the algorithm");
+        Check(
+            imported.PublicKey.Encoded.SequenceEqual(key.PublicKey.Encoded),
+            $"{name} export/import round-trips the public half");
+    }
+
+    // 7. PEM import: armor the DER export exactly like upstream PKCS#8 PEM.
+    byte[] der = edKey.Export();
+    string pem = "-----BEGIN PRIVATE KEY-----\n" + ChunkBase64(der) + "-----END PRIVATE KEY-----\n";
+    using BiscuitPrivateKey fromPem = BiscuitPrivateKey.Import(Encoding.ASCII.GetBytes(pem));
+    Check(
+        fromPem.Algorithm == BiscuitKeyAlgorithm.Ed25519
+            && fromPem.PublicKey.Encoded.SequenceEqual(edKey.PublicKey.Encoded),
+        "PEM import round-trips the public half");
+
+    // 8. Malformed imports fail as key errors, never as success or bridge noise.
+    Check(Throws<BiscuitKeyException>(() => BiscuitPrivateKey.Import(Array.Empty<byte>())), "empty import fails");
+    Check(Throws<BiscuitKeyException>(() => BiscuitPrivateKey.Import(new byte[] { 1, 2, 3 })), "garbage import fails");
+    Check(
+        Throws<BiscuitKeyException>(() => BiscuitPrivateKey.Import(der[..Math.Max(0, der.Length - 10)])),
+        "truncated DER import fails");
+    byte[] corrupt = (byte[])der.Clone();
+    corrupt[0] ^= 0xFF; // ASN.1 SEQUENCE tag: structurally invalid, deterministically rejected
+    Check(Throws<BiscuitKeyException>(() => BiscuitPrivateKey.Import(corrupt)), "corrupt DER import fails");
+    Check(
+        Throws<ArgumentOutOfRangeException>(() => BiscuitPrivateKey.Generate((BiscuitKeyAlgorithm)42)),
+        "unknown algorithm fails fast");
+
+    // 9. Disposal: use-after-dispose throws, double dispose is safe.
+    var doomed = BiscuitPrivateKey.Generate();
+    doomed.Dispose();
+    Check(Throws<ObjectDisposedException>(() => doomed.Export()), "use after dispose fails");
+    doomed.Dispose();
+    Check(true, "double dispose is safe");
+
+    // 10. Privacy: ToString never carries key material.
+    string keyText = edKey.ToString();
+    Check(
+        keyText.Contains("Ed25519", StringComparison.Ordinal)
+            && !keyText.Contains(Convert.ToBase64String(edKey.PublicKey.Encoded), StringComparison.Ordinal),
+        "ToString reveals no key material");
+
+    // 11. Concurrency: parallel generate/export/import/dispose cycles.
+    int keyErrors = 0;
+    Parallel.For(0, 64, _ =>
+    {
+        try
+        {
+            using var k = BiscuitPrivateKey.Generate();
+            using var i = BiscuitPrivateKey.Import(k.Export());
+            if (!i.PublicKey.Encoded.SequenceEqual(k.PublicKey.Encoded))
+            {
+                Interlocked.Increment(ref keyErrors);
+            }
+        }
+        catch
+        {
+            Interlocked.Increment(ref keyErrors);
+        }
+    });
+    Check(keyErrors == 0, "concurrent generate/export/import/dispose");
 }
 finally
 {
@@ -152,5 +232,19 @@ static string? FindCargoLock(string assetPath)
     return null;
 }
 
-Console.WriteLine(failures == 0 ? "M1 version-slice checks passed." : $"{failures} check(s) failed.");
+static string ChunkBase64(byte[] bytes)
+{
+    // PEM-style 64-column wrapping with LF endings.
+    string raw = Convert.ToBase64String(bytes);
+    var sb = new StringBuilder((raw.Length / 64 + 2) * 65);
+    for (int i = 0; i < raw.Length; i += 64)
+    {
+        sb.Append(raw, i, Math.Min(64, raw.Length - i));
+        sb.Append('\n');
+    }
+
+    return sb.ToString();
+}
+
+Console.WriteLine(failures == 0 ? "M1 version+key checks passed." : $"{failures} check(s) failed.");
 return failures;

@@ -37,8 +37,11 @@ pub struct BiscuitSharpBuffer {
     pub len: usize,
 }
 
-/// Operation ids. Reserved: 1=key_generate, 2=key_import, 3=key_export_public,
-/// 4=key_export_private, 5=token_create, 6=token_parse_verify, 7=token_serialize,
+mod keys;
+
+/// Operation ids. Key operations live in [`keys`]; token/authorization
+/// operations follow in later M1 slices.
+/// Reserved: 5=token_create, 6=token_parse_verify, 7=token_serialize,
 /// 8=token_attenuate, 9=token_seal, 10=token_authorize, 11=token_revocation_ids,
 /// 12=token_inspect.
 pub const OP_VERSION: u32 = 0;
@@ -112,6 +115,11 @@ fn dispatch(
     };
     match operation {
         OP_VERSION => op_version(bytes, output),
+        keys::OP_KEY_GENERATE => keys::op_key_generate(bytes, output),
+        keys::OP_KEY_IMPORT => keys::op_key_import(bytes, output),
+        keys::OP_KEY_EXPORT_PUBLIC => keys::op_key_export_public(bytes, output),
+        keys::OP_KEY_EXPORT_PRIVATE => keys::op_key_export_private(bytes, output),
+        keys::OP_KEY_DESTROY => keys::op_key_destroy(bytes, output),
         _ => emit_error(
             output,
             STATUS_UNSUPPORTED_OP,

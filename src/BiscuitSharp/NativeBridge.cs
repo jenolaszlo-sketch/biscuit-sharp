@@ -14,6 +14,11 @@ internal static partial class NativeBridge
     internal const int MaxInputBytes = 16 * 1024 * 1024;
     internal const int MaxOutputBytes = 64 * 1024 * 1024;
     internal const uint OpVersion = 0;
+    internal const uint OpKeyGenerate = 1;
+    internal const uint OpKeyImport = 2;
+    internal const uint OpKeyExportPublic = 3;
+    internal const uint OpKeyExportPrivate = 4;
+    internal const uint OpKeyDestroy = 13;
 
     internal static string GetNativeAssetPath(string rid)
     {
@@ -42,7 +47,10 @@ internal static partial class NativeBridge
         rid.StartsWith("osx-", StringComparison.OrdinalIgnoreCase) ? "libbiscuitsharp_native.dylib" :
         "libbiscuitsharp_native.so";
 
-    internal static unsafe byte[] Call(uint operation, ReadOnlySpan<byte> input)
+    internal static unsafe byte[] Call(
+        uint operation,
+        ReadOnlySpan<byte> input,
+        Func<uint, string, string, BiscuitException>? mapError = null)
     {
         NativeLoader.EnsureLoaded();
         if (input.Length > MaxInputBytes)
@@ -73,7 +81,7 @@ internal static partial class NativeBridge
 
             if (status != 0)
             {
-                throw DecodeBridgeError(operation, status, bytes);
+                throw MapError(operation, status, bytes, mapError);
             }
 
             return bytes;
@@ -87,15 +95,29 @@ internal static partial class NativeBridge
         }
     }
 
-    private static BiscuitBridgeException DecodeBridgeError(uint operation, uint status, byte[] body)
+    private static BiscuitException MapError(
+        uint operation,
+        uint status,
+        byte[] body,
+        Func<uint, string, string, BiscuitException>? mapError)
     {
-        string detail = body.Length == 0 ? "empty body" : TryReadErrorBody(body);
+        (string code, string message) = ReadErrorBody(body);
+        if (mapError != null)
+        {
+            return mapError(status, code, message);
+        }
+
         return new BiscuitBridgeException(
-            $"Biscuit native call {operation} failed with status {status} ({detail}).");
+            $"Biscuit native call {operation} failed with status {status} ({code}: {message}).");
     }
 
-    private static string TryReadErrorBody(byte[] body)
+    private static (string Code, string Message) ReadErrorBody(byte[] body)
     {
+        if (body.Length == 0)
+        {
+            return ("?", "empty body");
+        }
+
         try
         {
             using JsonDocument doc = JsonDocument.Parse(body);
@@ -105,11 +127,11 @@ internal static partial class NativeBridge
             string message = doc.RootElement.TryGetProperty("message", out JsonElement m)
                 ? m.GetString() ?? "?"
                 : "?";
-            return $"{code}: {message}";
+            return (code, message);
         }
         catch (JsonException)
         {
-            return $"undecodable {body.Length}-byte body";
+            return ("?", $"undecodable {body.Length}-byte body");
         }
     }
 

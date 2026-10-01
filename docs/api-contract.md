@@ -47,7 +47,11 @@ failures, and ordinary denial are never flattened into one error.
   never reveals secrets, disposal zeroes/frees native material as far as the
   implementation permits (documented honestly: no protection against dumps or a
   compromised host). Explicit `Export()` is permitted; normal issuance should not
-  repeatedly copy private keys through managed memory.
+  repeatedly copy private keys through managed memory. `Export()` emits PKCS#8
+  DER; `Import()` accepts PKCS#8 PEM (detected by armor) or DER with upstream
+  algorithm auto-detection, and rejects ambiguous raw secrets. Key-operation
+  failures surface as `BiscuitKeyException`; only native/ABI/transport problems
+  surface as `BiscuitBridgeException`.
 - Serialization compatibility: tokens are upstream Biscuit artifacts, verifiable
   by any conforming implementation, not just this wrapper.
 

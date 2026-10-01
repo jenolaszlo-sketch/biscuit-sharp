@@ -42,10 +42,11 @@ output addresses violate the C contract and are not recoverable validation error
 | Operation | Concept |
 | --- | --- |
 | 0 | version / loaded-asset identity (implemented: strict JSON payload with biscuit-auth version, schema min/max, Datalog marker, bridge/ABI versions, Rust version, target triple, enabled features, upstream commit, Cargo.lock SHA-256) |
-| 1 | key_generate |
-| 2 | key_import |
-| 3 | key_export_public |
-| 4 | key_export_private |
+| 1 | key_generate (implemented: `{"algorithm": "ed25519" \| "secp256r1"}` → handle + public half) |
+| 2 | key_import (implemented: PEM string or base64 DER, algorithm auto-detected → handle + public half) |
+| 3 | key_export_public (implemented: handle → algorithm + raw public bytes) |
+| 4 | key_export_private (implemented: handle → base64 PKCS#8 DER) |
+| 13 | key_destroy (implemented: handle → drop native key; unknown handles error) |
 | 5 | token_create |
 | 6 | token_parse_verify |
 | 7 | token_serialize |
@@ -62,7 +63,11 @@ not promised recoverable.
 
 Status 0 means a complete Biscuit answer, including a Deny; denial is not a
 boundary failure. Status 1 is invalid boundary input, 2 unsupported operation,
-3 caught panic, 4 oversized output. Every nonzero status except the panic path
+3 caught panic, 4 oversized output. Key operations reuse status 1 with distinct
+codes: `invalid_input` for malformed requests/handles and `key_error` for
+upstream key failures (bad encoding, undecodable key) so managed callers map
+them to `BiscuitKeyException` instead of `BiscuitBridgeException`.
+Every nonzero status except the panic path
 also carries a JSON `{"code","message"}` body (`invalid_input`,
 `unsupported_operation`, `oversized_output`); the panic path leaves the
 pre-initialized empty buffer. Managed calls copy the output and free it in

@@ -48,15 +48,20 @@ Implement ABI 1 operations over `biscuit-auth` 6.0.0 with pointer+length inputs,
 native-owned outputs + single free, caught panics, bounded I/O, version identity:
 
 `version` (done 2026-10-01, with `{"code","message"}` error envelope and 6
-native boundary tests), `key_generate`, `key_import`, `key_export_public`,
-`key_export_private`, `token_create`, `token_parse_verify`, `token_serialize`,
+native boundary tests), key `generate`/`import`/`export`/`destroy` over opaque
+native handles (done 2026-10-01: Ed25519 + Secp256r1, PEM/DER with upstream
+auto-detection, DER export for round-trips, 6 native tests incl. differential
+vs direct upstream and concurrency), `token_create`,
+`token_parse_verify`, `token_serialize`,
 `token_attenuate`, `token_seal`, `token_authorize`, `token_revocation_ids`,
 `token_inspect`. Consolidation is allowed; managed callers must not depend on
 Rust ABI details. Private keys live in opaque native handles; export is explicit.
 
 ### Managed surface (`src/BiscuitSharp/`)
 
-Keys (generate/import/export, disposal zeroing, `ToString` privacy), builder
+Keys (generate/import/export over opaque handles with finalizer-backed disposal,
+DER export, PEM/DER import, `ToString` privacy — done 2026-10-01, 21 managed
+key checks × 2 TFMs), builder
 (textual Datalog + parameterized overloads; discourage untrusted interpolation),
 token (parse/verify, base64url, attenuate, seal, revocation IDs, inspection),
 authorizer (facts, policies, checks → `BiscuitAuthorizationResult` with

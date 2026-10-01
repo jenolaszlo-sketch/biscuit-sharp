@@ -31,20 +31,20 @@ public static class BiscuitEngine
     public static BiscuitSharpVersionInfo GetVersion()
     {
         byte[] json = NativeBridge.Call(NativeBridge.OpVersion, ReadOnlySpan<byte>.Empty);
-        using JsonDocument doc = ParseVersionResponse(json);
+        using JsonDocument doc = BridgeJson.Parse(json, "version");
         JsonElement root = doc.RootElement;
 
-        string biscuitAuth = RequiredString(root, "biscuit_auth_version");
-        uint minSchema = RequiredUInt32(root, "min_schema_version");
-        uint maxSchema = RequiredUInt32(root, "max_schema_version");
-        string datalog = RequiredString(root, "datalog");
-        string bridge = RequiredString(root, "bridge_version");
-        uint abi = RequiredUInt32(root, "abi_version");
-        string rust = RequiredString(root, "rust_version");
-        string triple = RequiredString(root, "target_triple");
-        string features = RequiredStringArray(root, "enabled_features");
-        string commit = RequiredString(root, "upstream_commit");
-        string lockHash = RequiredString(root, "cargo_lock_sha256");
+        string biscuitAuth = BridgeJson.RequiredString(root, "biscuit_auth_version", "version");
+        uint minSchema = BridgeJson.RequiredUInt32(root, "min_schema_version", "version");
+        uint maxSchema = BridgeJson.RequiredUInt32(root, "max_schema_version", "version");
+        string datalog = BridgeJson.RequiredString(root, "datalog", "version");
+        string bridge = BridgeJson.RequiredString(root, "bridge_version", "version");
+        uint abi = BridgeJson.RequiredUInt32(root, "abi_version", "version");
+        string rust = BridgeJson.RequiredString(root, "rust_version", "version");
+        string triple = BridgeJson.RequiredString(root, "target_triple", "version");
+        string features = BridgeJson.RequiredStringArray(root, "enabled_features", "version");
+        string commit = BridgeJson.RequiredString(root, "upstream_commit", "version");
+        string lockHash = BridgeJson.RequiredString(root, "cargo_lock_sha256", "version");
 
         if (abi != AbiVersion)
         {
@@ -66,70 +66,6 @@ public static class BiscuitEngine
             HashLoadedFile(path),
             commit,
             lockHash);
-    }
-
-    private static JsonDocument ParseVersionResponse(byte[] json)
-    {
-        try
-        {
-            return JsonDocument.Parse(json);
-        }
-        catch (JsonException ex)
-        {
-            throw new BiscuitBridgeException(
-                "Failed to decode the native version response.", ex);
-        }
-    }
-
-    private static string RequiredString(JsonElement root, string name)
-    {
-        if (root.TryGetProperty(name, out JsonElement value)
-            && value.ValueKind == JsonValueKind.String
-            && value.GetString() is string s
-            && s.Length != 0)
-        {
-            return s;
-        }
-
-        throw new BiscuitBridgeException(
-            $"The native version response is missing required string '{name}'.");
-    }
-
-    private static uint RequiredUInt32(JsonElement root, string name)
-    {
-        if (root.TryGetProperty(name, out JsonElement value)
-            && value.ValueKind == JsonValueKind.Number
-            && value.TryGetUInt32(out uint n))
-        {
-            return n;
-        }
-
-        throw new BiscuitBridgeException(
-            $"The native version response is missing required number '{name}'.");
-    }
-
-    private static string RequiredStringArray(JsonElement root, string name)
-    {
-        if (root.TryGetProperty(name, out JsonElement value)
-            && value.ValueKind == JsonValueKind.Array)
-        {
-            var items = new List<string>();
-            foreach (JsonElement item in value.EnumerateArray())
-            {
-                if (item.ValueKind != JsonValueKind.String || item.GetString() is not string s)
-                {
-                    throw new BiscuitBridgeException(
-                        $"The native version response field '{name}' must be an array of strings.");
-                }
-
-                items.Add(s);
-            }
-
-            return string.Join(",", items);
-        }
-
-        throw new BiscuitBridgeException(
-            $"The native version response is missing required array '{name}'.");
     }
 
     private static string HashLoadedFile(string path)
