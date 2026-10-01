@@ -92,6 +92,10 @@ if (-not (Test-Path -LiteralPath $builtDll)) { throw "Expected asset missing: $b
 $stageDir = Join-Path $nativeDir "staging/$Rid/native"
 $legalDir = Join-Path $nativeDir "staging/$Rid/legal"
 New-Item -ItemType Directory -Path $stageDir -Force | Out-Null
+$legalFullPath = [System.IO.Path]::GetFullPath($legalDir)
+$stagingBoundary = [System.IO.Path]::GetFullPath((Join-Path $nativeDir "staging")) + [System.IO.Path]::DirectorySeparatorChar
+if (-not $legalFullPath.StartsWith($stagingBoundary, [System.StringComparison]::OrdinalIgnoreCase)) { throw "Legal staging path escapes native/staging." }
+if (Test-Path -LiteralPath $legalFullPath) { Remove-Item -LiteralPath $legalFullPath -Recurse -Force }
 New-Item -ItemType Directory -Path $legalDir -Force | Out-Null
 Copy-Item -LiteralPath $builtDll -Destination (Join-Path $stageDir $dllName) -Force
 
@@ -122,29 +126,60 @@ $manifest | ConvertTo-Json -Depth 4 | ForEach-Object {
         [System.Text.UTF8Encoding]::new($false))
 }
 
-# Upstream license text (published biscuit-auth crate ships its LICENSE).
-$registry = Get-ChildItem -LiteralPath (Join-Path $HOME ".cargo/registry/src") -Directory -ErrorAction SilentlyContinue |
-    Select-Object -First 1
-$biscuitLicense = $null
-if ($null -ne $registry) {
-    $biscuitLicense = Join-Path $registry.FullName "biscuit-auth-6.0.0/LICENSE"
+# Full redistribution inventory for the target's normal runtime graph. Each
+# entry records the registry archive checksum (Cargo.lock) and SHA-256 for every
+# shipped upstream license/copyright/notice file. Missing legal material fails.
+$targetPackages = @(& (Join-Path $PSScriptRoot "Get-CargoRedistributedPackages.ps1") -Cargo $cargo -ManifestPath (Join-Path $nativeDir "Cargo.toml") -Target $triple)
+if ($LASTEXITCODE -ne 0 -or $targetPackages.Count -eq 0) { throw "Could not resolve runtime dependency graph for $Rid" }
+$lockText = Get-Content -LiteralPath (Join-Path $nativeDir "Cargo.lock") -Raw
+$inventory = [System.Collections.Generic.List[object]]::new()
+$notices = [System.Collections.Generic.List[string]]::new()
+$notices.Add("# Third-party license materials for BiscuitSharp ($Rid)")
+$notices.Add("")
+$notices.Add("Generated from the Cargo.lock runtime dependency graph for target $triple. Build-only procedural macros and target-inapplicable dependencies are excluded. The package inventory and material checksums are recorded in licenses.json.")
+$notices.Add("")
+foreach ($pkg in $targetPackages) {
+    if ([string]::IsNullOrWhiteSpace([string]$pkg.license)) { throw "Missing declared license expression: $($pkg.name) $($pkg.version)" }
+    $manifestRoot = Split-Path -Parent $pkg.manifest_path
+    $legalFiles = @(Get-ChildItem -LiteralPath $manifestRoot -File -Recurse -ErrorAction Stop | Where-Object {
+        $_.Name -match '^(LICENSE|LICENCE|COPYING|NOTICE|COPYRIGHT)(\.|$|-)' -or
+        ($pkg.license_file -and $_.FullName -eq (Join-Path $manifestRoot $pkg.license_file))
+    } | Sort-Object FullName -Unique)
+    if ($legalFiles.Count -eq 0) { throw "No license/copyright/notice text found for $($pkg.name) $($pkg.version) ($($pkg.license))" }
+    $lockPattern = '(?ms)^\[\[package\]\]\r?\n(?:(?!\[\[package\]\]).)*?^name = "' + [regex]::Escape($pkg.name) + '"\r?\nversion = "' + [regex]::Escape($pkg.version) + '"(?:(?!\[\[package\]\]).)*?^checksum = "([0-9a-f]{64})"'
+    $lockMatch = [regex]::Match($lockText, $lockPattern)
+    if (-not $lockMatch.Success) { throw "Cargo.lock registry checksum missing for $($pkg.name) $($pkg.version)" }
+    $archiveName = "$($pkg.name)-$($pkg.version).crate"
+    $archive = Get-ChildItem -LiteralPath (Join-Path $HOME ".cargo/registry/cache") -Filter $archiveName -File -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
+    if ($null -eq $archive) { throw "Cached source archive missing for $($pkg.name) $($pkg.version)" }
+    $archiveHash = (Get-FileHash -LiteralPath $archive.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+    if ($archiveHash -ne $lockMatch.Groups[1].Value) { throw "Registry archive checksum differs from Cargo.lock for $($pkg.name) $($pkg.version)" }
+    $slug = "$($pkg.name)-$($pkg.version)"
+    $packageLegal = Join-Path $legalDir "dependencies/$slug"
+    New-Item -ItemType Directory -Path $packageLegal -Force | Out-Null
+    $materials = [System.Collections.Generic.List[object]]::new()
+    foreach ($file in $legalFiles) {
+        $destinationName = $file.Name
+        if (Test-Path -LiteralPath (Join-Path $packageLegal $destinationName)) {
+            $destinationName = (Get-FileHash $file.FullName -Algorithm SHA256).Hash.Substring(0, 8).ToLowerInvariant() + "-$destinationName"
+        }
+        $destination = Join-Path $packageLegal $destinationName
+        Copy-Item -LiteralPath $file.FullName -Destination $destination
+        $materials.Add([ordered]@{ path = "dependencies/$slug/$destinationName"; sha256 = (Get-FileHash $destination -Algorithm SHA256).Hash.ToLowerInvariant(); source_name = $file.Name })
+    }
+    $inventory.Add([ordered]@{
+        name = $pkg.name; version = $pkg.version; package_id = "$($pkg.name)@$($pkg.version)"
+        source = $pkg.source; registry_archive_sha256 = $archiveHash
+        declared_license = $pkg.license; license_material = @($materials)
+    })
+    $notices.Add("## $($pkg.name) $($pkg.version)")
+    $notices.Add("")
+    $notices.Add("Declared license: $($pkg.license). Registry archive SHA-256: $($lockMatch.Groups[1].Value).")
+    foreach ($material in $materials) { $notices.Add("- $($material.path) (SHA-256 $($material.sha256))") }
+    $notices.Add("")
 }
-if ($biscuitLicense -and (Test-Path -LiteralPath $biscuitLicense)) {
-    Copy-Item -LiteralPath $biscuitLicense -Destination (Join-Path $legalDir "biscuit-auth-LICENSE") -Force
-}
-
-# Transitive dependency inventory (name, version, declared license).
-$metadata = & $cargo metadata --locked --format-version 1 --manifest-path (Join-Path $nativeDir "Cargo.toml") | ConvertFrom-Json
-$notices = @(
-    "# Third-party notices for the BiscuitSharp native bridge ($Rid)",
-    "",
-    "Generated from Cargo.lock by eng/Build-Native.ps1. Re-generate on every upstream upgrade.",
-    ""
-)
-foreach ($pkg in ($metadata.packages | Sort-Object name, version)) {
-    if ($pkg.name -eq "biscuitsharp_native") { continue }
-    $notices += "- $($pkg.name) $($pkg.version) -- $($pkg.license)"
-}
+$inventoryPath = Join-Path $legalDir "licenses.json"
+[System.IO.File]::WriteAllText($inventoryPath, (ConvertTo-Json -InputObject @($inventory) -Depth 8) + "`r`n", [System.Text.UTF8Encoding]::new($false))
 $noticesText = $notices -join "`r`n"
 [System.IO.File]::WriteAllText(
     (Join-Path $legalDir "THIRD_PARTY_NOTICES.md"),

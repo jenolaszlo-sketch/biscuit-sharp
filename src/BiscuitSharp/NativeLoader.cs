@@ -1,4 +1,3 @@
-using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Text.Json;
 
@@ -9,14 +8,20 @@ namespace BiscuitSharp;
 /// so concurrent calls cannot race library unloading. No arbitrary PATH probing,
 /// no network download. The BISCUITSHARP_NATIVE_PATH override selects a
 /// self-built or vendored asset; it is still required to exist and pass the ABI
-/// check. Manifest/hash verification arrives with M2 staging.
+/// check. Adjacent manifests bind the staged hash and live identity.
 /// </summary>
 internal static class NativeLoader
 {
     private static readonly object Sync = new();
     private static IntPtr _handle;
     private static string? _loadedPath;
-    private static bool _resolverSet;
+    private static string? _loadedSha256;
+    internal static Action? BeforeVerificationForTesting { get; set; }
+
+    internal static string LoadedSha256
+    {
+        get { EnsureLoaded(); return _loadedSha256!; }
+    }
 
     internal static string LoadedPath
     {
@@ -52,13 +57,20 @@ internal static class NativeLoader
             "Qualified RIDs: win-x64, linux-x64, osx-arm64.");
     }
 
+    internal static IntPtr GetExport(string name)
+    {
+        lock (Sync)
+        {
+            EnsureLoaded();
+            try { return NativeLibrary.GetExport(_handle, name); }
+            catch (Exception ex) { throw new BiscuitBridgeException($"Native export '{name}' is unavailable.", ex); }
+        }
+    }
+
     internal static void EnsureLoaded()
     {
-        if (_handle != IntPtr.Zero)
-        {
-            return;
-        }
-
+        // All callers acquire the lock, including during provisional publication.
+        // The verification version query may reenter on this same thread.
         lock (Sync)
         {
             if (_handle != IntPtr.Zero)
@@ -66,11 +78,6 @@ internal static class NativeLoader
                 return;
             }
 
-            if (!_resolverSet)
-            {
-                NativeLibrary.SetDllImportResolver(typeof(NativeLoader).Assembly, Resolve);
-                _resolverSet = true;
-            }
 
             string rid = GetRuntimeIdentifier();
             string path = NativeBridge.GetNativeAssetPath(rid);
@@ -97,10 +104,12 @@ internal static class NativeLoader
             // frees the handle and resets both, so a failed load never leaves a
             // retained library behind. The lock is held throughout, so no other
             // thread can observe the half-verified state.
-            _handle = handle;
-            _loadedPath = path;
             try
             {
+                _loadedSha256 = BiscuitEngine.HashLoadedFile(path);
+                _handle = handle;
+                _loadedPath = path;
+                BeforeVerificationForTesting?.Invoke();
                 uint abi;
                 try
                 {
@@ -125,6 +134,7 @@ internal static class NativeLoader
                 NativeLibrary.Free(handle);
                 _handle = IntPtr.Zero;
                 _loadedPath = null;
+                _loadedSha256 = null;
                 throw;
             }
         }
@@ -163,6 +173,7 @@ internal static class NativeLoader
         using (manifest)
         {
             JsonElement root = manifest.RootElement;
+            BridgeJson.RequireObject(root, "native manifest");
             string expectedHash = ManifestString(root, manifestPath, "binary_sha256");
             string actualHash = BiscuitEngine.HashLoadedFile(assetPath);
             if (!string.Equals(expectedHash, actualHash, StringComparison.OrdinalIgnoreCase))
@@ -241,6 +252,5 @@ internal static class NativeLoader
         }
     }
 
-    private static IntPtr Resolve(string libraryName, Assembly assembly, DllImportSearchPath? searchPath) =>
-        libraryName == "biscuitsharp_native" ? _handle : IntPtr.Zero;
+
 }

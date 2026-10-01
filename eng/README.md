@@ -6,6 +6,8 @@
 | `Verify-NativeStaging.ps1 [-Rid <rid>]` | Exact inventory, manifest schema, recomputed hashes, pinned versions, legal notices |
 | `Verify-NuGetPackage.ps1 -Package <nupkg> -Rids <rids>` | Archive inventory, per-RID asset/manifest/hash checks, nuspec, symbols package |
 | `Test-PackagedConsumer.ps1 -Package <nupkg> -TargetFramework <tfm>` | Isolated-cache external consumer exercising the full credential flow |
+| `Get-CargoRedistributedPackages.ps1` | Target-aware Cargo runtime dependency graph for staging/verification |
+| `Test-LegalVerification.ps1 -Package <nupkg> -Rid <rid>` | Rejects altered staged and packaged legal material |
 | `Test-Compat.ps1` | Bidirectional compatibility gate (unit, gen, fixtures, managed, consume) |
 | `Test-Dist.ps1 -Rid <rid>` | Per-RID distribution gate: staging, staging verification, NativeAOT publish + execute |
 

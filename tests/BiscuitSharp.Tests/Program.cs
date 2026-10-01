@@ -13,6 +13,9 @@ if (args.Length == 2 && args[0] == "--manifest-probe")
     return ManifestProbe(args[1]);
 }
 
+if (args.Length == 2 && args[0] == "--loader-race-success") return LoaderRaceProbe(args[1], true);
+if (args.Length == 2 && args[0] == "--loader-race-failure") return LoaderRaceProbe(args[1], false);
+
 int failures = 0;
 
 void Check(bool condition, string name)
@@ -691,13 +694,97 @@ try
         string probeManifest = Path.Combine(probeDir, "biscuitsharp-native.json");
         File.WriteAllText(probeManifest, BuildProbeManifest(live, live.NativeSha256));
         Check(RunProbe(probeDll) == 0, "manifest-verified load succeeds");
+        Check(RunProbe(probeDll, "--loader-race-success") == 0, "concurrent first load waits for verification");
         File.WriteAllText(probeManifest, BuildProbeManifest(live, new string('0', 64)));
         Check(RunProbe(probeDll) != 0, "tampered manifest refuses load");
+        Check(RunProbe(probeDll, "--loader-race-failure") == 0, "concurrent failing first loads both fail closed");
+        File.WriteAllText(probeManifest, BuildProbeManifest(live, live.NativeSha256).Replace("\"bridge\":\"0.1.0\"", "\"bridge\":\"wrong\""));
+        Check(RunProbe(probeDll, "--loader-race-failure") == 0, "live-identity rejection retries without cached native addresses");
+        File.WriteAllText(probeManifest, "[]");
+        Check(RunProbe(probeDll) != 0, "non-object manifest rejects as bridge error");
     }
     finally
     {
         try { Directory.Delete(probeDir, true); } catch { }
     }
+
+
+    // Audit regressions: byte identity is owned, even through token roots.
+    byte[] publicInput = edKey.PublicKey.Encoded;
+    var ownedPublic = new BiscuitPublicKey(publicInput, edKey.Algorithm);
+    int publicHash = ownedPublic.GetHashCode();
+    publicInput[0] ^= 0xFF;
+    ownedPublic.Encoded[0] ^= 0xFF;
+    token.Root.Encoded[0] ^= 0xFF;
+    Check(ownedPublic == edKey.PublicKey && ownedPublic.GetHashCode() == publicHash,
+        "public identity survives input and output mutation");
+    Check(BiscuitAuthorizer.For(token).AddPolicy("allow if true;").Authorize().IsAuthorized,
+        "token root remains immutable after attempted mutation");
+    byte[] idInput = token.GetRevocationIds()[0].Value;
+    var ownedId = new BiscuitRevocationId(idInput);
+    var lookup = new Dictionary<BiscuitRevocationId, string> { [ownedId] = "revoked" };
+    idInput[0] ^= 0xFF;
+    ownedId.Value[0] ^= 0xFF;
+    Check(lookup.ContainsKey(ownedId) && lookup.ContainsKey(token.GetRevocationIds()[0]),
+        "revocation dictionary identity survives array mutation");
+
+    var mutableErrors = new List<BiscuitAuthorizationError> { new("failed", "failed_check") };
+    var ownedResult = new BiscuitAuthorizationResult(BiscuitDecision.Allow, mutableErrors);
+    mutableErrors.Clear();
+    Check(!ownedResult.IsAuthorized && ownedResult.Errors.Count == 1, "result snapshots constructor errors");
+    var replacementErrors = new List<BiscuitAuthorizationError> { new("deny") };
+    var copiedResult = ownedResult with { Errors = replacementErrors };
+    replacementErrors.Clear();
+    Check(copiedResult.Errors.Count == 1, "record with-expression snapshots errors");
+    Check(Throws<NotSupportedException>(() =>
+        { ((IList<BiscuitAuthorizationError>)ownedResult.Errors).Clear(); return null; }),
+        "result errors refuse mutation");
+    Check(Throws<ArgumentNullException>(() => new BiscuitAuthorizationResult(BiscuitDecision.Allow, null!)),
+        "result rejects null collection");
+    var sourcesInput = new List<string> { "private fact" };
+    var idsInput = new List<BiscuitRevocationId> { ownedId };
+    var ownedInspection = new BiscuitInspection(1, false, edKey.Algorithm, edKey.Algorithm,
+        idsInput, sourcesInput, 1, "6", null);
+    sourcesInput.Clear(); idsInput.Clear();
+    Check(ownedInspection.BlockSources.Count == 1 && ownedInspection.RevocationIds.Count == 1,
+        "inspection owns collection snapshots");
+
+    foreach (string invalidResponse in new[] { "[]", "null", "42", "\"\"", "{" })
+        Check(Throws<BiscuitBridgeException>(() => BridgeJson.Parse(Encoding.UTF8.GetBytes(invalidResponse), "test")),
+            $"non-object response rejects as bridge error: {invalidResponse}");
+    foreach (string invalidError in new[] { "[]", "null", "{\"code\":42,\"message\":\"bad\"}",
+        "{\"code\":\"bad\",\"message\":false}", "{\"code\":\"bad\"}", "{" })
+        Check(Throws<BiscuitBridgeException>(() => NativeBridge.ReadErrorBody(Encoding.UTF8.GetBytes(invalidError))),
+            $"malformed error envelope rejects as bridge error: {invalidError}");
+
+    foreach (string inconsistentResult in new[] {
+        "{\"decision\":\"allow\",\"errors\":[],\"allow_policy_index\":null,\"deny_policy_index\":null}",
+        "{\"decision\":\"allow\",\"errors\":[],\"allow_policy_index\":0,\"deny_policy_index\":0}" })
+    {
+        using JsonDocument invalid = JsonDocument.Parse(inconsistentResult);
+        Check(Throws<BiscuitBridgeException>(() => BiscuitAuthorizer.ParseResult(invalid.RootElement)),
+            "contradictory policy indices reject as bridge error");
+    }
+    Check(BiscuitErrorMapping.MapTokenError(1, "unknown", "failure") is BiscuitBridgeException,
+        "unknown token error code remains a bridge failure");
+    Check(BiscuitErrorMapping.MapKeyError(1, "unknown", "failure") is BiscuitBridgeException,
+        "unknown key error code remains a bridge failure");
+
+    // Unknown protobuf outer fields are a deterministic tolerated framing suffix.
+    byte[] suffixed = token.ToBytes().Concat(new byte[] { 0xA0, 0x06, 0x01 }).ToArray();
+    BiscuitToken normalized = BiscuitToken.Parse(suffixed, token.Root);
+    Check(normalized == token && normalized.ToBytes().SequenceEqual(token.ToBytes()),
+        "parse normalizes tolerated trailing framing");
+    Check(normalized.GetRevocationIds().SequenceEqual(token.GetRevocationIds()),
+        "normalization preserves revocation identity");
+    Check(BiscuitAuthorizer.For(normalized).AddPolicy("allow if true;").Authorize().IsAuthorized,
+        "normalized framing preserves authorization");
+    Check(!BiscuitAuthorizer.For(token).WithLimits(new(1000, 100, TimeSpan.FromTicks(1)))
+        .AddPolicy("allow if true;").Authorize().IsAuthorized,
+        "submillisecond limits floor to a zero evaluation budget");
+    Check(Throws<ArgumentException>(() => BiscuitTokenBuilder.Create().AddFact("f({x})",
+        new[] { KeyValuePair.Create("x", BiscuitParam.Int(1)), KeyValuePair.Create("x", BiscuitParam.Int(2)) })),
+        "duplicate typed parameters fail fast");
 
     // 39. Textual public-key encodings round-trip the validated key.
     string edHex = Convert.ToHexString(edKey.PublicKey.Encoded).ToLowerInvariant();
@@ -757,6 +844,42 @@ finally
     Environment.SetEnvironmentVariable("BISCUITSHARP_NATIVE_PATH", previousOverride);
 }
 
+
+static int LoaderRaceProbe(string dllPath, bool expectedSuccess)
+{
+    Environment.SetEnvironmentVariable("BISCUITSHARP_NATIVE_PATH", dllPath);
+    using var entered = new ManualResetEventSlim();
+    using var release = new ManualResetEventSlim();
+    using var secondStarted = new ManualResetEventSlim();
+    int hookCalls = 0;
+    NativeLoader.BeforeVerificationForTesting = () =>
+    {
+        if (Interlocked.Increment(ref hookCalls) == 1)
+        {
+            entered.Set();
+            if (!release.Wait(TimeSpan.FromSeconds(10))) throw new TimeoutException("verification barrier");
+        }
+    };
+    static bool Load()
+    {
+        try { BiscuitEngine.GetVersion(); return true; }
+        catch (BiscuitBridgeException) { return false; }
+    }
+    var first = Task.Factory.StartNew(Load, CancellationToken.None, TaskCreationOptions.LongRunning, TaskScheduler.Default);
+    if (!entered.Wait(TimeSpan.FromSeconds(10))) return 2;
+    var second = Task.Factory.StartNew(() => { secondStarted.Set(); return Load(); },
+        CancellationToken.None, TaskCreationOptions.LongRunning, TaskScheduler.Default);
+    secondStarted.Wait(TimeSpan.FromSeconds(10));
+    bool blocked = !second.Wait(TimeSpan.FromMilliseconds(200));
+    release.Set();
+    if (!Task.WaitAll(new Task[] { first, second }, TimeSpan.FromSeconds(20))) return 3;
+    NativeLoader.BeforeVerificationForTesting = null;
+    bool ok = blocked && first.Result == expectedSuccess && second.Result == expectedSuccess;
+    Console.WriteLine($"LOADER-RACE blocked={blocked} first={first.Result} second={second.Result}");
+    return ok ? 0 : 1;
+}
+
+
 static string FindRepoRoot()
 {
     string? dir = AppContext.BaseDirectory;
@@ -812,25 +935,13 @@ static string BuildProbeManifest(BiscuitSharpVersionInfo live, string binarySha2
         + "\",\"enabled_features\":[" + features + "]}";
 }
 
-static int RunProbe(string dllPath)
+static int RunProbe(string dllPath, string mode = "--manifest-probe")
 {
     string repoRoot = FindRepoRoot();
-    string project = Path.Combine(repoRoot, "tests", "BiscuitSharp.Tests", "BiscuitSharp.Tests.csproj");
-    // Prefer the current muxer; fall back to PATH lookup.
-    string? muxer = Environment.ProcessPath;
-    string fileName;
-    string arguments;
-    if (muxer is not null && Path.GetFileName(muxer).StartsWith("dotnet", StringComparison.OrdinalIgnoreCase))
-    {
-        fileName = muxer;
-        arguments = $"run --project \"{project}\" --framework net8.0 -- --manifest-probe \"{dllPath}\"";
-    }
-    else
-    {
-        fileName = "dotnet";
-        arguments = $"run --project \"{project}\" --framework net8.0 -- --manifest-probe \"{dllPath}\"";
-    }
-
+    // Execute the already built test assembly for this exact TFM.
+    string fileName = "dotnet";
+    string assemblyPath = System.Reflection.Assembly.GetExecutingAssembly().Location;
+    string arguments = $"\"{assemblyPath}\" {mode} \"{dllPath}\"";
     using var process = new Process
     {
         StartInfo = new ProcessStartInfo
@@ -854,6 +965,7 @@ static int RunProbe(string dllPath)
         return 2;
     }
 
+    process.WaitForExit();
     Console.WriteLine(output.ToString().Trim());
     return process.ExitCode;
 }

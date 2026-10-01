@@ -17,10 +17,12 @@ the outcome in the release notes or `docs/verification.md`.
 ## Behavior review
 - [ ] Re-run the full CI matrix green on the release commit (managed, compat,
       lints, dist ×3, pack, consume ×6, valgrind, native-release).
-- [ ] Confirm the 1 ms → robust-default limits change reads correctly in code,
-      docs, and tests (it was a behavior fix, not just a test fix).
-- [ ] Confirm trailing-bytes canonicalization + ephemeral-key nondeterminism are
-      documented where consumers could be surprised (`api-contract.md`).
+- [ ] Review the wrapper execution budget and token normalization contract in
+      `docs/decisions/0002-wrapper-semantics.md`; maintainer/team acceptance of
+      these tradeoffs remains pending.
+- [x] Document trailing-byte normalization and fresh chain keys in
+      `api-contract.md`; regression tests cover normalized bytes and equivalent
+      authorization/revocation behavior.
 - [ ] Privacy pass: inspection prints block sources; confirm no default path
       logs keys, tokens, or ambient facts.
 

@@ -54,7 +54,7 @@ internal static class BridgeJson
     {
         writer.WriteStartObject("root");
         writer.WriteString("algorithm", BiscuitAlgorithms.ToWireName(root.Algorithm));
-        writer.WriteBase64String("public_key", root.Encoded);
+        writer.WriteBase64String("public_key", root.EncodedSpan);
         writer.WriteEndObject();
     }
 
@@ -79,13 +79,29 @@ internal static class BridgeJson
     {
         try
         {
-            return JsonDocument.Parse(json);
+            JsonDocument document = JsonDocument.Parse(json);
+            try
+            {
+                RequireObject(document.RootElement, operation);
+                return document;
+            }
+            catch
+            {
+                document.Dispose();
+                throw;
+            }
         }
         catch (JsonException ex)
         {
             throw new BiscuitBridgeException(
                 $"Failed to decode the native {operation} response.", ex);
         }
+    }
+
+    internal static void RequireObject(JsonElement root, string operation)
+    {
+        if (root.ValueKind != JsonValueKind.Object)
+            throw new BiscuitBridgeException($"The native {operation} response must be an object.");
     }
 
     internal static string RequiredString(JsonElement root, string field, string operation)

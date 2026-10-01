@@ -8,7 +8,11 @@ integration tests from the first preview onward.
 
 - `BiscuitToken.Parse(token, root)` verifies the cryptographic token against the
   root public key. Success means a valid token, not an authorized request.
-- `ToBytes()` / `ToBase64Url()` round-trip the serialized token.
+- `ToBytes()` / `ToBase64Url()` return the canonical serialization produced by
+  the upstream parser. Upstream parsing tolerates certain trailing framing
+  bytes: such input can verify, while reserialization drops the trailing bytes.
+  These methods need not reproduce the exact input sequence. Retain raw
+  transport bytes separately when an enclosing protocol signs or audits them.
 - `Attenuate(block)` returns a new token with strictly ≤ parent authority.
 - `Seal()` returns a token that cannot be further attenuated; appending to a
   sealed token throws `BiscuitSealedTokenException`, never silently new credentials.
@@ -25,18 +29,20 @@ integration tests from the first preview onward.
   default budget is a robust 100,000 facts / 100,000 iterations / 5 s,
   deliberately larger than upstream's `RunLimits::default()` (1 ms), which is
   too small to be reliable under load; pass
-  `BiscuitAuthorizerLimits.UpstreamDefault` for strict parity. A breached limit
-  denies with `evaluation_failure`. Malformed Datalog throws
-  `BiscuitDatalogException` before any evaluation; completed evaluations always
-  return a result.
+  `BiscuitAuthorizerLimits.UpstreamDefault` (1,000 facts / 100 iterations /
+  1 ms) for strict parity. Five seconds is
+  an evaluation budget, not a request deadline, memory cap, or cancellation
+  mechanism. `WithLimits` truncates fractional milliseconds; values below 1 ms
+  become zero. A breached limit denies with `evaluation_failure`. Malformed
+  Datalog throws `BiscuitDatalogException` before evaluation; completed
+  evaluations return a result.
 - Policies apply first-match-wins in the order supplied: place `deny` policies
   before the `allow` policies they must override. The result reports matched
   policy indices and structured errors (`failed_check` with block/check/rule,
   `allow_policy_matched`, `deny_policy_matched`, `no_matching_policy`,
   `invalid_block_rule`, `evaluation_failure`). Malformed facts/policies/checks
-  throw `BiscuitDatalogException` — no evaluation ran — while a completed
-  evaluation always returns a result. Upstream default execution limits apply;
-  no ambient time fact is injected.
+  throw `BiscuitDatalogException` before evaluation; a completed evaluation
+  returns a result. No ambient time fact is injected.
 
 ## Exception semantics
 
@@ -60,16 +66,22 @@ failures, and ordinary denial are never flattened into one error.
 ## Nullability, ownership, lifetime
 
 - All public inputs are non-null; null throws `ArgumentNullException`.
-- `BiscuitToken` is immutable and thread-safe; `BiscuitTokenBuilder` and
-  `BiscuitAuthorizer` are mutable single-threaded accumulators (one instance
-  per request; `Authorize()` itself may be called repeatedly and concurrently).
-  Authorization calls are synchronous. Each `Build()` mints fresh ephemeral
-  chain keys, so rebuilding from the same builder yields distinct but equally
-  valid tokens — compare behavior, not bytes, across issuances.
+- `BiscuitToken` is immutable and thread-safe. `BiscuitTokenBuilder` and
+  `BiscuitAuthorizer` are mutable accumulators; do not mutate them concurrently.
+  Concurrent `Authorize()` calls are supported only after configuration is
+  complete and while no thread mutates that authorizer. Authorization calls are
+  synchronous. Each `Build()` mints fresh ephemeral chain keys, so rebuilding
+  from the same builder yields equally valid tokens with different serialized
+  bytes and revocation IDs. Compare behavior, not bytes or IDs, across builds.
 - `BiscuitPublicKey` and `BiscuitRevocationId` implement value equality over
-  their bytes (not array identity), so keys and revocation ids from separate
-  constructions compare equal and can key dictionaries/sets — required for
-  revocation lookups keyed by ids.
+  their bytes. Constructors copy supplied arrays; `Encoded` and `Value` return
+  copies, so callers cannot mutate equality or hash identity through input or
+  output arrays.
+- Datalog syntax supplied through builder/authorizer methods is validated when
+  the native operation executes (for example, `Build`, `Attenuate`, or
+  `Authorize`), not when `Create` or an `Add*` method stores the source. Managed
+  argument and parameter validation can still fail when an `Add*` method is
+  called.
 - `BiscuitPrivateKey.Export()` returns PKCS#8 DER; `ExportPem()` returns the
   armored PEM form; both are secret material (do not log). `Import()` accepts
   either.
@@ -79,7 +91,8 @@ failures, and ordinary denial are never flattened into one error.
 - `BiscuitPrivateKey` is an opaque native handle: `IDisposable`, `ToString()`
   never reveals secrets, disposal zeroes/frees native material as far as the
   implementation permits (documented honestly: no protection against dumps or a
-  compromised host). Explicit `Export()` is permitted; normal issuance should not
+  compromised host). Concurrent disposal and key operations require caller
+  coordination. Explicit `Export()` is permitted; normal issuance should not
   repeatedly copy private keys through managed memory. `Export()` emits PKCS#8
   DER; `ExportPem()` the armored PEM form; `Import()` accepts PKCS#8 PEM (detected by armor) or DER with upstream
   algorithm auto-detection, and rejects ambiguous raw secrets. `BiscuitPublicKey.Parse`

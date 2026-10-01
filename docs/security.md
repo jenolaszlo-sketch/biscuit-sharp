@@ -2,7 +2,10 @@
 
 ## Invariants (must hold at 1.0)
 
-- Tampering with a serialized token invalidates verification.
+- Changing signed token content invalidates verification. Upstream may tolerate
+  trailing framing bytes; parsing then returns a verified token whose canonical
+  serialization drops that suffix. If an enclosing protocol authenticates raw
+  transport bytes, it must retain and authenticate those bytes separately.
 - The wrong root key invalidates verification.
 - Attenuation cannot restore authority removed by an earlier check.
 - Sealed tokens cannot be attenuated.

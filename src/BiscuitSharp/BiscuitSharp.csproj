@@ -34,7 +34,7 @@
     <None Include="../../README.md" Pack="true" PackagePath="/" />
     <None Include="../../LICENSE" Pack="true" PackagePath="/" />
     <None Include="../../NOTICE" Pack="true" PackagePath="/" />
-    <None Include="../../native/staging/**/*" Exclude="../../native/staging/**/licenses/**/*;../../native/staging/**/THIRD_PARTY_NOTICES.md;../../native/staging/**/licenses.json"
+    <None Include="../../native/staging/**/*" Exclude="../../native/staging/**/legal/**/*;../../native/staging/**/THIRD_PARTY_NOTICES.md;../../native/staging/**/licenses.json"
           Pack="true" PackagePath="runtimes/"
           Link="runtimes/%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
     <None Include="../../native/staging/**/*" Exclude="../../native/staging/**/*.dll;../../native/staging/**/*.so;../../native/staging/**/*.dylib;../../native/staging/**/biscuitsharp-native.json"

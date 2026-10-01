@@ -526,6 +526,7 @@ fn deterministic_mutation_matrix() {
 ///   ./target/debug/deps/biscuitsharp_native-<hash> leak_probe --exact
 #[test]
 fn leak_probe_cycles() {
+    println!("LEAK_PROBE_WORKLOAD_STARTED cycles=50");
     let (status, v) = call(
         crate::keys::OP_KEY_GENERATE,
         &serde_json::json!({ "algorithm": "ed25519" }),
@@ -586,4 +587,5 @@ fn leak_probe_cycles() {
         &serde_json::json!({ "handle": handle }),
     );
     assert_eq!(status, STATUS_OK);
+    println!("LEAK_PROBE_WORKLOAD_COMPLETED cycles=50");
 }

@@ -144,10 +144,13 @@ jobs:
       - run: |
           $pkg = Get-ChildItem artifacts/packages/BiscuitSharp.*.nupkg | Where-Object { $_.Name -notlike '*.snupkg' } | Select-Object -First 1 -ExpandProperty FullName
           ./eng/Verify-NuGetPackage.ps1 -Package $pkg -Rids win-x64,linux-x64,osx-arm64
+          foreach ($rid in @('win-x64', 'linux-x64', 'osx-arm64')) { ./eng/Test-LegalVerification.ps1 -Package $pkg -Rid $rid }
       - uses: actions/upload-artifact@v4
         with:
           name: nupkg
-          path: artifacts/packages/BiscuitSharp.*.nupkg
+          path: |
+            artifacts/packages/BiscuitSharp.*.nupkg
+            artifacts/packages/BiscuitSharp.*.snupkg
           if-no-files-found: error
 
   consume:
@@ -194,10 +197,14 @@ jobs:
           if valgrind --help 2>&1 | grep -q -- "--errors-for-leaks"; then leak_opt="--errors-for-leaks=yes"; fi
           log=$(mktemp)
           set +e
-          valgrind --leak-check=full --show-leak-kinds=definite $leak_opt --error-exitcode=99 "$bin" leak_probe --exact --nocapture 2> "$log"
+          valgrind --leak-check=full --show-leak-kinds=definite $leak_opt --error-exitcode=99 "$bin" adversarial::leak_probe_cycles --exact --nocapture > "$log" 2>&1
           code=$?
           set -e
-          tail -n 12 "$log"
+          cat "$log"
           test $code -eq 0 || { echo "valgrind reported errors (exit $code)"; exit 1; }
+          grep -q '^LEAK_PROBE_WORKLOAD_STARTED cycles=50$' "$log" || { echo "leak workload start marker missing"; exit 1; }
+          grep -q '^LEAK_PROBE_WORKLOAD_COMPLETED cycles=50$' "$log" || { echo "leak workload completion marker missing"; exit 1; }
+          grep -Eq '^test adversarial::leak_probe_cycles \.\.\. ok$' "$log" || { echo "expected named leak workload did not pass"; exit 1; }
+          grep -Eq '^test result: ok\. 1 passed; 0 failed; 0 ignored; 0 measured; [0-9]+ filtered out(; finished in [0-9.]+s)?$' "$log" || { echo "expected exactly one test execution"; exit 1; }
           grep -q "definitely lost: 0 bytes in 0 blocks" "$log" || { echo "no zero-leak summary found"; exit 1; }
           rm -f "$log"

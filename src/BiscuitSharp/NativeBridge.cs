@@ -1,4 +1,3 @@
-using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text.Json;
 
@@ -9,7 +8,7 @@ namespace BiscuitSharp;
 /// output is copied to managed memory and freed exactly once in `finally`,
 /// including JSON decoding failure. No raw pointers reach public callers.
 /// </summary>
-internal static partial class NativeBridge
+internal static class NativeBridge
 {
     internal const uint ExpectedAbiVersion = 1;
     internal const int MaxInputBytes = 16 * 1024 * 1024;
@@ -120,28 +119,17 @@ internal static partial class NativeBridge
             $"Biscuit native call {operation} failed with status {status} ({code}: {message}).");
     }
 
-    private static (string Code, string Message) ReadErrorBody(byte[] body)
+    internal static (string Code, string Message) ReadErrorBody(byte[] body)
     {
         if (body.Length == 0)
         {
             return ("?", "empty body");
         }
 
-        try
-        {
-            using JsonDocument doc = JsonDocument.Parse(body);
-            string code = doc.RootElement.TryGetProperty("code", out JsonElement c)
-                ? c.GetString() ?? "?"
-                : "?";
-            string message = doc.RootElement.TryGetProperty("message", out JsonElement m)
-                ? m.GetString() ?? "?"
-                : "?";
-            return (code, message);
-        }
-        catch (JsonException)
-        {
-            return ("?", $"undecodable {body.Length}-byte body");
-        }
+        using JsonDocument doc = BridgeJson.Parse(body, "error");
+        return (
+            BridgeJson.RequiredString(doc.RootElement, "code", "error"),
+            BridgeJson.RequiredString(doc.RootElement, "message", "error"));
     }
 
     // ABI 1 (native/src/lib.rs, `extern "C"` == Cdecl on all qualified targets):
@@ -156,19 +144,25 @@ internal static partial class NativeBridge
         public UIntPtr Length;
     }
 
-    [LibraryImport("biscuitsharp_native", EntryPoint = "biscuitsharp_abi_version")]
-    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-    internal static partial uint AbiVersion();
+    // Resolve exports from the current handle rather than caching P/Invoke
+    // addresses: a rejected provisional load can be freed and retried safely.
+    internal static unsafe uint AbiVersion()
+    {
+        var call = (delegate* unmanaged[Cdecl]<uint>)NativeLoader.GetExport("biscuitsharp_abi_version");
+        return call();
+    }
 
-    [LibraryImport("biscuitsharp_native", EntryPoint = "biscuitsharp_call_v1")]
-    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-    internal static unsafe partial uint CallV1(
-        uint operation,
-        byte* input,
-        UIntPtr inputLength,
-        ref NativeBuffer output);
+    internal static unsafe uint CallV1(uint operation, byte* input, UIntPtr inputLength, ref NativeBuffer output)
+    {
+        var call = (delegate* unmanaged[Cdecl]<uint, byte*, UIntPtr, NativeBuffer*, uint>)
+            NativeLoader.GetExport("biscuitsharp_call_v1");
+        fixed (NativeBuffer* buffer = &output)
+            return call(operation, input, inputLength, buffer);
+    }
 
-    [LibraryImport("biscuitsharp_native", EntryPoint = "biscuitsharp_free_v1")]
-    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-    internal static partial void FreeV1(NativeBuffer buffer);
+    internal static unsafe void FreeV1(NativeBuffer buffer)
+    {
+        var free = (delegate* unmanaged[Cdecl]<NativeBuffer, void>)NativeLoader.GetExport("biscuitsharp_free_v1");
+        free(buffer);
+    }
 }

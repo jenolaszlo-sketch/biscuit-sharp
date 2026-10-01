@@ -71,7 +71,10 @@ Third-party blocks and authorizer/token snapshots are deferred from 1.0 unless a
 concrete consumer use case requires them; the architecture leaves room for
 third-party request/signature/append/trusted-key operations.
 
-Calls are synchronous and instances are thread-safe. The token type is immutable;
+Calls are synchronous. Tokens are immutable and safe to use concurrently. Builders
+and authorizers are mutable accumulators and must not be mutated concurrently;
+parallel `Authorize()` calls are supported after configuration is complete and
+while the authorizer remains unchanged. The token type is immutable;
 private keys are opaque native handles with explicit export and disposal that
 zeroes native material as far as the implementation permits. The loader resolves
 verified assets under `AppContext.BaseDirectory` (`runtimes/<rid>/native/`) or a

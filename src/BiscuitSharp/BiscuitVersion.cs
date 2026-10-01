@@ -26,7 +26,7 @@ public static class BiscuitEngine
     /// <summary>
     /// Reports the identity of the loaded native asset: engine, bridge, ABI,
     /// toolchain, target, features, hashes, and upstream pin. Never managed
-    /// constants alone (the file hash is computed from the loaded binary).
+    /// constants alone (the file hash is captured during native loading).
     /// </summary>
     public static BiscuitSharpVersionInfo GetVersion()
     {
@@ -52,7 +52,6 @@ public static class BiscuitEngine
                 $"Native ABI drift: the version response claims ABI {abi}, expected {AbiVersion}.");
         }
 
-        string path = NativeLoader.LoadedPath;
         string rid = NativeLoader.GetRuntimeIdentifier();
         return new BiscuitSharpVersionInfo(
             biscuitAuth,
@@ -63,7 +62,7 @@ public static class BiscuitEngine
             triple,
             rid,
             features,
-            HashLoadedFile(path),
+            NativeLoader.LoadedSha256,
             commit,
             lockHash);
     }

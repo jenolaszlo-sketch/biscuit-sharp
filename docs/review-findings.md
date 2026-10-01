@@ -2,10 +2,18 @@
 
 Third review pass, 2026-10-01, updated 2026-10-02. Issues found and their
 status. Items marked **Fixed** were resolved after the pass; the rest remain
-honest follow-on work. The implemented surface has no known correctness
-defects. Status labels: **Gap** (missing capability), **Limit** (by-design or
+honest follow-on work. The audit identified correctness and documentation
+defects; status below records their disposition. Status labels: **Gap** (missing capability), **Limit** (by-design or
 inherent, documented), **Deferred** (planned, spec §13/14/M2),
 **Cosmetic** (style/process).
+
+## Audit disposition
+
+F07 is addressed across the API contract, architecture, security guidance,
+README, roadmap, changelog, and verification ledger. ADR 0002 records the wrapper
+budget and normalization behavior; maintainer/team acceptance remains pending.
+Prior CI is identified by SHA in the verification ledger, and its Valgrind
+result is explicitly invalidated because the command selected zero tests.
 
 ## Functional gaps
 
@@ -28,10 +36,11 @@ inherent, documented), **Deferred** (planned, spec §13/14/M2),
    archive verification green, one isolated-cache clean consumer green. The
    three-RID CI matrix, `Verify-NativeStaging` / `Verify-NuGetPackage` /
    `Test-PackagedConsumer` automation, and publication stay open (M2).
-5. **Valgrind wired, awaiting its run.** A `leak_probe_cycles` workload
-   (50 full-lifecycle bridge cycles, every handle destroyed) plus a Linux CI
-   job (`--leak-check=full --errors-for-leaks=yes`, definite leaks fail).
-   No results yet — first green run pending.
+5. **Open — corrected Valgrind run required.** The prior Linux CI command used
+   `leak_probe --exact`, which selected zero tests (`0 passed, 45 filtered out`).
+   The existing `leak_probe_cycles` workload covers 50 full-lifecycle cycles,
+   but CI must select that exact test and prove it ran. Prior green CI does not
+   establish leak coverage; see [verification](verification.md).
 6. **Fixed 2026-10-02 — execution limits.** `BiscuitAuthorizerLimits` plus
    `WithLimits`, wired to upstream `set_limits`/`authorize_with_limits`.
    Finding: upstream's `RunLimits::default()` is `max_time: 1 ms`, which made
@@ -53,23 +62,24 @@ inherent, documented), **Deferred** (planned, spec §13/14/M2),
    ambiguous between Ed25519 and P-256, so only PKCS#8 PEM/DER (self-describing)
    are accepted; upstream *does* support `from_bytes(bytes, algorithm)`. A
    raw-key overload is possible if a caller needs it.
-10. **Limit — `Parse` normalizes; `ToBytes()` may differ from the input.**
-    Upstream framing tolerates trailing bytes, so a token with junk appended
-    verifies and re-serializes to canonical bytes (the junk is dropped). Not yet
-    stated in `docs/api-contract.md`.
-11. **Limit — tokens are never byte-stable across issuances.** Each `Build()`
-    mints a fresh ephemeral chain key, so equal-behavior tokens differ in bytes
-    and revocation IDs. Compare behavior, not bytes. (Documented.)
+10. **Documented behavior — parse normalizes tolerated trailing framing bytes.**
+    Upstream may accept such input; serialization returns canonical upstream
+    bytes and drops the suffix. The API contract distinguishes raw transport
+    bytes from parsed token identity; regression tests verify normalized bytes
+    and equivalent authorization/revocation behavior. Team sign-off remains
+    pending per ADR 0002.
+11. **Documented behavior — tokens use fresh chain keys.** Each `Build()` mints
+    fresh ephemeral chain keys, so equal-behavior tokens differ in serialized
+    bytes and revocation IDs. Compare behavior, not bytes or IDs, across builds.
 12. **Limit — `AddTimeFact` truncates to whole seconds.** Sub-second precision is
     dropped; fine for expiry-style checks, lossy for anything finer.
-13. **Limit — `BiscuitRevocationId.Value` / `BiscuitPublicKey.Encoded` return the
-    stored arrays.** Inputs are defensively copied on construction, but mutating
-    the returned array corrupts equality/hash codes. Returning copies (or
-    `ReadOnlyMemory<byte>`) would be safer; deferred to avoid per-access cost.
-14. **Limit — collection members use reference equality.** `BiscuitInspection`
-    and `BiscuitAuthorizationResult` compare their list members by reference, so
-    two structurally identical results are unequal. Return values only; not
-    expected to be keyed.
+13. **Fixed — byte-array identity is protected.** Constructors copy input bytes
+    and public `Value` / `Encoded` access returns defensive copies. Internal
+    operations retain owned state without exposing mutable identity.
+14. **Fixed — result and inspection collections are snapshots.** Constructor
+    collections are copied and exposed collections are read-only snapshots;
+    assigning a collection also snapshots it. Structural equality remains
+    reference-based for collection members and is not promised.
 15. **Limit — inspection reports the root algorithm as the signature algorithm.**
     Internal chain keys follow the root, so this is accurate for the token, but
     there is no separate per-block algorithm surface.
@@ -79,11 +89,12 @@ inherent, documented), **Deferred** (planned, spec §13/14/M2),
 17. **Limit — the native key store is process-global and unbounded.** Handles are
     freed on `Dispose`/finalization; a caller that never disposes grows the store
     until the process ends. No cap or eviction.
-18. **Limit — `GetVersion()` re-reads and SHA-256s the native binary every call.**
-    Accurate by construction (reports the loaded file) but does file I/O per
-    call; no caching.
-19. **Limit — builder/authorizer are single-threaded accumulators.** Documented,
-    not enforced; concurrent mutation is a caller error.
+18. **Fixed — native file hash is captured at load time.** `GetVersion()` uses
+    the verified loader state's cached hash and does not re-read the binary on
+    each call.
+19. **Limit — builder/authorizer mutation is not thread-safe.** Concurrent
+    mutation is a caller error; configured authorizers support concurrent
+    `Authorize()` calls while unchanged, as documented in the API contract.
 20. **Gap — no token fingerprint helper** for safe logging. Spec §25 mentions
     "token equality/fingerprints if exposed"; only equality is exposed.
 

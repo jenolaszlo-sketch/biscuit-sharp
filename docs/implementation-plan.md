@@ -1,8 +1,10 @@
 # Implementation plan
 
 Current delivery plan for BiscuitSharp. Status 2026-10-02: M0 complete, M1 functional
-surface and bidirectional gate green, M2 distribution matrix green in CI; pre-publish
-review and first preview publication remain. For release status see [verification](verification.md); for scope see
+surface implemented; prior CI passed at the SHAs recorded in [verification](verification.md),
+but the audit found that the Valgrind filter ran zero tests. The corrected leak workload
+and final release matrix need rerunning; pre-publish review and first preview publication
+remain. For scope see
 [architecture](architecture.md), [native boundary](native-boundary.md),
 [API contract](api-contract.md), and [security](security.md).
 
@@ -76,7 +78,8 @@ done 2026-10-01: canonical bytes, equality, typed params incl. reflection
 convenience overload; rules added 2026-10-02),
 authorizer (facts, rules, policies, checks → `BiscuitAuthorizationResult` with
 matched-policy indices, structured errors, `RequireAuthorized()`, explicit time
-facts, explicit execution limits defaulting to upstream — done
+facts, explicit limits with the wrapper default of 100k facts / 100k iterations /
+5 s and an explicit upstream-parity option — done
 2026-10-01, extended 2026-10-02), version discovery reporting the loaded asset (done 2026-10-01: process-lifetime
 loader, strict JSON decoding, file-hash identity, load-time manifest verification), and the
 `BiscuitException` taxonomy with boundary rules (bridge ≠ token ≠ Datalog ≠
@@ -138,14 +141,17 @@ archive verification, one isolated-cache clean consumer — all green. Linux and
 macOS builds, the remaining five consumers, and `Verify-NativeStaging` /
 `Verify-NuGetPackage` / `Test-PackagedConsumer` automation stay open.
 
-CI matrix 2026-10-02 (green across the matrix, maintainer-confirmed): per-OS
+Prior CI matrix 2026-10-02 (successful at the SHAs recorded in the verification
+ledger; leak coverage invalidated by a filter selecting zero tests): per-OS
 `managed` (build + tests), per-OS `compat` (full `Test-Compat.ps1` under pwsh),
 `native-lints` (fmt + clippy), per-OS `dist` (stage + verify + AOT, artifacts
 uploaded), `pack` (three-RID assembly + verification + symbols upload),
 per-OS × TFM `consume` (six isolated-cache consumers), and a Linux `valgrind`
-leak-probe job. All `eng/` scripts are PowerShell 5.1/7 cross-platform
+leak-probe job. The Valgrind command must be rerun with its corrected exact test
+filter before the lifecycle claim is qualified. All `eng/` scripts are PowerShell 5.1/7 cross-platform
 (forward-slash joins, `$HOME` cargo discovery, no `powershell.exe`
-nesting); Linux/macOS evidence lands here after the first green run.
+nesting); record future platform and release-gate evidence here against its
+exact SHA and run, without carrying forward the invalid leak result.
 
 Exit: preview published; `verification.md` holds the exact evidence.
 
@@ -167,12 +173,14 @@ Exit: preview published; `verification.md` holds the exact evidence.
   profile verified 2026-10-02 (43/43 green; matrix distribution varies run to
   run from fresh corpus randomness in both profiles — the test asserts
   invariants, not counts). Findings pinned: upstream framing tolerates trailing bytes
-  (parse canonicalizes; authorization requires byte-identical content); DER
+  (parse canonicalizes; the mutation test's byte-identical allow cases are not a
+  production strict-canonical-input requirement); DER
   seed-region mutations yield different valid keys (import success requires a
   usable, destroyable handle). Release-profile repetition on all RIDs stays open
   with the M2 matrix (a `native-release` CI job now locks in the Ubuntu run).
-- Leak instrumentation: Linux Valgrind (or equivalent) over repeated
-  issue/parse/attenuate/authorize/dispose cycles; record limitations honestly.
+- Leak instrumentation: rerun Linux Valgrind with the corrected exact workload
+  over repeated issue/parse/attenuate/authorize/dispose cycles; prior CI selected
+  zero tests and establishes no leak result.
 - Diagnostics/privacy tests (safe defaults per `security.md`), strict
   malformed-input tests, SourceLink/symbols, upstream compatibility fixtures.
 - Rerun the complete M2 release matrix.

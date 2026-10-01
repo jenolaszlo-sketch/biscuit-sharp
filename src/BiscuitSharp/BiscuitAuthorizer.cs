@@ -34,6 +34,13 @@ public sealed record BiscuitAuthorizationResult(
     uint? AllowPolicyIndex = null,
     uint? DenyPolicyIndex = null)
 {
+    private IReadOnlyList<BiscuitAuthorizationError> _errors = ImmutableSnapshot.Copy(Errors, nameof(Errors));
+    public IReadOnlyList<BiscuitAuthorizationError> Errors
+    {
+        get => _errors;
+        init => _errors = ImmutableSnapshot.Copy(value, nameof(Errors));
+    }
+
     public bool IsAuthorized => Decision == BiscuitDecision.Allow && Errors.Count == 0;
 
     public void RequireAuthorized()
@@ -187,7 +194,7 @@ public sealed class BiscuitAuthorizer
             w.WriteNumber("max_facts", limits.MaxFacts);
             w.WriteNumber("max_iterations", limits.MaxIterations);
             // TimeSpan values fit in ulong milliseconds; checked for safety.
-            w.WriteNumber("max_time_ms", checked((ulong)limits.MaxTime.TotalMilliseconds));
+            w.WriteNumber("max_time_ms", checked((ulong)(limits.MaxTime.Ticks / TimeSpan.TicksPerMillisecond)));
             w.WriteEndObject();
         });
         byte[] response = NativeBridge.Call(
@@ -198,9 +205,10 @@ public sealed class BiscuitAuthorizer
         return ParseResult(doc.RootElement);
     }
 
-    private static BiscuitAuthorizationResult ParseResult(JsonElement root)
+    internal static BiscuitAuthorizationResult ParseResult(JsonElement root)
     {
         const string operation = "token_authorize";
+        BridgeJson.RequireObject(root, operation);
         BiscuitDecision decision = BridgeJson.RequiredString(root, "decision", operation) switch
         {
             "allow" => BiscuitDecision.Allow,
@@ -241,6 +249,10 @@ public sealed class BiscuitAuthorizer
             throw new BiscuitBridgeException(
                 $"The native {operation} response contradicts itself: Allow with {findings.Count} error(s).");
         }
+
+        if ((allowIndex.HasValue && denyIndex.HasValue)
+            || (decision == BiscuitDecision.Allow && !allowIndex.HasValue))
+            throw new BiscuitBridgeException("The native authorization response has inconsistent policy indices.");
 
         return new BiscuitAuthorizationResult(decision, findings, allowIndex, denyIndex);
     }

@@ -34,24 +34,25 @@ public sealed class BiscuitBlock
 /// </summary>
 public sealed class BiscuitRevocationId : IEquatable<BiscuitRevocationId>
 {
-    /// <summary>Opaque upstream revocation id bytes.</summary>
-    public byte[] Value { get; }
+    /// <summary>A defensive copy of opaque upstream revocation id bytes.</summary>
+    private readonly byte[] _value;
+    public byte[] Value => (byte[])_value.Clone();
 
     public BiscuitRevocationId(byte[] value)
     {
         ArgumentNullException.ThrowIfNull(value);
-        Value = (byte[])value.Clone();
+        _value = (byte[])value.Clone();
     }
 
     public bool Equals(BiscuitRevocationId? other) =>
-        other is not null && Value.AsSpan().SequenceEqual(other.Value);
+        other is not null && _value.AsSpan().SequenceEqual(other._value);
 
     public override bool Equals(object? obj) => Equals(obj as BiscuitRevocationId);
 
     public override int GetHashCode()
     {
         var hash = new HashCode();
-        hash.AddBytes(Value);
+        hash.AddBytes(_value);
         return hash.ToHashCode();
     }
 
@@ -60,7 +61,7 @@ public sealed class BiscuitRevocationId : IEquatable<BiscuitRevocationId>
 
     public static bool operator !=(BiscuitRevocationId? left, BiscuitRevocationId? right) => !(left == right);
 
-    public override string ToString() => Convert.ToBase64String(Value);
+    public override string ToString() => Convert.ToBase64String(_value);
 }
 
 /// <summary>
@@ -173,7 +174,7 @@ public sealed class BiscuitToken : IEquatable<BiscuitToken>
             }
         }
 
-        return result;
+        return result.AsReadOnly();
     }
 
     /// <summary>
@@ -343,7 +344,7 @@ internal static class BiscuitErrorMapping
     // Status 1 carries the operation's own failure codes; any other status is a
     // native/ABI/transport problem regardless of the (possibly empty) body.
     internal static BiscuitException MapKeyError(uint status, string code, string message) =>
-        status != 1
+        status != 1 || (code != "key_error" && code != "invalid_input")
             ? new BiscuitBridgeException(
                 $"Biscuit native key call failed with status {status} ({code}: {message}).")
             : new BiscuitKeyException($"Biscuit key operation failed ({code}): {message}.");
@@ -361,8 +362,9 @@ internal static class BiscuitErrorMapping
                     $"Malformed Biscuit token or encoding: {message}."),
                 "datalog_error" => new BiscuitDatalogException(
                     $"Invalid Biscuit Datalog: {message}."),
-                _ => new BiscuitTokenException(
+                "token_error" or "invalid_input" => new BiscuitTokenException(
                     $"Biscuit token operation failed ({code}): {message}."),
+                _ => Bridge(status, code, message),
             };
 
     private static BiscuitBridgeException Bridge(uint status, string code, string message) =>

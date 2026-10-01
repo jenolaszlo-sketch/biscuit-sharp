@@ -18,8 +18,10 @@ New to BiscuitSharp? Start with the [README](../README.md) for the purpose and f
 | [Native boundary](native-boundary.md) | ABI, native ownership, asset identity, and distribution |
 | [Upstream upgrade](upstream-upgrade.md) | How to move the pinned biscuit-auth baseline |
 | [Verification](verification.md) | Executed tests and release evidence |
+| [Publishing](publishing.md) | Protected preview release setup and trusted NuGet publishing |
 | [Pre-publish review](prepublish-review.md) | Checklist for the reviews before first publication |
 | [Review findings](review-findings.md) | Open gaps, known limits, and follow-on work |
 | [Implementation plan](implementation-plan.md) | Milestones, matrices, and acceptance gates (current plan) |
 | [ADR 0001](decisions/0001-native-wrapper-boundary.md) | Why BiscuitSharp wraps the official engine |
+| [ADR 0002](decisions/0002-wrapper-semantics.md) | Authorization budgets, token normalization, and issuance identity |
 | [Changelog](../CHANGELOG.md) and [roadmap](../ROADMAP.md) | Released changes and planned work |

@@ -10,4 +10,20 @@ public sealed record BiscuitInspection(
     IReadOnlyList<string> BlockSources,
     long TokenSizeBytes,
     string? FormatVersion,
-    uint? RootKeyId);
+    uint? RootKeyId)
+{
+    private IReadOnlyList<BiscuitRevocationId> _revocationIds = ImmutableSnapshot.Copy(RevocationIds, nameof(RevocationIds));
+    private IReadOnlyList<string> _blockSources = ImmutableSnapshot.Copy(BlockSources, nameof(BlockSources));
+
+    public IReadOnlyList<BiscuitRevocationId> RevocationIds
+    {
+        get => _revocationIds;
+        init => _revocationIds = ImmutableSnapshot.Copy(value, nameof(RevocationIds));
+    }
+
+    public IReadOnlyList<string> BlockSources
+    {
+        get => _blockSources;
+        init => _blockSources = ImmutableSnapshot.Copy(value, nameof(BlockSources));
+    }
+}

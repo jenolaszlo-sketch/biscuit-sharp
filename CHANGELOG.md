@@ -44,8 +44,9 @@
 - M2.5 mutation matrix: deterministic 4,096-case native run (`src/adversarial.rs`,
   zero panics, zero unjustified successes) plus a managed 96-position token
   sweep and 7 invalid policies, all fail-closed. Findings pinned: upstream
-  framing tolerates trailing bytes (parse canonicalizes; allow requires
-  byte-identical content); DER seed-region mutations yield different valid keys.
+  framing tolerates trailing bytes (parse canonicalizes; the test counted an
+  allow only for byte-identical content, which is not a production strict
+  canonical-input rule); DER seed-region mutations yield different valid keys.
 - Second review pass: value equality for `BiscuitPublicKey`/`BiscuitRevocationId`
   (byte-based, not array identity — required for revocation lookups); the key
   store lock is no longer held across token builds; a native panic-containment
@@ -95,5 +96,13 @@
 - CI distribution matrix: per-OS managed/compat/dist jobs, three-RID pack +
   six-consumer jobs, Valgrind leak-probe job, and a pwsh-cross-platform `eng/`
   suite (`$HOME` cargo discovery, forward-slash joins, no `powershell.exe`
-  nesting) — green across the matrix, including a `native-release` job. Added a
-  native `leak_probe_cycles` workload (50 full-lifecycle bridge cycles) for it.
+  nesting); prior CI passed at the SHAs recorded in `docs/verification.md`.
+  Audit found its Valgrind filter selected zero tests, so leak coverage remains
+  unverified pending a corrected Linux run. Added a native `leak_probe_cycles`
+  workload (50 full-lifecycle bridge cycles) for that gate.
+- Contract corrections: document canonical parse output for tolerated trailing
+  framing, fresh chain keys per issuance, completed-configuration concurrency
+  for `Authorize`, whole-millisecond limit truncation, validation timing, and
+  caller-coordinated key disposal. ADR 0002 records the chosen semantics; team
+  acceptance remains pending. Arrays and result collections now use defensive
+  snapshots in the implementation.

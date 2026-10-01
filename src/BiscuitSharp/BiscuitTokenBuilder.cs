@@ -11,6 +11,7 @@ namespace BiscuitSharp;
 /// </summary>
 public abstract record BiscuitParam
 {
+    private BiscuitParam() { }
     public static BiscuitParam Str(string value)
     {
         ArgumentNullException.ThrowIfNull(value);
@@ -103,7 +104,8 @@ public sealed class BiscuitTokenBuilder
         {
             ArgumentNullException.ThrowIfNull(key);
             ArgumentNullException.ThrowIfNull(value);
-            copy[key] = value;
+            if (!copy.TryAdd(key, value))
+                throw new ArgumentException($"Duplicate parameter '{key}'.", nameof(parameters));
         }
 
         _facts.Add(new DatalogTemplate(template, copy));
@@ -180,10 +182,15 @@ public sealed class BiscuitTokenBuilder
             WriteItems(w, "rules", _rules);
             WriteItems(w, "checks", _checks);
         });
-        byte[] response = NativeBridge.Call(
-            NativeBridge.OpTokenCreate,
-            request,
-            BiscuitErrorMapping.MapTokenError);
+        byte[] response;
+        try
+        {
+            response = NativeBridge.Call(
+                NativeBridge.OpTokenCreate,
+                request,
+                BiscuitErrorMapping.MapTokenError);
+        }
+        finally { GC.KeepAlive(rootKey); }
         using JsonDocument doc = BridgeJson.Parse(response, "token_create");
         return BiscuitToken.FromVerifiedBytes(
             BridgeJson.RequiredBase64(doc.RootElement, "token", "token_create"),

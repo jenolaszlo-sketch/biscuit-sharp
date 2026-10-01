@@ -69,10 +69,15 @@ public sealed class BiscuitPrivateKey : IDisposable
     public byte[] Export()
     {
         ulong handle = RequireHandle();
-        byte[] response = NativeBridge.Call(
-            NativeBridge.OpKeyExportPrivate,
-            BridgeJson.EncodeHandle(handle),
-            BiscuitErrorMapping.MapKeyError);
+        byte[] response;
+        try
+        {
+            response = NativeBridge.Call(
+                NativeBridge.OpKeyExportPrivate,
+                BridgeJson.EncodeHandle(handle),
+                BiscuitErrorMapping.MapKeyError);
+        }
+        finally { GC.KeepAlive(this); }
         using JsonDocument doc = BridgeJson.Parse(response, "key_export_private");
         return BridgeJson.RequiredBase64(doc.RootElement, "private_key", "key_export_private");
     }
@@ -158,16 +163,25 @@ public sealed class BiscuitPrivateKey : IDisposable
                 $"The native {operation} response reported an invalid zero handle.");
         }
 
-        BiscuitKeyAlgorithm algorithm =
-            BiscuitAlgorithms.FromWireName(BridgeJson.RequiredString(root, "algorithm", operation), operation);
-        if (expected.HasValue && algorithm != expected.Value)
+        try
         {
-            throw new BiscuitBridgeException(
-                $"The native {operation} response claimed {algorithm} for a {expected.Value} request.");
-        }
+            BiscuitKeyAlgorithm algorithm =
+                BiscuitAlgorithms.FromWireName(BridgeJson.RequiredString(root, "algorithm", operation), operation);
+            if (expected.HasValue && algorithm != expected.Value)
+                throw new BiscuitBridgeException(
+                    $"The native {operation} response claimed {algorithm} for a {expected.Value} request.");
 
-        byte[] publicKey = BridgeJson.RequiredBase64(root, "public_key", operation);
-        return new BiscuitPrivateKey(handle, new BiscuitPublicKey(publicKey, algorithm), algorithm);
+            byte[] publicKey = BridgeJson.RequiredBase64(root, "public_key", operation);
+            return new BiscuitPrivateKey(handle, new BiscuitPublicKey(publicKey, algorithm), algorithm);
+        }
+        catch
+        {
+            // Allocation succeeded but ownership could not be transferred.
+            // Preserve the original response failure if cleanup also fails.
+            try { NativeBridge.Call(NativeBridge.OpKeyDestroy, BridgeJson.EncodeHandle(handle)); }
+            catch (BiscuitException) { }
+            throw;
+        }
     }
 
     private static bool LooksLikePem(ReadOnlySpan<byte> encoded) =>
@@ -181,22 +195,26 @@ public sealed class BiscuitPrivateKey : IDisposable
 /// </summary>
 public sealed class BiscuitPublicKey : IEquatable<BiscuitPublicKey>
 {
-    /// <summary>Raw upstream public-key bytes, interpreted with <see cref="Algorithm"/>.</summary>
-    public byte[] Encoded { get; }
+    /// <summary>A defensive copy of raw upstream public-key bytes, interpreted with <see cref="Algorithm"/>.</summary>
+    private readonly byte[] _encoded;
+    public byte[] Encoded => (byte[])_encoded.Clone();
+    internal ReadOnlySpan<byte> EncodedSpan => _encoded;
 
     public BiscuitKeyAlgorithm Algorithm { get; }
 
+    /// <summary>Snapshots bytes and validates the algorithm value. Use <see cref="Parse"/> for upstream key decoding/validation.</summary>
     public BiscuitPublicKey(byte[] encoded, BiscuitKeyAlgorithm algorithm)
     {
         ArgumentNullException.ThrowIfNull(encoded);
-        Encoded = (byte[])encoded.Clone();
+        _ = BiscuitAlgorithms.ToWireName(algorithm);
+        _encoded = (byte[])encoded.Clone();
         Algorithm = algorithm;
     }
 
     public bool Equals(BiscuitPublicKey? other) =>
         other is not null
             && Algorithm == other.Algorithm
-            && Encoded.AsSpan().SequenceEqual(other.Encoded);
+            && _encoded.AsSpan().SequenceEqual(other._encoded);
 
     public override bool Equals(object? obj) => Equals(obj as BiscuitPublicKey);
 
@@ -204,7 +222,7 @@ public sealed class BiscuitPublicKey : IEquatable<BiscuitPublicKey>
     {
         var hash = new HashCode();
         hash.Add((int)Algorithm);
-        hash.AddBytes(Encoded);
+        hash.AddBytes(_encoded);
         return hash.ToHashCode();
     }
 
@@ -214,7 +232,7 @@ public sealed class BiscuitPublicKey : IEquatable<BiscuitPublicKey>
     public static bool operator !=(BiscuitPublicKey? left, BiscuitPublicKey? right) => !(left == right);
 
     public override string ToString() =>
-        $"BiscuitPublicKey {{ Algorithm = {Algorithm}, Length = {Encoded.Length} }}";
+        $"BiscuitPublicKey {{ Algorithm = {Algorithm}, Length = {_encoded.Length} }}";
 
     /// <summary>
     /// Upstream display form (<c>ed25519/&lt;hex&gt;</c> or
@@ -223,7 +241,7 @@ public sealed class BiscuitPublicKey : IEquatable<BiscuitPublicKey>
     /// <see cref="ParsePrefixed"/>.
     /// </summary>
     public string ToPrefixedString() =>
-        $"{BiscuitAlgorithms.ToWireName(Algorithm)}/{Convert.ToHexString(Encoded).ToLowerInvariant()}";
+        $"{BiscuitAlgorithms.ToWireName(Algorithm)}/{Convert.ToHexString(_encoded).ToLowerInvariant()}";
 
     /// <summary>
     /// Parses a hex-encoded public key for the algorithm (whitespace is not

@@ -2,9 +2,112 @@ name: publish
 
 on:
   workflow_dispatch:
+    inputs:
+      ci_run_id:
+        description: Successful full CI run ID for the reviewed release commit
+        required: true
+        type: string
+      release_sha:
+        description: Full 40-character commit SHA covered by that CI run
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: nuget-publish
+  cancel-in-progress: false
 
 jobs:
   publish:
+    if: github.repository == 'jenolaszlo-sketch/biscuit-sharp'
     runs-on: ubuntu-latest
+    environment: nuget-production
+    permissions:
+      contents: read
+      actions: read
+      id-token: write
     steps:
-      - run: echo "Manual trusted-publishing workflow; implemented at the M2 distribution gate. See docs/implementation-plan.md."
+      - name: Validate requested release run
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ inputs.ci_run_id }}
+          RELEASE_SHA: ${{ inputs.release_sha }}
+        shell: bash
+        run: |
+          [[ "$RELEASE_SHA" =~ ^[0-9a-f]{40}$ ]] || { echo "release_sha must be a full lowercase commit SHA"; exit 1; }
+          [[ "$RUN_ID" =~ ^[0-9]+$ ]] || { echo "ci_run_id must be numeric"; exit 1; }
+          run=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID")
+          echo "$run" | jq '{status,conclusion,head_sha,event,head_branch,workflow_id,path}'
+          workflow_id=$(jq -r .workflow_id <<<"$run")
+          workflow=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/$workflow_id")
+          test "$(jq -r .path <<<"$workflow")" = ".github/workflows/ci.yml" || { echo "run is not the repository's exact ci.yml workflow"; exit 1; }
+          test "$(jq -r .status <<<"$run")" = "completed" || { echo "CI run is not completed"; exit 1; }
+          test "$(jq -r .conclusion <<<"$run")" = "success" || { echo "CI run did not succeed"; exit 1; }
+          test "$(jq -r .head_sha <<<"$run")" = "$RELEASE_SHA" || { echo "CI run SHA differs from requested release SHA"; exit 1; }
+          test "$(jq -r .event <<<"$run")" = "push" || { echo "release must be covered by a main push run"; exit 1; }
+          test "$(jq -r .head_branch <<<"$run")" = "main" || { echo "release CI run must target main"; exit 1; }
+          jobs=$(gh api --paginate "repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID/jobs?per_page=100" --jq '.jobs[] | [.name,.status,.conclusion] | @tsv')
+          job_count=$(printf '%s\n' "$jobs" | awk 'NF { n++ } END { print n+0 }')
+          test "$job_count" -eq 19 || { echo "expected 19 full-matrix CI jobs, found $job_count"; exit 1; }
+          while IFS=$'\t' read -r name status conclusion; do
+            test "$status" = "completed" && test "$conclusion" = "success" || { echo "CI job failed or incomplete: $name ($status/$conclusion)"; exit 1; }
+          done <<< "$jobs"
+          for spec in 'managed ( 3' 'compat ( 3' 'dist ( 3' 'consume ( 6' 'native-lints 1' 'native-release 1' 'pack 1' 'valgrind 1'; do
+            prefix=${spec% *}; expected=${spec##* }
+            found=$(printf '%s\n' "$jobs" | cut -f1 | grep -Ec "^${prefix//(/\\(}" || true)
+            test "$found" -eq "$expected" || { echo "CI job matrix mismatch for $prefix: expected $expected, found $found"; exit 1; }
+          done
+          echo "release_sha=$RELEASE_SHA" >> "$GITHUB_OUTPUT"
+        id: release
+
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.release.outputs.release_sha }}
+          persist-credentials: false
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.89.0
+
+      - name: Fetch locked registry metadata for package coverage verification
+        run: cargo fetch --locked --manifest-path native/Cargo.toml
+
+      - name: Download immutable package artifact from validated CI run
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ inputs.ci_run_id }}
+        run: gh run download "$RUN_ID" --repo "$GITHUB_REPOSITORY" --name nupkg --dir artifacts/packages
+
+      - name: Verify package and symbols
+        shell: pwsh
+        run: |
+          $packages = @(Get-ChildItem artifacts/packages/BiscuitSharp.*.nupkg | Where-Object { $_.Name -notlike '*.snupkg' })
+          if ($packages.Count -ne 1) { throw "Expected exactly one nupkg, got $($packages.Count)" }
+          ./eng/Verify-NuGetPackage.ps1 -Package $packages[0].FullName -Rids win-x64,linux-x64,osx-arm64
+          $symbols = [System.IO.Path]::ChangeExtension($packages[0].FullName, '.snupkg')
+          if (-not (Test-Path -LiteralPath $symbols)) { throw "Missing symbol package $symbols" }
+          $hash = (Get-FileHash $packages[0].FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+          "Package SHA-256: $hash"
+
+      - name: Exchange GitHub OIDC identity for short-lived NuGet key
+        id: nuget-login
+        uses: NuGet/login@v1
+        with:
+          user: ${{ secrets.NUGET_USER }}
+
+      - name: Publish verified package and symbols
+        shell: pwsh
+        env:
+          NUGET_API_KEY: ${{ steps.nuget-login.outputs.NUGET_API_KEY }}
+        run: |
+          $packages = @(Get-ChildItem artifacts/packages/BiscuitSharp.*.nupkg | Where-Object { $_.Name -notlike '*.snupkg' })
+          if ($packages.Count -ne 1) { throw "Expected exactly one nupkg" }
+          dotnet nuget push $packages[0].FullName --api-key $env:NUGET_API_KEY --source https://api.nuget.org/v3/index.json
+          if ($LASTEXITCODE -ne 0) { throw "NuGet package push failed ($LASTEXITCODE)" }
