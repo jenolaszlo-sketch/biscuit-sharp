@@ -57,28 +57,29 @@ vs direct upstream and concurrency), token `create`/`parse_verify`/`attenuate`/
 `code`/`code_with_params` with typed str/int/bool/bytes params, canonical
 round-trips, `sealed_token`/`signature_error`/`format_error`/`datalog_error`
 codes, 14 native tests incl. tamper/truncation and seal semantics),
-`token_authorize` (done 2026-10-01: ambient facts/checks/policies via upstream
+`token_authorize` (done 2026-10-01: ambient facts/rules/checks/policies via upstream
 `code`, allow/deny answers with matched-policy indices and structured
-failed-check/policy errors, first-match-wins order, 8 native tests incl.
-allow-matched-but-check-failed and explicit deny).
+failed-check/policy errors, first-match-wins order, 9 native tests incl.
+allow-matched-but-check-failed and explicit deny; `AddRule` added 2026-10-02).
 Consolidation is allowed; managed callers must not depend on
 Rust ABI details. Private keys live in opaque native handles; export is explicit.
 
 ### Managed surface (`src/BiscuitSharp/`)
 
 Keys (generate/import/export over opaque handles with finalizer-backed disposal,
-DER export, PEM/DER import, `ToString` privacy — done 2026-10-01, 21 managed
-key checks × 2 TFMs), builder
-(textual Datalog + parameterized overloads; discourage untrusted interpolation),
+DER/PEM export, PEM/DER import, public-key `Parse` without the private half,
+`ToString` privacy — done 2026-10-01, extended 2026-10-02), builder
+(textual Datalog + parameterized overloads + rules; discourage untrusted interpolation),
 token (parse/verify, base64url, attenuate, seal, revocation IDs, inspection —
 done 2026-10-01: canonical bytes, equality, typed params incl. reflection
-convenience overload, 38 managed token checks × 2 TFMs),
-authorizer (facts, policies, checks → `BiscuitAuthorizationResult` with
-matched-policy indices, structured errors, `RequireAuthorized()` — done
-2026-10-01, 23 managed checks × 2 TFMs), version discovery reporting the loaded asset (done 2026-10-01: process-lifetime
-loader, strict JSON decoding, file-hash identity, 17 managed checks × 2 TFMs), and the
+convenience overload; rules added 2026-10-02),
+authorizer (facts, rules, policies, checks → `BiscuitAuthorizationResult` with
+matched-policy indices, structured errors, `RequireAuthorized()`, explicit time
+facts — done 2026-10-01, extended 2026-10-02), version discovery reporting the loaded asset (done 2026-10-01: process-lifetime
+loader, strict JSON decoding, file-hash identity, load-time manifest verification), and the
 `BiscuitException` taxonomy with boundary rules (bridge ≠ token ≠ Datalog ≠
-enforcement failures; Deny is a result).
+enforcement failures; Deny is a result). Per-slice check counts live in the
+[verification ledger](verification.md).
 
 ### Test matrices
 
@@ -126,6 +127,14 @@ seal, tamper, and privacy proofs recorded in `verification.md`.
 4. Publish a preview only after the matrix passes. Packaging stays opt-in
    (`-p:BiscuitSharpEnablePack=true`) until then; publication is a separate
    manual action (`.github/workflows/publish.yml`).
+
+Win-x64 progress 2026-10-02 (local, single RID — the gate stays open until all
+RIDs pass in CI): release-triple build, `eng/Build-Native.ps1` staging
+(binary + manifest + licenses), load-time manifest verification with
+child-process probe tests, NativeAOT publish + execute, single-RID pack +
+archive verification, one isolated-cache clean consumer — all green. Linux and
+macOS builds, the remaining five consumers, and `Verify-NativeStaging` /
+`Verify-NuGetPackage` / `Test-PackagedConsumer` automation stay open.
 
 Exit: preview published; `verification.md` holds the exact evidence.
 

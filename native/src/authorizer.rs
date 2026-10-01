@@ -89,16 +89,14 @@ fn emit_answer(
 /// `Ok(index)` is a clean allow. Every `FailedLogic` shape is a deny with
 /// structured errors; anything else that escapes evaluation is a deny with an
 /// `evaluation_failure` entry. No path reports allow.
-fn emit_authorization(
-    output: *mut BiscuitSharpBuffer,
-    outcome: Result<usize, TokenError>,
-) -> u32 {
+fn emit_authorization(output: *mut BiscuitSharpBuffer, outcome: Result<usize, TokenError>) -> u32 {
     match outcome {
         Ok(index) => emit_answer(output, "allow", Some(index), None, Vec::new()),
         Err(TokenError::FailedLogic(logic)) => match logic {
             LogicError::Unauthorized { policy, checks } => {
                 use biscuit_auth::error::MatchedPolicy::*;
-                let mut errors: Vec<serde_json::Value> = checks.iter().map(failed_check_entry).collect();
+                let mut errors: Vec<serde_json::Value> =
+                    checks.iter().map(failed_check_entry).collect();
                 match policy {
                     Allow(index) => {
                         errors.push(serde_json::json!({
@@ -181,8 +179,8 @@ fn emit_authorization(
     }
 }
 
-/// OP_TOKEN_AUTHORIZE: `{"token", "root", "facts": [...], "checks": [...],
-/// "policies": [...]}` → the decision answer. Malformed Datalog fails the
+/// OP_TOKEN_AUTHORIZE: `{"token", "root", "facts": [...], "rules": [...],
+/// "checks": [...], "policies": [...]}` → the decision answer. Malformed Datalog fails the
 /// build with `datalog_error`; only completed evaluations produce answers.
 pub fn op_token_authorize(input: &[u8], output: *mut BiscuitSharpBuffer) -> u32 {
     let req = match parse_request(input) {
@@ -205,6 +203,10 @@ pub fn op_token_authorize(input: &[u8], output: *mut BiscuitSharpBuffer) -> u32 
         Ok(items) => items,
         Err(status) => return status,
     };
+    let rules = match decode_sources(&req, "rules", output) {
+        Ok(items) => items,
+        Err(status) => return status,
+    };
     let checks = match decode_sources(&req, "checks", output) {
         Ok(items) => items,
         Err(status) => return status,
@@ -214,7 +216,12 @@ pub fn op_token_authorize(input: &[u8], output: *mut BiscuitSharpBuffer) -> u32 
         Err(status) => return status,
     };
     let mut builder = AuthorizerBuilder::new();
-    for source in facts.iter().chain(checks.iter()).chain(policies.iter()) {
+    for source in facts
+        .iter()
+        .chain(rules.iter())
+        .chain(checks.iter())
+        .chain(policies.iter())
+    {
         builder = match builder.code(source) {
             Ok(b) => b,
             Err(e) => return token_error(output, e),
@@ -239,10 +246,11 @@ mod tests {
             data: ptr::null_mut(),
             len: 0,
         };
-        let status = crate::biscuitsharp_call_v1(op, bytes.as_ptr(), bytes.len(), &mut out);
+        // SAFETY: input is borrowed for the call; output is a valid writable struct.
+        let status =
+            unsafe { crate::biscuitsharp_call_v1(op, bytes.as_ptr(), bytes.len(), &mut out) };
         assert!(!out.data.is_null() && out.len != 0, "op must emit a body");
-        let slice =
-            unsafe { std::slice::from_raw_parts(out.data as *const u8, out.len) };
+        let slice = unsafe { std::slice::from_raw_parts(out.data as *const u8, out.len) };
         let value: serde_json::Value =
             serde_json::from_slice(slice).expect("output must be valid JSON");
         crate::biscuitsharp_free_v1(out);
@@ -261,13 +269,16 @@ mod tests {
             serde_json::json!({ "handle": handle }),
         );
         assert_eq!(status, STATUS_OK, "export public: {v}");
-        let root = serde_json::json!({ "algorithm": v["algorithm"], "public_key": v["public_key"] });
+        let root =
+            serde_json::json!({ "algorithm": v["algorithm"], "public_key": v["public_key"] });
         (handle, root)
     }
 
     fn create(handle: u64, facts: Vec<&str>) -> Vec<u8> {
-        let items: Vec<serde_json::Value> =
-            facts.iter().map(|f| serde_json::json!({ "source": f })).collect();
+        let items: Vec<serde_json::Value> = facts
+            .iter()
+            .map(|f| serde_json::json!({ "source": f }))
+            .collect();
         let (status, v) = call(
             crate::tokens::OP_TOKEN_CREATE,
             serde_json::json!({ "root_handle": handle, "facts": items }),
@@ -283,12 +294,24 @@ mod tests {
         checks: Vec<&str>,
         policies: Vec<&str>,
     ) -> (u32, serde_json::Value) {
+        authorize_with_rules(token, root, facts, vec![], checks, policies)
+    }
+
+    fn authorize_with_rules(
+        token: &[u8],
+        root: &serde_json::Value,
+        facts: Vec<&str>,
+        rules: Vec<&str>,
+        checks: Vec<&str>,
+        policies: Vec<&str>,
+    ) -> (u32, serde_json::Value) {
         call(
             OP_TOKEN_AUTHORIZE,
             serde_json::json!({
                 "token": base64::encode(token),
                 "root": root,
                 "facts": facts,
+                "rules": rules,
                 "checks": checks,
                 "policies": policies,
             }),
@@ -361,13 +384,14 @@ mod tests {
         assert_eq!(v["allow_policy_index"], 0, "allow matched: {v}");
         assert!(v["deny_policy_index"].is_null());
         let errors = v["errors"].as_array().expect("errors");
-        let failed: Vec<&serde_json::Value> =
-            errors.iter().filter(|e| e["code"] == "failed_check").collect();
+        let failed: Vec<&serde_json::Value> = errors
+            .iter()
+            .filter(|e| e["code"] == "failed_check")
+            .collect();
         assert!(!failed.is_empty(), "failed checks reported: {v}");
-        assert!(failed.iter().any(|e| e["rule"]
-            .as_str()
-            .expect("rule")
-            .contains("operation")));
+        assert!(failed
+            .iter()
+            .any(|e| e["rule"].as_str().expect("rule").contains("operation")));
         assert!(failed.iter().all(|e| !e["block_id"].is_null()));
         // The same request for "read" is allowed: attenuation narrows, not widens.
         let (status, v) = authorize(
@@ -407,16 +431,39 @@ mod tests {
     }
 
     #[test]
-    fn malformed_datalog_is_a_build_error_not_a_decision() {
+    fn authorizer_rules_derive_facts_for_policies() {
         let (handle, root) = generate_root("ed25519");
-        let token = create(handle, vec!["right(\"a\", \"read\")"]);
-        let (status, v) = authorize(
+        let token = create(handle, vec!["role(\"admin\")"]);
+        let (status, v) = authorize_with_rules(
             &token,
             &root,
             vec![],
+            vec!["right(\"a\", \"read\") <- role(\"admin\");"],
             vec![],
-            vec!["allow if"],
+            vec!["allow if right(\"a\", \"read\");"],
         );
+        assert_eq!(status, STATUS_OK);
+        assert_eq!(v["decision"], "allow");
+        assert!(v["errors"].as_array().expect("errors").is_empty());
+        // Malformed rules fail the build, like facts and policies.
+        let (status, v) = authorize_with_rules(
+            &token,
+            &root,
+            vec![],
+            vec!["right("],
+            vec![],
+            vec!["allow if right(\"a\", \"read\");"],
+        );
+        assert_eq!(status, STATUS_INVALID_INPUT);
+        assert_eq!(v["code"], "datalog_error");
+        let _ = handle;
+    }
+
+    #[test]
+    fn malformed_datalog_is_a_build_error_not_a_decision() {
+        let (handle, root) = generate_root("ed25519");
+        let token = create(handle, vec!["right(\"a\", \"read\")"]);
+        let (status, v) = authorize(&token, &root, vec![], vec![], vec!["allow if"]);
         assert_eq!(status, STATUS_INVALID_INPUT);
         assert_eq!(v["code"], "datalog_error");
         let (status, v) = authorize(

@@ -4,9 +4,7 @@
 //! direct Rust for the managed consume phase. Run after the managed tests
 //! (eng/Test-Compat.ps1); fails loudly when fixtures are absent.
 
-use biscuit_auth::{
-    Algorithm, AuthorizerBuilder, Biscuit, BlockBuilder, PublicKey,
-};
+use biscuit_auth::{Algorithm, AuthorizerBuilder, Biscuit, BlockBuilder, PublicKey};
 use std::path::PathBuf;
 use std::str::FromStr;
 
@@ -25,7 +23,8 @@ fn read_json(dir: &std::path::Path, name: &str) -> serde_json::Value {
     } else {
         "absent (run the managed tests first: eng/Test-Compat.ps1)"
     };
-    let bytes = std::fs::read(&path).unwrap_or_else(|_| panic!("fixture {}: {}", path.display(), hint));
+    let bytes =
+        std::fs::read(&path).unwrap_or_else(|_| panic!("fixture {}: {}", path.display(), hint));
     serde_json::from_slice(&bytes).expect("fixture JSON")
 }
 
@@ -75,7 +74,11 @@ fn consume_managed_fixtures() {
     let child_bytes =
         base64::decode(managed_child["token_b64"].as_str().expect("token")).expect("base64");
     let child = Biscuit::from(&child_bytes, rust_public).expect("managed child verifies");
-    assert_eq!(child.block_count(), 2, "attenuation appended exactly one block");
+    assert_eq!(
+        child.block_count(),
+        2,
+        "attenuation appended exactly one block"
+    );
     authorize_allow(&child, "read");
 
     // Direction 4 setup: direct Rust attenuates the managed token; the managed

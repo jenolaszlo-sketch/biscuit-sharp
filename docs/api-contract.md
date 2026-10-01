@@ -19,6 +19,10 @@ integration tests from the first preview onward.
 - `BiscuitAuthorizationResult.IsAuthorized` is true only for Allow with zero
   errors. `RequireAuthorized()` throws `BiscuitAuthorizationException` (carrying
   the result) otherwise. An ordinary Deny is a result, not a bridge failure.
+- `BiscuitTokenBuilder` supports facts, rules, and checks (each textual, plus
+  parameterized facts); the authorizer supports facts, rules, checks, policies,
+  and explicit time facts. Malformed Datalog throws `BiscuitDatalogException`
+  before any evaluation; completed evaluations always return a result.
 - Policies apply first-match-wins in the order supplied: place `deny` policies
   before the `allow` policies they must override. The result reports matched
   policy indices and structured errors (`failed_check` with block/check/rule,
@@ -71,8 +75,10 @@ failures, and ordinary denial are never flattened into one error.
   implementation permits (documented honestly: no protection against dumps or a
   compromised host). Explicit `Export()` is permitted; normal issuance should not
   repeatedly copy private keys through managed memory. `Export()` emits PKCS#8
-  DER; `Import()` accepts PKCS#8 PEM (detected by armor) or DER with upstream
-  algorithm auto-detection, and rejects ambiguous raw secrets. Key-operation
+  DER; `ExportPem()` the armored PEM form; `Import()` accepts PKCS#8 PEM (detected by armor) or DER with upstream
+  algorithm auto-detection, and rejects ambiguous raw secrets. `BiscuitPublicKey.Parse`
+  validates raw public bytes for an algorithm without needing the private half
+  (validation is upstream decode: size plus successful decode). Key-operation
   failures surface as `BiscuitKeyException`; only native/ABI/transport problems
   surface as `BiscuitBridgeException`.
 - Serialization compatibility: tokens are upstream Biscuit artifacts, verifiable

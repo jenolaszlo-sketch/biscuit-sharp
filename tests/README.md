@@ -6,11 +6,14 @@ CedarSharp shape): exit code 0 means all checks passed.
 - Version/loader slice: fail-closed loading, relative overrides, live identity
   with differential hash checks.
 - Key slice: generate/import/export round-trips (Ed25519 + P-256, DER + PEM),
-  disposal, `ToString` privacy, concurrency.
-- Token slice: issue/verify/attenuate/seal, tamper/truncation rejection,
-  revocation growth, inspection, typed params, unicode, equality, concurrency.
-- Authorization slice: allow/deny/failed-checks/explicit-deny, determinism,
-  malformed-Datalog behavior, concurrency.
+  public-key import, disposal, `ToString` privacy, concurrency.
+- Token slice: issue/verify/attenuate/seal, rules, tamper/truncation/garbage
+  rejection, revocation growth, inspection, typed params, unicode, equality,
+  concurrency.
+- Authorization slice: allow/deny/failed-checks/explicit-deny, rules,
+  determinism, malformed-Datalog behavior, concurrency.
+- Loader manifest probes: verified load succeeds, tampered manifest refuses
+  (child processes, since the loader caches per process).
 - Compatibility: committed fixtures always run; the generated exchange and the
   consume phase run when `artifacts/compat` / `BISCUITSHARP_COMPAT_CONSUME=1`
   are present (see `eng/Test-Compat.ps1`).

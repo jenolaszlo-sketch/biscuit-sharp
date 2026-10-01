@@ -18,8 +18,11 @@ fn out_dir() -> PathBuf {
 fn write_json(name: &str, value: &serde_json::Value) {
     let dir = out_dir();
     std::fs::create_dir_all(&dir).expect("fixture dir");
-    std::fs::write(dir.join(name), serde_json::to_string_pretty(value).expect("json"))
-        .expect("write fixture");
+    std::fs::write(
+        dir.join(name),
+        serde_json::to_string_pretty(value).expect("json"),
+    )
+    .expect("write fixture");
 }
 
 #[test]

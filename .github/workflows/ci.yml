@@ -34,6 +34,15 @@ jobs:
             10.0.x
       - uses: dtolnay/rust-toolchain@1.89.0
       - run: powershell -NoProfile -ExecutionPolicy Bypass -File eng/Test-Compat.ps1
+  native-lints:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.89.0
+        with:
+          components: rustfmt, clippy
+      - run: cargo fmt --manifest-path native/Cargo.toml -- --check
+      - run: cargo clippy --locked --all-targets --manifest-path native/Cargo.toml -- -D warnings
   # M2 add: native builds + tests per RID (linux-x64, osx-arm64), mutation/fuzz,
   # Valgrind, NativeAOT per RID, package verification, and six clean consumers.
   # See docs/implementation-plan.md.

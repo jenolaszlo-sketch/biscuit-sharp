@@ -11,7 +11,9 @@ use std::collections::HashMap;
 
 use biscuit_auth::builder::Term as BuilderTerm;
 use biscuit_auth::error::{Format as FormatError, Token as TokenError};
-use biscuit_auth::{Algorithm, Biscuit, BiscuitBuilder, BlockBuilder, PublicKey, UnverifiedBiscuit};
+use biscuit_auth::{
+    Algorithm, Biscuit, BiscuitBuilder, BlockBuilder, PublicKey, UnverifiedBiscuit,
+};
 
 use crate::{emit_error, emit_owned, BiscuitSharpBuffer, STATUS_INVALID_INPUT};
 
@@ -33,9 +35,7 @@ fn invalid(output: *mut BiscuitSharpBuffer, message: String) -> u32 {
 /// can raise the matching typed exception. See docs/native-boundary.md.
 pub(crate) fn token_error(output: *mut BiscuitSharpBuffer, e: TokenError) -> u32 {
     let (code, message) = match &e {
-        TokenError::AppendOnSealed | TokenError::AlreadySealed => {
-            ("sealed_token", e.to_string())
-        }
+        TokenError::AppendOnSealed | TokenError::AlreadySealed => ("sealed_token", e.to_string()),
         TokenError::Format(f) => match f {
             FormatError::Signature(_) | FormatError::SealedSignature => {
                 ("signature_error", e.to_string())
@@ -76,8 +76,7 @@ pub(crate) fn decode_root(req: &serde_json::Value) -> Result<PublicKey, String> 
     let b64 = required_str(root, "public_key")?;
     let bytes =
         base64::decode(b64).map_err(|e| format!("root public_key is not valid base64: {e}"))?;
-    PublicKey::from_bytes(&bytes, algorithm)
-        .map_err(|e| format!("invalid root public key: {e}"))
+    PublicKey::from_bytes(&bytes, algorithm).map_err(|e| format!("invalid root public key: {e}"))
 }
 
 pub(crate) fn decode_token(req: &serde_json::Value) -> Result<Vec<u8>, String> {
@@ -131,10 +130,7 @@ fn prepare_items(
     };
     let mut prepared = Vec::with_capacity(items.len());
     for item in items {
-        let terms = match decode_terms(&item, output) {
-            Ok(t) => t,
-            Err(status) => return Err(status),
-        };
+        let terms = decode_terms(&item, output)?;
         prepared.push(PreparedItem {
             source: item.source,
             terms,
@@ -213,12 +209,14 @@ fn emit_token(output: *mut BiscuitSharpBuffer, bytes: Vec<u8>) -> u32 {
 fn emit_strings(output: *mut BiscuitSharpBuffer, field: &str, values: Vec<String>) -> u32 {
     emit_owned(
         output,
-        serde_json::json!({ field: values }).to_string().into_bytes(),
+        serde_json::json!({ field: values })
+            .to_string()
+            .into_bytes(),
     )
 }
 
-/// OP_TOKEN_CREATE: `{"root_handle", "facts": [...], "checks": [...]}` →
-/// `{"token"}`. Facts and checks are `{source, params?}` items applied in
+/// OP_TOKEN_CREATE: `{"root_handle", "facts": [...], "rules": [...], "checks": [...]}` →
+/// `{"token"}`. Facts, rules, and checks are `{source, params?}` items applied in
 /// order through upstream `code`/`code_with_params`, then signed by the root key.
 pub fn op_token_create(input: &[u8], output: *mut BiscuitSharpBuffer) -> u32 {
     let req = match parse_request(input) {
@@ -233,13 +231,17 @@ pub fn op_token_create(input: &[u8], output: *mut BiscuitSharpBuffer) -> u32 {
         Ok(items) => items,
         Err(status) => return status,
     };
+    let rules = match prepare_items(&req, "rules", output) {
+        Ok(items) => items,
+        Err(status) => return status,
+    };
     let checks = match prepare_items(&req, "checks", output) {
         Ok(items) => items,
         Err(status) => return status,
     };
     crate::keys::use_keypair(output, handle, |pair| {
         let mut builder = BiscuitBuilder::new();
-        for item in facts.iter().chain(checks.iter()) {
+        for item in facts.iter().chain(rules.iter()).chain(checks.iter()) {
             builder = match &item.terms {
                 None => builder.code(&item.source),
                 Some(terms) => {
@@ -468,12 +470,13 @@ mod tests {
             data: ptr::null_mut(),
             len: 0,
         };
-        let status = crate::biscuitsharp_call_v1(op, bytes.as_ptr(), bytes.len(), &mut out);
+        // SAFETY: input is borrowed for the call; output is a valid writable struct.
+        let status =
+            unsafe { crate::biscuitsharp_call_v1(op, bytes.as_ptr(), bytes.len(), &mut out) };
         let value = if out.data.is_null() || out.len == 0 {
             None
         } else {
-            let slice =
-                unsafe { std::slice::from_raw_parts(out.data as *const u8, out.len) };
+            let slice = unsafe { std::slice::from_raw_parts(out.data as *const u8, out.len) };
             Some(serde_json::from_slice(slice).expect("output must be valid JSON"))
         };
         crate::biscuitsharp_free_v1(out);
@@ -516,7 +519,22 @@ mod tests {
         serde_json::json!({ "source": source })
     }
 
-    fn create(handle: u64, facts: Vec<serde_json::Value>, checks: Vec<serde_json::Value>) -> Vec<u8> {
+    fn create_with_rules(
+        handle: u64,
+        facts: Vec<serde_json::Value>,
+        rules: Vec<serde_json::Value>,
+    ) -> (u32, serde_json::Value) {
+        call(
+            OP_TOKEN_CREATE,
+            serde_json::json!({ "root_handle": handle, "facts": facts, "rules": rules, "checks": [] }),
+        )
+    }
+
+    fn create(
+        handle: u64,
+        facts: Vec<serde_json::Value>,
+        checks: Vec<serde_json::Value>,
+    ) -> Vec<u8> {
         let (status, v) = call(
             OP_TOKEN_CREATE,
             serde_json::json!({ "root_handle": handle, "facts": facts, "checks": checks }),
@@ -541,11 +559,7 @@ mod tests {
         v
     }
 
-    fn attenuate(
-        token: &[u8],
-        root: &serde_json::Value,
-        source: &str,
-    ) -> (u32, serde_json::Value) {
+    fn attenuate(token: &[u8], root: &serde_json::Value, source: &str) -> (u32, serde_json::Value) {
         call(
             OP_TOKEN_ATTENUATE,
             serde_json::json!({
@@ -594,6 +608,30 @@ mod tests {
         assert_eq!(status, STATUS_OK, "parse: {v}");
         let canonical = base64::decode(v["token"].as_str().expect("token")).expect("base64");
         assert_eq!(canonical, token, "parse returns canonical bytes");
+        destroy(h);
+    }
+
+    #[test]
+    fn rules_derive_facts_in_authority_block() {
+        let h = generate_root("ed25519");
+        let root = root_object(h);
+        let (status, v) = create_with_rules(
+            h,
+            vec![fact("role(\"admin\")")],
+            vec![fact("right(\"a\", \"read\") <- role(\"admin\");")],
+        );
+        assert_eq!(status, STATUS_OK, "create with rule: {v}");
+        let token = base64::decode(v["token"].as_str().expect("token")).expect("base64");
+        assert_eq!(parse(&token, &root).0, STATUS_OK);
+        let view = inspect(&token, &root);
+        assert!(view["block_sources"][0]
+            .as_str()
+            .expect("source")
+            .contains("role(\"admin\")"));
+        // Malformed rules are Datalog errors, like facts and checks.
+        let (status, v) = create_with_rules(h, vec![], vec![fact("right(")]);
+        assert_eq!(status, STATUS_INVALID_INPUT);
+        assert_eq!(v["code"], "datalog_error");
         destroy(h);
     }
 
@@ -802,7 +840,9 @@ mod tests {
         let parent = create(h, vec![fact("right(\"a\", \"read\")")], vec![]);
         let parent_ids = revocation_ids(&parent, &root);
         assert_eq!(parent_ids.len(), 1);
-        assert!(parent_ids.iter().all(|id| !base64::decode(id).expect("b64").is_empty()));
+        assert!(parent_ids
+            .iter()
+            .all(|id| !base64::decode(id).expect("b64").is_empty()));
         let (status, v) = attenuate(&parent, &root, "check if operation(\"read\");");
         assert_eq!(status, STATUS_OK);
         let child = base64::decode(v["token"].as_str().expect("token")).expect("base64");
@@ -826,11 +866,17 @@ mod tests {
         assert!(view["root_key_id"].is_null(), "no root key id was set");
         let sources = view["block_sources"].as_array().expect("sources");
         assert_eq!(sources.len(), 1);
-        assert!(sources[0].as_str().expect("source").contains("workspace.main"));
+        assert!(sources[0]
+            .as_str()
+            .expect("source")
+            .contains("workspace.main"));
         let versions = view["block_versions"].as_array().expect("versions");
         assert_eq!(versions.len(), 1);
         let version = versions[0].as_u64().expect("version");
-        assert!((3..=6).contains(&version), "schema version in range: {version}");
+        assert!(
+            (3..=6).contains(&version),
+            "schema version in range: {version}"
+        );
         assert_eq!(parse(&token, &root).0, STATUS_OK);
         destroy(h);
     }
@@ -861,8 +907,7 @@ mod tests {
                     let h = generate_root("ed25519");
                     let root = root_object(h);
                     for _ in 0..10 {
-                        let token =
-                            create(h, vec![fact("right(\"a\", \"read\")")], vec![]);
+                        let token = create(h, vec![fact("right(\"a\", \"read\")")], vec![]);
                         assert_eq!(parse(&token, &root).0, STATUS_OK);
                         let view = inspect(&token, &root);
                         assert_eq!(view["block_count"], 1);

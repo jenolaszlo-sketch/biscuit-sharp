@@ -85,9 +85,7 @@ fn fixtures_match_committed() {
     }
     // Token bytes are NOT byte-stable across runs by design (see above), so the
     // committed token is verified semantically instead of compared.
-    let root = KeyPair::from(
-        &PrivateKey::from_bytes(&SEED, Algorithm::Ed25519).expect("seed"),
-    );
+    let root = KeyPair::from(&PrivateKey::from_bytes(&SEED, Algorithm::Ed25519).expect("seed"));
     let token_bytes =
         base64::decode(committed["token_b64"].as_str().expect("token")).expect("base64");
     let token = Biscuit::from(&token_bytes, root.public()).expect("committed token verifies");
@@ -113,8 +111,7 @@ fn fixtures_match_committed() {
 
 /// Printed block sources for structural comparison.
 fn committed_token_sources(token: &[u8]) -> Vec<String> {
-    let unverified =
-        biscuit_auth::UnverifiedBiscuit::from(token).expect("committed token parses");
+    let unverified = biscuit_auth::UnverifiedBiscuit::from(token).expect("committed token parses");
     (0..unverified.block_count())
         .map(|i| unverified.print_block_source(i).expect("block source"))
         .collect()

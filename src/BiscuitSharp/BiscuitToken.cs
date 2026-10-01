@@ -340,6 +340,14 @@ public sealed class BiscuitToken : IEquatable<BiscuitToken>
 /// <summary>Maps native token-operation failures to the typed exception taxonomy.</summary>
 internal static class BiscuitErrorMapping
 {
+    // Status 1 carries the operation's own failure codes; any other status is a
+    // native/ABI/transport problem regardless of the (possibly empty) body.
+    internal static BiscuitException MapKeyError(uint status, string code, string message) =>
+        status != 1
+            ? new BiscuitBridgeException(
+                $"Biscuit native key call failed with status {status} ({code}: {message}).")
+            : new BiscuitKeyException($"Biscuit key operation failed ({code}): {message}.");
+
     internal static BiscuitException MapTokenError(uint status, string code, string message) =>
         status != 1
             ? Bridge(status, code, message)

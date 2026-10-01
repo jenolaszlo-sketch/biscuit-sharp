@@ -13,9 +13,7 @@
 
 use std::ptr;
 
-use crate::{
-    BiscuitSharpBuffer, STATUS_INVALID_INPUT, STATUS_OK, STATUS_PANIC,
-};
+use crate::{BiscuitSharpBuffer, STATUS_INVALID_INPUT, STATUS_OK, STATUS_PANIC};
 
 /// Deterministic PRNG: xorshift64*, fixed seed per run category.
 struct Rng(u64);
@@ -40,12 +38,12 @@ fn call_bytes(op: u32, bytes: &[u8]) -> (u32, Option<serde_json::Value>) {
         data: ptr::null_mut(),
         len: 0,
     };
-    let status = crate::biscuitsharp_call_v1(op, bytes.as_ptr(), bytes.len(), &mut out);
+    // SAFETY: input is borrowed for the call; output is a valid writable struct.
+    let status = unsafe { crate::biscuitsharp_call_v1(op, bytes.as_ptr(), bytes.len(), &mut out) };
     let value = if out.data.is_null() || out.len == 0 {
         None
     } else {
-        let slice =
-            unsafe { std::slice::from_raw_parts(out.data as *const u8, out.len) };
+        let slice = unsafe { std::slice::from_raw_parts(out.data as *const u8, out.len) };
         Some(serde_json::from_slice(slice).expect("output must be valid JSON"))
     };
     crate::biscuitsharp_free_v1(out);
@@ -90,8 +88,8 @@ fn mutate_traced(rng: &mut Rng, bytes: &[u8]) -> (Vec<u8>, &'static str) {
             let start = rng.below(out.len());
             let max = out.len() - start;
             let len = 1 + rng.below(8.min(max));
-            for i in start..start + len {
-                out[i] = rng.next() as u8;
+            for slot in out.iter_mut().skip(start).take(len) {
+                *slot = rng.next() as u8;
             }
             "splice"
         }
@@ -268,8 +266,7 @@ fn deterministic_mutation_matrix() {
             denies += 1;
             continue;
         }
-        let canonical = parses(&mutant, &corpus.root)
-            .expect("authorized mutant must verify");
+        let canonical = parses(&mutant, &corpus.root).expect("authorized mutant must verify");
         assert_eq!(
             canonical, corpus.token,
             "authorized mutant must normalize to the corpus token (strategy {strategy})"
@@ -325,8 +322,7 @@ fn deterministic_mutation_matrix() {
             }
             envelope.extend_from_slice(&source);
             envelope.extend_from_slice(b"\"}}");
-            let (status, body) =
-                call_bytes(crate::tokens::OP_TOKEN_ATTENUATE, &envelope);
+            let (status, body) = call_bytes(crate::tokens::OP_TOKEN_ATTENUATE, &envelope);
             let Some(v) = body else {
                 panics += 1;
                 rejected += 1;
@@ -404,7 +400,9 @@ fn deterministic_mutation_matrix() {
         let handle = v["handle"].as_u64().unwrap();
         let (estatus, ebody) = call_bytes(
             crate::keys::OP_KEY_EXPORT_PUBLIC,
-            serde_json::json!({ "handle": handle }).to_string().as_bytes(),
+            serde_json::json!({ "handle": handle })
+                .to_string()
+                .as_bytes(),
         );
         assert!(
             ebody.is_some() && estatus == STATUS_OK,
@@ -412,7 +410,9 @@ fn deterministic_mutation_matrix() {
         );
         let (dstatus, dbody) = call_bytes(
             crate::keys::OP_KEY_DESTROY,
-            serde_json::json!({ "handle": handle }).to_string().as_bytes(),
+            serde_json::json!({ "handle": handle })
+                .to_string()
+                .as_bytes(),
         );
         assert!(
             dbody.is_some() && dstatus == STATUS_OK,
@@ -450,19 +450,18 @@ fn deterministic_mutation_matrix() {
     for i in 0..512 {
         let (status, body) = match i % 4 {
             0 => {
-                // Unknown operation ids, including extremes. Implemented ops
-                // receiving empty input must reject it, not crash.
+                // Unknown operation ids (7 is reserved-unimplemented), including
+                // extremes. The implemented op 14 receiving empty input must
+                // reject it, not crash.
                 let ops = [7u32, 14, 100, 999, u32::MAX];
                 let mut out = crate::BiscuitSharpBuffer {
                     data: ptr::null_mut(),
                     len: 0,
                 };
-                let status = crate::biscuitsharp_call_v1(
-                    ops[rng.below(ops.len())],
-                    ptr::null(),
-                    0,
-                    &mut out,
-                );
+                // SAFETY: null input with length zero is valid; output is writable.
+                let status = unsafe {
+                    crate::biscuitsharp_call_v1(ops[rng.below(ops.len())], ptr::null(), 0, &mut out)
+                };
                 let body = if out.data.is_null() || out.len == 0 {
                     None
                 } else {
@@ -475,12 +474,16 @@ fn deterministic_mutation_matrix() {
             }
             1 => {
                 // Null output must be safe, never a crash.
-                let status = crate::biscuitsharp_call_v1(
-                    crate::tokens::OP_TOKEN_PARSE_VERIFY,
-                    ptr::null(),
-                    0,
-                    ptr::null_mut(),
-                );
+                // SAFETY: null input with length zero is valid; the null output
+                // address is the documented invalid-input probe being tested.
+                let status = unsafe {
+                    crate::biscuitsharp_call_v1(
+                        crate::tokens::OP_TOKEN_PARSE_VERIFY,
+                        ptr::null(),
+                        0,
+                        ptr::null_mut(),
+                    )
+                };
                 assert_eq!(status, STATUS_INVALID_INPUT);
                 (status, None)
             }

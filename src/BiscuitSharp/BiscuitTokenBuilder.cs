@@ -68,6 +68,7 @@ public abstract record BiscuitParam
 public sealed class BiscuitTokenBuilder
 {
     private readonly List<DatalogTemplate> _facts = new();
+    private readonly List<DatalogTemplate> _rules = new();
     private readonly List<DatalogTemplate> _checks = new();
 
     private sealed record DatalogTemplate(string Source, IReadOnlyDictionary<string, BiscuitParam>? Params);
@@ -156,6 +157,18 @@ public sealed class BiscuitTokenBuilder
         return this;
     }
 
+    /// <summary>
+    /// Adds a Datalog rule (e.g. <c>right("a", "read") &lt;- role("admin");</c>)
+    /// to the authority block. Rules derive facts at evaluation time.
+    /// </summary>
+    public BiscuitTokenBuilder AddRule(string datalogRule)
+    {
+        ArgumentNullException.ThrowIfNull(datalogRule);
+        RejectEmpty(datalogRule, nameof(datalogRule));
+        _rules.Add(new DatalogTemplate(datalogRule, null));
+        return this;
+    }
+
     public BiscuitToken Build(BiscuitPrivateKey rootKey)
     {
         ArgumentNullException.ThrowIfNull(rootKey);
@@ -164,6 +177,7 @@ public sealed class BiscuitTokenBuilder
         {
             w.WriteNumber("root_handle", handle);
             WriteItems(w, "facts", _facts);
+            WriteItems(w, "rules", _rules);
             WriteItems(w, "checks", _checks);
         });
         byte[] response = NativeBridge.Call(

@@ -46,15 +46,16 @@ output addresses violate the C contract and are not recoverable validation error
 | 2 | key_import (implemented: PEM string or base64 DER, algorithm auto-detected → handle + public half) |
 | 3 | key_export_public (implemented: handle → algorithm + raw public bytes) |
 | 4 | key_export_private (implemented: handle → base64 PKCS#8 DER) |
-| 5 | token_create (implemented: root handle + `{source, params?}` facts/checks through upstream `code`/`code_with_params` → canonical token) |
+| 5 | token_create (implemented: root handle + `{source, params?}` facts/rules/checks through upstream `code`/`code_with_params` → canonical token) |
 | 6 | token_parse_verify (implemented: verify against root → canonical token) |
 | 7 | token_serialize (reserved; unneeded — managed tokens already hold canonical bytes) |
 | 8 | token_attenuate (implemented: verify → append `{source, params?}` block; sealed append fails `sealed_token`) |
 | 9 | token_seal (implemented: verify → seal; reseal fails `sealed_token`. Sealing flips the chain terminator, it does not append a block) |
-| 10 | token_authorize (implemented: verify → ambient facts/checks/policies through upstream `code` → allow/deny answer with structured errors; first-match-wins in policy order; upstream default limits; no ambient time fact injected) |
+| 10 | token_authorize (implemented: verify → ambient facts/rules/checks/policies through upstream `code` → allow/deny answer with structured errors; first-match-wins in policy order; upstream default limits; no ambient time fact injected) |
 | 11 | token_revocation_ids (implemented: verify → per-block ids) |
 | 12 | token_inspect (implemented: verify → block count/sources/versions, seal probe, root key id, verified root algorithms, size) |
 | 13 | key_destroy (implemented: handle → drop native key; unknown handles error) |
+| 14 | key_import_public (implemented: algorithm + raw public bytes → validated canonical public key; validation is upstream decode, lenient about non-canonical encodings) |
 
 The exact ABI may consolidate operations, but managed callers must not depend on
 Rust ABI details. No Rust-owned pointers reach the public .NET API. Recoverable
@@ -95,8 +96,13 @@ baselines are not qualified.
 Build with `cargo --locked` and explicit target triples. Each staged asset carries
 `biscuitsharp-native.json`: ABI/bridge/toolchain, biscuit-auth version, token/spec
 version, target/RID, binary SHA-256, source commit, lock/source hashes, features.
-Packages carry upstream and transitive dependency license notices. The loader checks
-hash and expected identity, then queries live versions/features. It resolves the
+Packages carry upstream and transitive dependency license notices. When a
+manifest sits next to the asset (staged and packaged layouts), the loader
+verifies it: the file hash must match, and the live version identity reported
+by the loaded binary (engine, bridge, ABI, commit, lockfile, target, RID, Rust,
+features) must match the manifest field by field; any mismatch frees the
+library and fails the load. Assets without an adjacent manifest (local
+`target/debug` loop) keep the ABI-check-only behavior. The loader resolves the
 asset under `AppContext.BaseDirectory` (package-adjacent or its
 `runtimes/<rid>/native/` directory). `BISCUITSHARP_NATIVE_PATH` selects a
 self-built or vendored asset; relative paths are normalized against the current

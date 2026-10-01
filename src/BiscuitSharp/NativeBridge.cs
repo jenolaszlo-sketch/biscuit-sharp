@@ -19,6 +19,7 @@ internal static partial class NativeBridge
     internal const uint OpKeyExportPublic = 3;
     internal const uint OpKeyExportPrivate = 4;
     internal const uint OpKeyDestroy = 13;
+    internal const uint OpKeyImportPublic = 14;
     internal const uint OpTokenCreate = 5;
     internal const uint OpTokenParseVerify = 6;
     internal const uint OpTokenAttenuate = 8;

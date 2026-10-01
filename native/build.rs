@@ -39,8 +39,7 @@ fn main() {
     println!("cargo:rustc-env=BISCUITSHARP_CARGO_LOCK_SHA256={digest:x}");
 
     let text = String::from_utf8_lossy(&lock);
-    let version =
-        parse_package_version(&text, "biscuit-auth").expect("biscuit-auth in Cargo.lock");
+    let version = parse_package_version(&text, "biscuit-auth").expect("biscuit-auth in Cargo.lock");
     println!("cargo:rustc-env=BISCUITSHARP_BISCUIT_AUTH_VERSION={version}");
 
     // Compile-time triple for the crate itself (TARGET is only set for build scripts).

@@ -68,7 +68,7 @@ public static class BiscuitEngine
             lockHash);
     }
 
-    private static string HashLoadedFile(string path)
+    internal static string HashLoadedFile(string path)
     {
         try
         {

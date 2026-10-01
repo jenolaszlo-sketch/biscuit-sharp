@@ -7,5 +7,6 @@
   </Folder>
   <Folder Name="/samples/">
     <Project Path="samples/BiscuitSharp.Smoke/BiscuitSharp.Smoke.csproj" />
+    <Project Path="samples/BiscuitSharp.AotSmoke/BiscuitSharp.AotSmoke.csproj" />
   </Folder>
 </Solution>

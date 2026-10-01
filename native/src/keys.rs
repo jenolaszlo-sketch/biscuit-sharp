@@ -12,17 +12,16 @@ use std::str::FromStr;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{LazyLock, Mutex, MutexGuard};
 
-use biscuit_auth::{Algorithm, KeyPair, PrivateKey};
+use biscuit_auth::{Algorithm, KeyPair, PrivateKey, PublicKey};
 
-use crate::{
-    emit_error, emit_owned, BiscuitSharpBuffer, STATUS_INVALID_INPUT, STATUS_PANIC,
-};
+use crate::{emit_error, emit_owned, BiscuitSharpBuffer, STATUS_INVALID_INPUT, STATUS_PANIC};
 
 pub const OP_KEY_GENERATE: u32 = 1;
 pub const OP_KEY_IMPORT: u32 = 2;
 pub const OP_KEY_EXPORT_PUBLIC: u32 = 3;
 pub const OP_KEY_EXPORT_PRIVATE: u32 = 4;
 pub const OP_KEY_DESTROY: u32 = 13;
+pub const OP_KEY_IMPORT_PUBLIC: u32 = 14;
 
 struct KeyStore {
     next: AtomicU64,
@@ -38,7 +37,9 @@ static STORE: LazyLock<KeyStore> = LazyLock::new(|| KeyStore {
 
 /// Locks the store. On failure the error body is already emitted and the
 /// returned status must propagate; a poisoned store stays failed (fail closed).
-fn lock_store(output: *mut BiscuitSharpBuffer) -> Result<MutexGuard<'static, HashMap<u64, KeyPair>>, u32> {
+fn lock_store(
+    output: *mut BiscuitSharpBuffer,
+) -> Result<MutexGuard<'static, HashMap<u64, KeyPair>>, u32> {
     if STORE.poisoned.load(Ordering::SeqCst) {
         return Err(emit_error(
             output,
@@ -49,12 +50,7 @@ fn lock_store(output: *mut BiscuitSharpBuffer) -> Result<MutexGuard<'static, Has
     }
     STORE.keys.lock().map_err(|_| {
         STORE.poisoned.store(true, Ordering::SeqCst);
-        emit_error(
-            output,
-            STATUS_PANIC,
-            "panic",
-            "key store lock was poisoned",
-        )
+        emit_error(output, STATUS_PANIC, "panic", "key store lock was poisoned")
     })
 }
 
@@ -99,12 +95,7 @@ fn insert(pair: KeyPair, output: *mut BiscuitSharpBuffer) -> u32 {
     };
     let id = STORE.next.fetch_add(1, Ordering::SeqCst);
     if id == 0 {
-        return emit_error(
-            output,
-            STATUS_PANIC,
-            "panic",
-            "key handle space exhausted",
-        );
+        return emit_error(output, STATUS_PANIC, "panic", "key handle space exhausted");
     }
     store.insert(id, pair);
     drop(store);
@@ -226,6 +217,41 @@ pub fn op_key_export_private(input: &[u8], output: *mut BiscuitSharpBuffer) -> u
     }
 }
 
+/// OP_KEY_IMPORT_PUBLIC: `{"algorithm", "public_key" (base64 raw bytes)}` →
+/// validated canonical `{"algorithm", "public_key"}`. Validation is exactly
+/// upstream's: size plus successful decode (upstream is lenient about
+/// non-canonical encodings; bogus keys fail closed at verification time).
+/// This is the verification-only entry point: callers holding only a root
+/// public key validate it here without needing the private half.
+pub fn op_key_import_public(input: &[u8], output: *mut BiscuitSharpBuffer) -> u32 {
+    let req = match parse_request(input) {
+        Ok(v) => v,
+        Err(e) => return invalid(output, e),
+    };
+    let name = match required_str(&req, "algorithm") {
+        Ok(s) => s,
+        Err(e) => return invalid(output, e),
+    };
+    let algorithm = match name.parse::<Algorithm>() {
+        Ok(a) => a,
+        Err(e) => return invalid(output, format!("unknown algorithm '{name}': {e}")),
+    };
+    let bytes = match required_base64(&req, "public_key") {
+        Ok(b) => b,
+        Err(e) => return invalid(output, e),
+    };
+    match PublicKey::from_bytes(&bytes, algorithm) {
+        Ok(key) => {
+            let body = serde_json::json!({
+                "algorithm": key.algorithm_string(),
+                "public_key": base64::encode(key.to_bytes()),
+            });
+            emit_owned(output, body.to_string().into_bytes())
+        }
+        Err(e) => key_error(output, format!("public import failed: {e}")),
+    }
+}
+
 /// OP_KEY_DESTROY: `{"handle": id}` → `{}`. Dropping the handle drops the
 /// native key. Destroying an unknown handle is an error, never silent success.
 pub fn op_key_destroy(input: &[u8], output: *mut BiscuitSharpBuffer) -> u32 {
@@ -308,10 +334,11 @@ mod tests {
             data: ptr::null_mut(),
             len: 0,
         };
-        let status = crate::biscuitsharp_call_v1(op, bytes.as_ptr(), bytes.len(), &mut out);
+        // SAFETY: input is borrowed for the call; output is a valid writable struct.
+        let status =
+            unsafe { crate::biscuitsharp_call_v1(op, bytes.as_ptr(), bytes.len(), &mut out) };
         assert!(!out.data.is_null() && out.len != 0, "op must emit a body");
-        let slice =
-            unsafe { std::slice::from_raw_parts(out.data as *const u8, out.len) };
+        let slice = unsafe { std::slice::from_raw_parts(out.data as *const u8, out.len) };
         let value: serde_json::Value =
             serde_json::from_slice(slice).expect("output must be valid JSON");
         crate::biscuitsharp_free_v1(out);
@@ -328,7 +355,11 @@ mod tests {
         assert_ne!(handle, 0);
         let public = base64::decode(v["public_key"].as_str().expect("public_key")).expect("base64");
         assert!(!public.is_empty());
-        (handle, v["algorithm"].as_str().expect("algorithm").to_owned(), public)
+        (
+            handle,
+            v["algorithm"].as_str().expect("algorithm").to_owned(),
+            public,
+        )
     }
 
     fn destroy(handle: u64) {
@@ -391,10 +422,44 @@ mod tests {
         );
         assert_eq!(status, STATUS_OK, "PEM import: {v}");
         assert_eq!(v["algorithm"], "secp256r1");
-        let public =
-            base64::decode(v["public_key"].as_str().expect("public_key")).expect("base64");
+        let public = base64::decode(v["public_key"].as_str().expect("public_key")).expect("base64");
         assert_eq!(public, direct.public().to_bytes());
         destroy(v["handle"].as_u64().unwrap());
+    }
+
+    #[test]
+    fn public_import_round_trips_and_rejects_malformed() {
+        let (h, alg, public) = generate("ed25519");
+        assert_eq!(alg, "ed25519");
+        let (status, v) = call(
+            OP_KEY_IMPORT_PUBLIC,
+            serde_json::json!({ "algorithm": "ed25519", "public_key": base64::encode(&public) }),
+        );
+        assert_eq!(status, STATUS_OK, "public import: {v}");
+        assert_eq!(v["algorithm"], "ed25519");
+        let canonical =
+            base64::decode(v["public_key"].as_str().expect("public_key")).expect("base64");
+        assert_eq!(canonical, public, "canonical public bytes round-trip");
+        // Upstream import is deliberately lenient beyond length: ed25519-dalek
+        // reduces mod p, so even non-canonical 32-byte strings decode (exactly
+        // as a direct upstream call would). Bogus keys still fail closed at
+        // verification time, which the wrong-root tests prove. Import therefore
+        // checks size and algorithm, nothing more.
+        // Wrong size.
+        let (status, v) = call(
+            OP_KEY_IMPORT_PUBLIC,
+            serde_json::json!({ "algorithm": "ed25519", "public_key": base64::encode(b"short") }),
+        );
+        assert_eq!(status, STATUS_INVALID_INPUT);
+        assert_eq!(v["code"], "key_error");
+        // Unknown algorithm.
+        let (status, v) = call(
+            OP_KEY_IMPORT_PUBLIC,
+            serde_json::json!({ "algorithm": "rsa", "public_key": base64::encode(&public) }),
+        );
+        assert_eq!(status, STATUS_INVALID_INPUT);
+        assert_eq!(v["code"], "invalid_input");
+        destroy(h);
     }
 
     #[test]
@@ -408,9 +473,15 @@ mod tests {
         assert_eq!(status, STATUS_INVALID_INPUT);
         assert_eq!(v["code"], "invalid_input");
         // Not JSON at all.
-        let mut out = BiscuitSharpBuffer { data: ptr::null_mut(), len: 0 };
+        let mut out = BiscuitSharpBuffer {
+            data: ptr::null_mut(),
+            len: 0,
+        };
         let bytes = b"not json";
-        let status = crate::biscuitsharp_call_v1(OP_KEY_GENERATE, bytes.as_ptr(), bytes.len(), &mut out);
+        // SAFETY: input is borrowed for the call; output is a valid writable struct.
+        let status = unsafe {
+            crate::biscuitsharp_call_v1(OP_KEY_GENERATE, bytes.as_ptr(), bytes.len(), &mut out)
+        };
         assert_eq!(status, STATUS_INVALID_INPUT);
         crate::biscuitsharp_free_v1(out);
         // Bad base64.
@@ -464,15 +535,11 @@ mod tests {
                 s.spawn(|| {
                     for _ in 0..25 {
                         let (h, _, public) = generate("ed25519");
-                        let (status, v) = call(
-                            OP_KEY_EXPORT_PUBLIC,
-                            serde_json::json!({ "handle": h }),
-                        );
+                        let (status, v) =
+                            call(OP_KEY_EXPORT_PUBLIC, serde_json::json!({ "handle": h }));
                         assert_eq!(status, STATUS_OK);
-                        let again = base64::decode(
-                            v["public_key"].as_str().expect("public_key"),
-                        )
-                        .expect("base64");
+                        let again = base64::decode(v["public_key"].as_str().expect("public_key"))
+                            .expect("base64");
                         assert_eq!(again, public);
                         destroy(h);
                     }

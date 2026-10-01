@@ -34,7 +34,7 @@ public sealed class BiscuitPrivateKey : IDisposable
         byte[] response = NativeBridge.Call(
             NativeBridge.OpKeyGenerate,
             BridgeJson.EncodeAlgorithm(BiscuitAlgorithms.ToWireName(algorithm)),
-            MapKeyError);
+            BiscuitErrorMapping.MapKeyError);
         using JsonDocument doc = BridgeJson.Parse(response, "key_generate");
         return FromKeyResponse(doc.RootElement, "key_generate", algorithm);
     }
@@ -55,7 +55,7 @@ public sealed class BiscuitPrivateKey : IDisposable
         byte[] request = LooksLikePem(encoded)
             ? BridgeJson.EncodeKeyImportPem(Encoding.UTF8.GetString(encoded))
             : BridgeJson.EncodeKeyImportDer(encoded);
-        byte[] response = NativeBridge.Call(NativeBridge.OpKeyImport, request, MapKeyError);
+        byte[] response = NativeBridge.Call(NativeBridge.OpKeyImport, request, BiscuitErrorMapping.MapKeyError);
         using JsonDocument doc = BridgeJson.Parse(response, "key_import");
         return FromKeyResponse(doc.RootElement, "key_import");
     }
@@ -72,7 +72,7 @@ public sealed class BiscuitPrivateKey : IDisposable
         byte[] response = NativeBridge.Call(
             NativeBridge.OpKeyExportPrivate,
             BridgeJson.EncodeHandle(handle),
-            MapKeyError);
+            BiscuitErrorMapping.MapKeyError);
         using JsonDocument doc = BridgeJson.Parse(response, "key_export_private");
         return BridgeJson.RequiredBase64(doc.RootElement, "private_key", "key_export_private");
     }
@@ -139,7 +139,7 @@ public sealed class BiscuitPrivateKey : IDisposable
 
         try
         {
-            NativeBridge.Call(NativeBridge.OpKeyDestroy, BridgeJson.EncodeHandle(handle), MapKeyError);
+            NativeBridge.Call(NativeBridge.OpKeyDestroy, BridgeJson.EncodeHandle(handle), BiscuitErrorMapping.MapKeyError);
         }
         catch (Exception) when (!throwOnError)
         {
@@ -172,14 +172,6 @@ public sealed class BiscuitPrivateKey : IDisposable
 
     private static bool LooksLikePem(ReadOnlySpan<byte> encoded) =>
         encoded.IndexOf("-----BEGIN"u8) >= 0;
-
-    // Status 1 carries the operation's own failure codes; any other status is a
-    // native/ABI/transport problem regardless of the (possibly empty) body.
-    private static BiscuitException MapKeyError(uint status, string code, string message) =>
-        status != 1
-            ? new BiscuitBridgeException(
-                $"Biscuit native key call failed with status {status} ({code}: {message}).")
-            : new BiscuitKeyException($"Biscuit key operation failed ({code}): {message}.");
 }
 
 /// <summary>
@@ -223,4 +215,44 @@ public sealed class BiscuitPublicKey : IEquatable<BiscuitPublicKey>
 
     public override string ToString() =>
         $"BiscuitPublicKey {{ Algorithm = {Algorithm}, Length = {Encoded.Length} }}";
+
+    /// <summary>
+    /// Validates raw public-key bytes for the algorithm through the native
+    /// bridge (size plus upstream decode) and returns the canonical key. This
+    /// is the verification-only entry point: a caller holding only a root
+    /// public key validates it here without needing the private half.
+    /// </summary>
+    public static BiscuitPublicKey Parse(ReadOnlySpan<byte> encoded, BiscuitKeyAlgorithm algorithm)
+    {
+        if (encoded.IsEmpty)
+        {
+            throw new BiscuitKeyException("Cannot parse an empty public key.");
+        }
+
+        // Copied once: ref-like spans cannot be captured by the JSON writer.
+        byte[] bytes = encoded.ToArray();
+        byte[] request = BridgeJson.EncodeObject(w =>
+        {
+            w.WriteString("algorithm", BiscuitAlgorithms.ToWireName(algorithm));
+            w.WriteBase64String("public_key", bytes);
+        });
+        byte[] response = NativeBridge.Call(
+            NativeBridge.OpKeyImportPublic,
+            request,
+            BiscuitErrorMapping.MapKeyError);
+        using JsonDocument doc = BridgeJson.Parse(response, "key_import_public");
+        JsonElement root = doc.RootElement;
+        var parsedAlgorithm = BiscuitAlgorithms.FromWireName(
+            BridgeJson.RequiredString(root, "algorithm", "key_import_public"),
+            "key_import_public");
+        if (parsedAlgorithm != algorithm)
+        {
+            throw new BiscuitBridgeException(
+                $"The native key_import_public response claimed {parsedAlgorithm} for a {algorithm} request.");
+        }
+
+        return new BiscuitPublicKey(
+            BridgeJson.RequiredBase64(root, "public_key", "key_import_public"),
+            parsedAlgorithm);
+    }
 }

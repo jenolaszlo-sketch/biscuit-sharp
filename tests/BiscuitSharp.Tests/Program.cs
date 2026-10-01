@@ -2,10 +2,16 @@
 // against the real native asset. Requires a built bridge:
 // `cargo build --locked` in native/.
 // Full native/managed matrices live in docs/implementation-plan.md.
+using System.Diagnostics;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using BiscuitSharp;
+
+if (args.Length == 2 && args[0] == "--manifest-probe")
+{
+    return ManifestProbe(args[1]);
+}
 
 int failures = 0;
 
@@ -613,6 +619,60 @@ try
     Check(
         afterExpiry.Errors.Any(e => e.Code == "failed_check"),
         "expired check is reported as a failed check");
+
+    // 36. Public-key Parse validates without the private half.
+    BiscuitPublicKey parsedEd = BiscuitPublicKey.Parse(edKey.PublicKey.Encoded, BiscuitKeyAlgorithm.Ed25519);
+    Check(parsedEd == edKey.PublicKey, "Ed25519 public import round-trips");
+    BiscuitPublicKey parsedP256 = BiscuitPublicKey.Parse(p256Key.PublicKey.Encoded, BiscuitKeyAlgorithm.P256);
+    Check(parsedP256 == p256Key.PublicKey, "P-256 public import round-trips");
+    Check(Throws<BiscuitKeyException>(() => BiscuitPublicKey.Parse(Array.Empty<byte>(), BiscuitKeyAlgorithm.Ed25519)), "empty public import fails");
+    Check(Throws<BiscuitKeyException>(() => BiscuitPublicKey.Parse(new byte[] { 1, 2, 3 }, BiscuitKeyAlgorithm.Ed25519)), "short public import fails");
+    Check(Throws<ArgumentOutOfRangeException>(() => BiscuitPublicKey.Parse(edKey.PublicKey.Encoded, (BiscuitKeyAlgorithm)42)), "unknown public algorithm fails fast");
+    Check(
+        Throws<BiscuitKeyException>(() => BiscuitPublicKey.Parse(edKey.PublicKey.Encoded, BiscuitKeyAlgorithm.P256)),
+        "cross-algorithm public import fails");
+
+    // 37. Rules derive facts in the authority block and the authorizer scope.
+    BiscuitToken ruled = BiscuitTokenBuilder
+        .Create()
+        .AddFact("""role("admin")""")
+        .AddRule("""right("a", "read") <- role("admin");""")
+        .Build(rootKey);
+    BiscuitAuthorizationResult ruledAuth = BiscuitAuthorizer
+        .For(ruled)
+        .AddPolicy("""allow if right("a", "read");""")
+        .Authorize();
+    Check(ruledAuth.IsAuthorized, "token rule derives the allowed fact");
+    BiscuitAuthorizationResult scopeRuled = BiscuitAuthorizer
+        .For(token)
+        .AddFact("""role("admin")""")
+        .AddRule("""right("a", "read") <- role("admin");""")
+        .AddPolicy("""allow if right("a", "read");""")
+        .Authorize();
+    Check(scopeRuled.IsAuthorized, "authorizer rule derives the allowed fact");
+    Check(Throws<BiscuitDatalogException>(() => BiscuitTokenBuilder.Create().AddRule("right(").Build(rootKey)), "malformed builder rule fails");
+    Check(Throws<BiscuitDatalogException>(() => BiscuitAuthorizer.For(token).AddRule("right(").AddPolicy("""allow if right("a", "read");""").Authorize()), "malformed authorizer rule fails");
+    Check(Throws<ArgumentException>(() => BiscuitTokenBuilder.Create().AddRule("  ")), "empty rule fails fast");
+
+    // 38. Load-time manifest verification, via isolated child probes (the
+    // loader caches per process, so each scenario gets a fresh process).
+    string probeDir = Path.Combine(Path.GetTempPath(), "biscuit-sharp-manifest-" + Guid.NewGuid().ToString("N"));
+    Directory.CreateDirectory(probeDir);
+    try
+    {
+        string probeDll = Path.Combine(probeDir, Path.GetFileName(asset));
+        File.Copy(asset, probeDll);
+        BiscuitSharpVersionInfo live = BiscuitEngine.GetVersion();
+        string probeManifest = Path.Combine(probeDir, "biscuitsharp-native.json");
+        File.WriteAllText(probeManifest, BuildProbeManifest(live, live.NativeSha256));
+        Check(RunProbe(probeDll) == 0, "manifest-verified load succeeds");
+        File.WriteAllText(probeManifest, BuildProbeManifest(live, new string('0', 64)));
+        Check(RunProbe(probeDll) != 0, "tampered manifest refuses load");
+    }
+    finally
+    {
+        try { Directory.Delete(probeDir, true); } catch { }
+    }
 }
 finally
 {
@@ -639,6 +699,86 @@ static string FxString(JsonElement root, string field) =>
     root.TryGetProperty(field, out JsonElement value) && value.ValueKind == JsonValueKind.String
         ? value.GetString() ?? throw new InvalidOperationException($"Fixture field '{field}' is null.")
         : throw new InvalidOperationException($"Fixture is missing string field '{field}'.");
+
+/// Child-probe entry: loads exactly one native asset (via override) and
+/// reports whether manifest verification accepted it. Runs in a fresh process
+/// because the loader caches per process.
+static int ManifestProbe(string dllPath)
+{
+    Environment.SetEnvironmentVariable("BISCUITSHARP_NATIVE_PATH", dllPath);
+    try
+    {
+        BiscuitSharpVersionInfo version = BiscuitEngine.GetVersion();
+        Console.WriteLine($"MANIFEST-OK abi={version.AbiVersion} biscuit-auth={version.BiscuitAuthVersion}");
+        return 0;
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"MANIFEST-FAIL {ex.GetType().Name}: {ex.Message.Split('\n')[0]}");
+        return 1;
+    }
+}
+
+static string BuildProbeManifest(BiscuitSharpVersionInfo live, string binarySha256)
+{
+    string features = string.Join(",", live.EnabledFeatures.Split(',').Select(f => $"\"{f}\""));
+    return "{\"binary_sha256\":\"" + binarySha256
+        + "\",\"abi\":" + live.AbiVersion
+        + ",\"biscuit_auth\":\"" + live.BiscuitAuthVersion
+        + "\",\"bridge\":\"" + live.BridgeVersion
+        + "\",\"upstream_commit\":\"" + live.UpstreamCommit
+        + "\",\"cargo_lock_sha256\":\"" + live.CargoLockHash
+        + "\",\"target\":\"" + live.TargetTriple
+        + "\",\"rid\":\"" + live.RuntimeIdentifier
+        + "\",\"rust\":\"" + live.RustVersion
+        + "\",\"enabled_features\":[" + features + "]}";
+}
+
+static int RunProbe(string dllPath)
+{
+    string repoRoot = FindRepoRoot();
+    string project = Path.Combine(repoRoot, "tests", "BiscuitSharp.Tests", "BiscuitSharp.Tests.csproj");
+    // Prefer the current muxer; fall back to PATH lookup.
+    string? muxer = Environment.ProcessPath;
+    string fileName;
+    string arguments;
+    if (muxer is not null && Path.GetFileName(muxer).StartsWith("dotnet", StringComparison.OrdinalIgnoreCase))
+    {
+        fileName = muxer;
+        arguments = $"run --project \"{project}\" --framework net8.0 -- --manifest-probe \"{dllPath}\"";
+    }
+    else
+    {
+        fileName = "dotnet";
+        arguments = $"run --project \"{project}\" --framework net8.0 -- --manifest-probe \"{dllPath}\"";
+    }
+
+    using var process = new Process
+    {
+        StartInfo = new ProcessStartInfo
+        {
+            FileName = fileName,
+            Arguments = arguments,
+            WorkingDirectory = repoRoot,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false,
+        },
+    };
+    var output = new StringBuilder();
+    process.OutputDataReceived += (_, e) => { if (e.Data is not null) { output.AppendLine(e.Data); } };
+    process.Start();
+    process.BeginOutputReadLine();
+    if (!process.WaitForExit(300000))
+    {
+        try { process.Kill(); } catch { }
+        Console.WriteLine("Probe timed out.");
+        return 2;
+    }
+
+    Console.WriteLine(output.ToString().Trim());
+    return process.ExitCode;
+}
 
 static string FindNativeAsset(string fileName)
 {

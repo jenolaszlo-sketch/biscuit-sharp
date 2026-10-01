@@ -1,30 +1,32 @@
 # Review findings (open items)
 
-Third review pass, 2026-10-01. Issues **found and not fixed**, kept honest for
-follow-on work. The implemented surface (keys, tokens, authorization) has no
-known correctness defects; everything below is a gap, a deliberate limitation,
-or a process item. Status labels: **Gap** (missing capability), **Limit**
-(by-design or inherent, documented), **Deferred** (planned, spec §13/14/M2),
+Third review pass, 2026-10-01, updated 2026-10-02. Issues found and their
+status. Items marked **Fixed** were resolved after the pass; the rest remain
+honest follow-on work. The implemented surface has no known correctness
+defects. Status labels: **Gap** (missing capability), **Limit** (by-design or
+inherent, documented), **Deferred** (planned, spec §13/14/M2),
 **Cosmetic** (style/process).
 
 ## Functional gaps
 
-1. **Gap — no public-key import/parse.** `BiscuitPublicKey` can only be built
-   from `BiscuitPrivateKey.PublicKey` or its raw-bytes constructor. There is no
-   `Parse`/`Import` for upstream encoded forms (hex, `ed25519:`/`secp256r1:`
-   prefixed strings, DER/PEM public keys) and no native import-public operation.
-   A verifier that holds only a root public key (the common Hufu case) must
-   obtain the exact raw bytes and algorithm out of band. Highest-value gap.
-2. **Gap — no authorizer rules.** `BiscuitAuthorizer` exposes facts, checks, and
-   policies (`AddFact`/`AddCheck`/`AddPolicy`/`AddTimeFact`) but not Datalog
-   rules. Rules are part of the language; upstream `code()` already accepts
-   them, so this is a one-method addition.
-3. **Gap — loader verifies existence + ABI only.** Manifest, SHA-256, upstream
-   version/commit, and lockfile identity are checked at *build/staging* time
-   (`eng/` stubs) and reported by `GetVersion()`, but the loader does not verify
-   them at load. Planned for M2 staging.
-4. **Deferred — NativeAOT, packaging, clean consumers.** No AOT publish/execute,
-   no `dotnet pack` verification, no external package consumers. M2.
+1. **Fixed 2026-10-02 — public-key import/parse.** New `key_import_public`
+   bridge op (op 14) plus `BiscuitPublicKey.Parse`, validating raw public bytes
+   for an algorithm without the private half. Upstream decode is lenient about
+   non-canonical encodings (pinned by test); bogus keys still fail closed at
+   verification time. Textual encodings (hex, prefixed strings, DER/PEM
+   *public* keys) remain open.
+2. **Fixed 2026-10-02 — authorizer rules.** `AddRule` on `BiscuitTokenBuilder`
+   and `BiscuitAuthorizer`, wired through `code()` with malformed-rule tests.
+3. **Partially fixed 2026-10-02 — loader verification.** Load-time manifest
+   verification (hash + live identity, tamper-refusing, child-process probes)
+   is implemented for staged/packaged assets; assets without an adjacent
+   manifest keep ABI-check-only behavior. Full M2 manifest coverage (all RIDs)
+   stays open.
+4. **Partially done 2026-10-02 — NativeAOT, packaging, clean consumers.**
+   win-x64 only, local: NativeAOT publish + execute green, single-RID pack +
+   archive verification green, one isolated-cache clean consumer green. The
+   three-RID CI matrix, `Verify-NativeStaging` / `Verify-NuGetPackage` /
+   `Test-PackagedConsumer` automation, and publication stay open (M2).
 5. **Deferred — leak instrumentation.** No Valgrind/equivalent run (needs Linux).
 6. **Gap — no cancellation/timeout/tuning.** Authorization, issuance, and
    parsing run synchronously with upstream default execution limits and no way
@@ -86,34 +88,37 @@ or a process item. Status labels: **Gap** (missing capability), **Limit**
 
 ## Static-analysis findings (cosmetic / process)
 
-24. **Cosmetic — clippy correctness:** `biscuitsharp_call_v1` dereferences a
-    caller-provided raw pointer without being `unsafe`
-    (`clippy::not_unsafe_ptr_arg_deref`, deny-by-default). Conventional for a C
-    ABI; marking `unsafe extern "C"` would ripple through internal call sites.
-    Clippy is not wired into CI.
-25. **Cosmetic — clippy style:** `native/src/tokens.rs:134` match→`?`;
-    `native/src/adversarial.rs:93` index loop → iterator.
+24. **Fixed 2026-10-02 — clippy correctness.** `biscuitsharp_call_v1` is now
+    `unsafe extern "C"` with documented safety; all internal call sites use
+    explicit `unsafe` blocks. `cargo clippy --locked --all-targets -- -D warnings`
+    is clean.
+25. **Fixed 2026-10-02 — clippy style.** `tokens.rs` uses `?`; the fuzz splice
+    loop uses iterators. `cargo fmt --check` is clean.
 26. **Process — C# XML docs** are suppressed via `NoWarn` (CS1591); the plan is
     to require them before 1.0.
-27. **Process — no CI for clippy/rustfmt** for the native crate.
+27. **Partially fixed 2026-10-02 — CI lint jobs.** A `native-lints` job runs
+    `cargo fmt --check` and `cargo clippy -D warnings` (Ubuntu). rustfmt
+    compliance of future edits is enforced; reviewers should still eyeball
+    formatting in PRs since `fmt` cannot judge naming or structure.
 
 ## CI / process gaps
 
 28. **Gap — native tests only on Windows.** The Linux/macOS managed jobs build
     the cdylib but do not run `cargo test`; the mutation matrix and differential
     tests therefore never run on those RIDs in CI.
-29. **Gap — `samples/BiscuitSharp.AotSmoke` is not in `BiscuitSharp.slnx`.** A
-    solution build never compiles it, so AOT regressions surface only when the
-    M2 AOT job runs.
+29. **Fixed 2026-10-02 — `samples/BiscuitSharp.AotSmoke` is in
+    `BiscuitSharp.slnx`.** Solution builds compile it; the win-x64 publish +
+    execute smoke passed locally. Per-RID CI execution stays open (M2).
 30. **Process — package-validation baseline removed** (a non-published baseline
     breaks `dotnet pack`); restore `PackageValidationBaselineVersion` once
     `0.1.0-preview.1` is on NuGet.
 
-## Suggested order of follow-on work
+## Suggested order of follow-on work (updated 2026-10-02)
 
-1. Public-key import/parse (Gap 1) — unblocks verification-only consumers.
-2. `AddRule` (Gap 2) and the Datalog rule tests.
-3. M2 win-x64 staging: release triple build, manifest/hash, load-time
-   verification (Gap 3), AOT smoke (Gap 4/29), package + consumer verification.
+1. ~~Public-key import/parse~~ done; textual public-key encodings remain.
+2. ~~`AddRule`~~ done.
+3. M2 Linux/macOS: release builds, staging, CI matrix, remaining five clean
+   consumers, `Verify-NativeStaging` / `Verify-NuGetPackage` /
+   `Test-PackagedConsumer` automation, publication.
 4. Linux/macOS native test jobs (Gap 8/28) and Valgrind (Gap 5).
 5. Cancellation/limits (Gap 6); then clippy/rustfmt in CI (27).

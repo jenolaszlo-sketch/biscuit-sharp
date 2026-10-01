@@ -58,6 +58,7 @@ public sealed class BiscuitAuthorizer
 {
     private readonly BiscuitToken _token;
     private readonly List<string> _facts = new();
+    private readonly List<string> _rules = new();
     private readonly List<string> _checks = new();
     private readonly List<string> _policies = new();
 
@@ -97,6 +98,18 @@ public sealed class BiscuitAuthorizer
     }
 
     /// <summary>
+    /// Adds a Datalog rule (e.g. <c>right("a", "read") &lt;- role("admin");</c>)
+    /// to the ambient authorizer scope. Rules derive facts at evaluation time.
+    /// </summary>
+    public BiscuitAuthorizer AddRule(string datalogRule)
+    {
+        ArgumentNullException.ThrowIfNull(datalogRule);
+        RejectEmpty(datalogRule, nameof(datalogRule));
+        _rules.Add(datalogRule);
+        return this;
+    }
+
+    /// <summary>
     /// Adds an explicit ambient <c>time(...)</c> fact (RFC 3339, UTC) so
     /// expiration checks like <c>check if time($t), $t &lt; 2030-01-01T00:00:00Z;</c>
     /// evaluate deterministically. Time is never injected implicitly.
@@ -115,6 +128,7 @@ public sealed class BiscuitAuthorizer
             w.WriteBase64String("token", _token.ToBytes());
             BridgeJson.WriteRoot(w, _token.Root);
             WriteSources(w, "facts", _facts);
+            WriteSources(w, "rules", _rules);
             WriteSources(w, "checks", _checks);
             WriteSources(w, "policies", _policies);
         });

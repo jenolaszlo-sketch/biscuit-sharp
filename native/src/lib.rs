@@ -37,9 +37,9 @@ pub struct BiscuitSharpBuffer {
     pub len: usize,
 }
 
+mod authorizer;
 mod keys;
 mod tokens;
-mod authorizer;
 
 #[cfg(test)]
 mod adversarial;
@@ -73,8 +73,15 @@ pub extern "C" fn biscuitsharp_abi_version() -> u32 {
 }
 
 /// Stable dispatch entry point. Always initializes `output` first; never unwinds.
+///
+/// # Safety
+/// The caller must provide a readable `input` for `input_len` bytes (or null
+/// for length zero) and a writable `output` struct for the duration of the
+/// call, and must free a nonempty returned buffer exactly once with
+/// [`biscuitsharp_free_v1`]. Marked `unsafe` because it dereferences
+/// caller-provided pointers (clippy `not_unsafe_ptr_arg_deref`).
 #[no_mangle]
-pub extern "C" fn biscuitsharp_call_v1(
+pub unsafe extern "C" fn biscuitsharp_call_v1(
     operation: u32,
     input: *const u8,
     input_len: usize,
@@ -133,6 +140,7 @@ fn dispatch(
         keys::OP_KEY_EXPORT_PUBLIC => keys::op_key_export_public(bytes, output),
         keys::OP_KEY_EXPORT_PRIVATE => keys::op_key_export_private(bytes, output),
         keys::OP_KEY_DESTROY => keys::op_key_destroy(bytes, output),
+        keys::OP_KEY_IMPORT_PUBLIC => keys::op_key_import_public(bytes, output),
         tokens::OP_TOKEN_CREATE => tokens::op_token_create(bytes, output),
         tokens::OP_TOKEN_PARSE_VERIFY => tokens::op_token_parse_verify(bytes, output),
         tokens::OP_TOKEN_ATTENUATE => tokens::op_token_attenuate(bytes, output),
@@ -177,12 +185,7 @@ fn op_version(input: &[u8], output: *mut BiscuitSharpBuffer) -> u32 {
     emit_owned(output, body.to_string().into_bytes())
 }
 
-fn emit_error(
-    output: *mut BiscuitSharpBuffer,
-    status: u32,
-    code: &str,
-    message: &str,
-) -> u32 {
+fn emit_error(output: *mut BiscuitSharpBuffer, status: u32, code: &str, message: &str) -> u32 {
     let body = serde_json::json!({ "code": code, "message": message });
     let emit = emit_owned(output, body.to_string().into_bytes());
     if emit != STATUS_OK {
@@ -232,13 +235,24 @@ mod tests {
         value
     }
 
+    /// Test-only entry into the (now `unsafe`) FFI boundary.
+    fn call_raw(
+        operation: u32,
+        input: *const u8,
+        input_len: usize,
+        output: *mut BiscuitSharpBuffer,
+    ) -> u32 {
+        // SAFETY: test inputs are valid for the call by construction.
+        unsafe { biscuitsharp_call_v1(operation, input, input_len, output) }
+    }
+
     #[test]
     fn version_reports_loaded_identity() {
         let mut out = BiscuitSharpBuffer {
             data: ptr::null_mut(),
             len: 0,
         };
-        let status = biscuitsharp_call_v1(OP_VERSION, ptr::null(), 0, &mut out);
+        let status = call_raw(OP_VERSION, ptr::null(), 0, &mut out);
         assert_eq!(status, STATUS_OK);
         let v = take_json(out);
         assert_eq!(v["biscuit_auth_version"], "6.0.0");
@@ -263,7 +277,7 @@ mod tests {
             data: ptr::null_mut(),
             len: 0,
         };
-        let status = biscuitsharp_call_v1(0xFFFF_FFFF, ptr::null(), 0, &mut out);
+        let status = call_raw(0xFFFF_FFFF, ptr::null(), 0, &mut out);
         assert_eq!(status, STATUS_UNSUPPORTED_OP);
         let v = take_json(out);
         assert_eq!(v["code"], "unsupported_operation");
@@ -276,7 +290,7 @@ mod tests {
             data: ptr::null_mut(),
             len: 0,
         };
-        let status = biscuitsharp_call_v1(OP_VERSION, input.as_ptr(), input.len(), &mut out);
+        let status = call_raw(OP_VERSION, input.as_ptr(), input.len(), &mut out);
         assert_eq!(status, STATUS_INVALID_INPUT);
         let v = take_json(out);
         assert_eq!(v["code"], "invalid_input");
@@ -284,7 +298,7 @@ mod tests {
 
     #[test]
     fn null_output_is_invalid_input_without_crash() {
-        let status = biscuitsharp_call_v1(OP_VERSION, ptr::null(), 0, ptr::null_mut());
+        let status = call_raw(OP_VERSION, ptr::null(), 0, ptr::null_mut());
         assert_eq!(status, STATUS_INVALID_INPUT);
     }
 
@@ -295,8 +309,7 @@ mod tests {
             len: 0,
         };
         // Null with huge length: rejected on the bound, never dereferenced.
-        let status =
-            biscuitsharp_call_v1(OP_VERSION, ptr::null(), MAX_INPUT_BYTES + 1, &mut out);
+        let status = call_raw(OP_VERSION, ptr::null(), MAX_INPUT_BYTES + 1, &mut out);
         assert_eq!(status, STATUS_INVALID_INPUT);
         let v = take_json(out);
         assert_eq!(v["code"], "invalid_input");
