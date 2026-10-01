@@ -2,9 +2,217 @@
 
 Audit date: 2026-10-01 (Asia/Manila).
 Repository: C:\Users\Laszlos\source\repos\biscuit-sharp
-Reviewed HEAD: fb82be79737396da5cb4823072a94738eabd118b.
+Original reviewed HEAD: fb82be79737396da5cb4823072a94738eabd118b. Latest reviewed HEAD: cf4c56c1d96a3aa0a7fcb097e72e054ba7080a76 (second review below).
 Original audit scope: managed public API and contract, native boundary, authorization semantics, provenance, packaging/CI, structure, and consumer usability. The follow-up below records implementation changes made after the review; publication remains pending.
 
+
+## Second solution review — 2026-10-02
+
+Reviewed HEAD: **cf4c56c1d96a3aa0a7fcb097e72e054ba7080a76**.
+Scope: managed API against api-contract.md, ownership/native loading, native
+authorization/token/key paths, provenance/release scripts, API/symbol gates,
+budget evidence and consumer usability. Production code and release
+configuration were not changed in this review.
+
+### Recommendation and current status
+
+All **19 jobs** passed at reviewed HEAD:
+[CI run 36940735976](https://github.com/jenolaszlo-sketch/biscuit-sharp/actions/runs/36940735976).
+The selected candidate remains the immutable artifact from
+5dd9e199b32ea18d1499a5e055cbe658c9e0b0a1 /
+[run 36940126702](https://github.com/jenolaszlo-sketch/biscuit-sharp/actions/runs/36940126702);
+cf4c56c changes release records only. Successful CI does not establish complete
+coverage of every public contract.
+
+Three gaps were reproduced: legal verification is not bound to source archive
+contents, BiscuitParam remains externally derivable, and the API inventory
+excludes public operators/protected members. Resolve F09–F11 before calling
+the API/provenance gates frozen. F12 is a smaller source-confirmed decoding gap.
+No new authorization bypass or P0/P1 runtime defect was established in this pass.
+
+The protected nuget-production environment still does not exist. NUGET_USER
+was previously confirmed; the maintainer reported the trusted-publisher policy
+ready, but this review did not inspect that private NuGet policy. The explicit
+reviewer/self-review choice remains outstanding. Publication, public-feed
+verification and the published compatibility baseline remain pending.
+
+### New findings
+
+#### F09 — P2: legal material is not bound to the verified source archive
+
+Evidence: eng/Build-Native.ps1:155–168,
+eng/Verify-NativeStaging.ps1:90–100,
+eng/Verify-NuGetPackage.ps1:98–107.
+
+The scripts verify the cached .crate checksum against Cargo.lock and separately
+verify each shipped legal file against licenses.json. They never establish that
+those legal bytes came from the verified archive. Build-Native copies from the
+extracted Cargo source tree; verifying a separate archive does not establish
+the integrity of extracted files. source_name records only a basename, making
+nested source locations ambiguous.
+
+**Reproduced twice:** on a disposable staging copy and a copy of the actual
+qualified three-RID nupkg, replace one legal file with
+"REVIEW PROBE: this is not upstream license text." and update its licenses.json
+sha256. Leave registry_archive_sha256 and Cargo.lock untouched. Both staging
+and complete package verification exit successfully. Existing tamper tests
+change text without updating its inventory hash, so they miss this case.
+
+This does **not** establish that the candidate contains incorrect legal text:
+an independent comparison verified all 436 material entries across all three
+RID bundles against the checksum-verified source archives.
+
+**Fix:** derive legal material from the verified archive, or compare extracted
+files against archive entries before staging. Record full crate-relative source
+paths. Independently reconstruct required material coverage and compare shipped
+bytes to source in the shared staging/package validation logic.
+
+**Acceptance:** changed text plus an updated inventory hash still fails; missing
+recognized upstream legal entries fail; genuine three-RID material passes.
+This is an integrity/evidence finding, not a legal opinion.
+
+#### F10 — P2: a private constructor does not close BiscuitParam record inheritance
+
+Evidence: src/BiscuitSharp/BiscuitTokenBuilder.cs:12–14 and :61.
+
+The compiler synthesizes a protected copy constructor for the abstract record.
+A separate consumer assembly can compile and instantiate:
+
+~~~csharp
+public sealed record ConsumerParam : BiscuitParam
+{
+    public ConsumerParam(BiscuitParam original) : base(original) { }
+}
+~~~
+
+**Reproduced:** new ConsumerParam(BiscuitParam.Str("value")) succeeds. AddFact
+accepts it; Build later throws ArgumentException ("Unsupported Biscuit parameter:
+ConsumerParam", parameter "name") from WriteTo. The earlier factory-only
+construction claim is incomplete.
+
+**Fix before freeze:** choose a genuinely closed representation, such as a sealed
+immutable class with private construction, or deliberately support/document
+extensibility. Do not retain accidental inheritance when serialization accepts
+only private concrete variants.
+
+**Acceptance:** an external-consumer negative compile test proves unsupported
+derivation is impossible if the design stays closed; all four factory round-trips
+and byte ownership remain correct. Closing an already-published record hierarchy
+would be a breaking change, which makes this timely to resolve.
+
+#### F11 — P2: the 189-entry inventory omits existing source/binary API
+
+Evidence: tests/BiscuitSharp.ApiSurface/Program.cs:46 and :52.
+
+BindingFlags.Public excludes protected members. The !IsSpecialName method
+filter excludes operator methods alongside property/event accessors.
+
+**Reproduced by reflection:** 18 current public equality/inequality operators
+are skipped, as is BiscuitParam's protected copy constructor. Removing these can
+leave the inventory unchanged while breaking consumers. This also hid F10.
+The published package baseline is not enabled yet.
+
+**Fix:** include public and externally accessible protected members; distinguish
+op_* operators from property/event accessors. Define coverage for constraints and
+attributes, or use maintained API compatibility tooling with a known coverage
+contract. Keep the readable inventory as an aid, not a claim of exhaustive binary
+compatibility.
+
+**Acceptance:** changing/removing an operator or protected constructor fails
+the gate on both TFMs. Published-package compatibility remains a separate gate.
+
+#### F12 — P2: inspection numeric conversions escape the bridge exception contract
+
+Evidence: src/BiscuitSharp/BiscuitToken.cs:196, :217–247 and :282.
+
+Inspect uses checked UInt32-to-Int32 and UInt64-to-Int64 conversions for
+block_count and token_size. A valid JSON number outside the managed range
+throws OverflowException rather than BiscuitBridgeException. Revocation-id count
+is also not checked against block_count, unlike source/version counts.
+
+This is **source-confirmed**, not reproduced through a corrupt native shim.
+The current native implementation caps inspection at 4,096 blocks and ordinary
+token sizes cannot reach these extremes; this is defensive response validation,
+not a demonstrated valid-token failure.
+
+**Fix:** extract a testable inspection-response parser; enforce numeric ranges
+and related-array consistency; reject malformed responses with the documented
+bridge exception.
+
+**Acceptance:** oversized unsigned counts/sizes and inconsistent revocation-id
+arrays fail with BiscuitBridgeException; valid inspection output is unchanged.
+The earlier F05 finding is mostly addressed, not exhaustively closed.
+
+### Structure, usability and qualification opportunities
+
+These are follow-on improvements, not demonstrated credential bypasses.
+
+- **P3 — process architecture:** NativeLoader.cs:35–56 uses OSArchitecture.
+  Native libraries must match ProcessArchitecture; these differ under emulation.
+  Select/report the process architecture. ARM-host emulation was not tested and
+  remains unqualified; this suggestion does not expand supported-platform claims.
+- **P3 — safe ambient parameters:** typed parameters exist for token-builder facts,
+  but authorizer facts/rules/checks and attenuation expose only raw Datalog.
+  Consider matching AOT-safe template overloads for ambient request values,
+  sharing a small internal template representation. This reduces caller
+  interpolation/escaping work. The intentional raw-source API is not itself a
+  demonstrated vulnerability.
+- **P3 — budget evidence:** default hostile growth is measured once; concurrent
+  hostile probes use a smaller explicit budget. Working-set observations are
+  endpoints, not peaks (BudgetProbe/Program.cs:21–27, :44–58). Measure hostile
+  default-budget concurrency and peak memory before recommending universal
+  Hufu settings. Retain the distinction between evaluation budgets, memory
+  caps and end-to-end deadlines.
+- **P3 — packaged NativeAOT:** Test-Dist.ps1:40–44 publishes a project-reference
+  sample and forces a staged native path. It verifies staged-asset AOT execution;
+  the six package consumers use ordinary dotnet run. Add a clean NuGet-reference
+  AOT publish/run without the override to also qualify package-driven asset
+  selection. Keep these evidence claims distinct.
+- **P3 — internal structure:** a single immutable verified load state could cache
+  exports after successful probing. Current locking is correct for the reviewed
+  lifecycle, but performs repeated lookups. Share strict JSON readers and legal
+  validation rather than adding broad abstraction layers; profile first.
+- Complete XML documentation before 1.0. Preserve documentation of collection
+  reference equality, synchronous evaluation and coordinated key disposal.
+
+### Re-verification and evidence
+
+- Reviewed-HEAD CI: 19/19 successful, including strict Valgrind, three
+  distribution/NativeAOT jobs, six consumers, inventory, budgets, SourceLink
+  and existing legal tamper checks.
+- git ls-remote against the official upstream repository still returns
+  0f0b4e0e6fe07220c1ba6b51bff21d450d94a975 for
+  refs/tags/biscuit-auth-6.0.0, matching the pin.
+- Cargo.lock SHA-256:
+  ad3a231ee5ec0dd3c9763ee01a3af5a97fc6758131e5ae2b83ced2a05b13ed9c.
+- Independent **original candidate** archive inspection: all recognized
+  license/notice/copyright entries match checksum-verified crate archives:
+  74 runtime crates on linux-x64, 74 on osx-arm64, 73 on win-x64; 436 redistributed
+  entries across 74 unique crates. This validates current bytes and recognized
+  filename coverage, not every legal obligation or the existing gate's strength.
+- Separate net8.0 consumer reproduced external record derivation and delayed
+  Build rejection; reflection identified 18 omitted operators.
+- Staging and full three-RID package verifiers accepted self-consistently altered
+  legal material in disposable copies. Original artifacts were untouched.
+- Probe sources/copies are under ignored artifacts/re-review-20261002/. The
+  reproductions are described here so handoff does not depend on those local
+  files. No full test rerun was needed for this documentation-only review;
+  current-HEAD CI supplied regression evidence.
+
+### Revised handoff sequence
+
+1. Resolve F09–F11 before declaring provenance/API freeze complete.
+2. Close F12 with focused malformed-response tests. Prioritize P3 opportunities
+   by consumer need instead of treating all of them as preview blockers.
+3. Update affected inventory/contracts/release ledgers and rerun the full matrix
+   at the new implementation SHA; existing runs do not qualify future fixes.
+4. Resolve protected-environment reviewer/self-review configuration, publish the
+   exact selected qualified artifact and run all six public-feed consumers.
+5. Restore the published preview baseline and re-freeze; carry Hufu budgeting
+   and integration separately.
+
+The original audit and dated follow-ups below are historical evidence. This
+second-review section takes precedence where their status claims differ.
 
 ## Graduation follow-up — 2026-10-02
 
