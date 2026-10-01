@@ -17,7 +17,7 @@ See [verification evidence](docs/verification.md) for executed results.
 - [x] Implement the native bridge: key generate/import/export/destroy, token create/parse-verify/attenuate/seal, authorize, revocation IDs, inspection, version identity (serialize unneeded: managed tokens hold canonical bytes).
 - [x] Implement the managed surface: keys, builder (textual + parameterized Datalog), token, attenuation, seal, authorizer, revocation IDs, inspection, version info, exception taxonomy.
 - [x] Add native differential tests (bridge vs direct Rust) and managed integration tests, including attenuation-narrows, seal, tamper/wrong-root/truncation, malformed Datalog, Unicode, invalid UTF-8, oversized inputs, concurrency (panic containment and bidirectional compat still open — see below).
-- [ ] Add bidirectional compatibility tests: Rust↔BiscuitSharp issue/verify/attenuate plus spec/sample-token fixtures.
+- [x] Add bidirectional compatibility tests: Rust↔BiscuitSharp issue/verify/attenuate plus committed deterministic fixtures (`eng/Test-Compat.ps1`, Windows x64; other RIDs await M2 CI).
 - [x] Compile and run the .NET 8 / .NET 10 solution with the real native asset (Windows x64; Linux/macOS await M2 CI).
 
 ## M2: distribution gate

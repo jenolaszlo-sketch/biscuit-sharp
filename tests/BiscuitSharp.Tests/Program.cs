@@ -4,6 +4,7 @@
 // Full native/managed matrices live in docs/implementation-plan.md.
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json;
 using BiscuitSharp;
 
 int failures = 0;
@@ -401,11 +402,143 @@ try
         }
     });
     Check(authErrors == 0, "concurrent authorization");
+
+    // 29. Committed interop fixtures: direct-Rust-generated, always present.
+    string repoRoot = FindRepoRoot();
+    Check(repoRoot != "", "repository root located");
+    string genesisPath = repoRoot == "" ? "" : Path.Combine(repoRoot, "fixtures", "compat", "genesis.json");
+    Check(genesisPath != "" && File.Exists(genesisPath), "committed genesis fixture present");
+    if (genesisPath != "" && File.Exists(genesisPath))
+    {
+        using JsonDocument genesisDoc = JsonDocument.Parse(File.ReadAllBytes(genesisPath));
+        JsonElement fx = genesisDoc.RootElement;
+        var fxRoot = new BiscuitPublicKey(
+            Convert.FromBase64String(FxString(fx, "public_b64")),
+            FxString(fx, "algorithm") == "ed25519" ? BiscuitKeyAlgorithm.Ed25519 : BiscuitKeyAlgorithm.P256);
+        BiscuitToken fxToken = BiscuitToken.Parse(Convert.FromBase64String(FxString(fx, "token_b64")), fxRoot);
+        Check(fxToken.Inspect().BlockSources[0].Contains("workspace.main", StringComparison.Ordinal), "fixture token verifies with expected content");
+        BiscuitAuthorizationResult fxAuth = BiscuitAuthorizer
+            .For(fxToken)
+            .AddFact("""operation("read")""")
+            .AddPolicy("""allow if right("workspace.main", "read");""")
+            .Authorize();
+        Check(fxAuth.IsAuthorized, "fixture token authorizes");
+        using BiscuitPrivateKey fxKey = BiscuitPrivateKey.Import(Convert.FromBase64String(FxString(fx, "private_der_b64")));
+        Check(fxKey.PublicKey.Encoded.SequenceEqual(fxRoot.Encoded), "fixture private import reproduces the root");
+    }
+
+    // 30. Generated exchange (requires Rust fixtures from compat_gen). Skipped in
+    // consume mode so the prior run's fixtures survive for section 31.
+    bool compatConsumeOnly = Environment.GetEnvironmentVariable("BISCUITSHARP_COMPAT_CONSUME") == "1";
+    string compatDir = repoRoot == "" ? "" : Path.Combine(repoRoot, "artifacts", "compat");
+    string rustFxDir = compatDir == "" ? "" : Path.Combine(compatDir, "rust");
+    string managedFxDir = compatDir == "" ? "" : Path.Combine(compatDir, "managed");
+    string rustRootPath = rustFxDir == "" ? "" : Path.Combine(rustFxDir, "root.json");
+    string rustParentPath = rustFxDir == "" ? "" : Path.Combine(rustFxDir, "parent.json");
+    if (!compatConsumeOnly)
+    {
+    if (rustRootPath != "" && File.Exists(rustRootPath) && File.Exists(rustParentPath))
+    {
+        Directory.CreateDirectory(managedFxDir);
+        using JsonDocument rustRootDoc = JsonDocument.Parse(File.ReadAllBytes(rustRootPath));
+        using JsonDocument rustParentDoc = JsonDocument.Parse(File.ReadAllBytes(rustParentPath));
+        using BiscuitPrivateKey compatRoot = BiscuitPrivateKey.Import(Convert.FromBase64String(FxString(rustRootDoc.RootElement, "private_der_b64")));
+        BiscuitPublicKey compatPub = compatRoot.PublicKey;
+        // Direction 1: the Rust-issued parent verifies and authorizes through the bridge.
+        BiscuitToken compatParent = BiscuitToken.Parse(Convert.FromBase64String(FxString(rustParentDoc.RootElement, "token_b64")), compatPub);
+        Check(compatParent.Inspect().BlockCount == 1, "Rust parent verifies through the bridge");
+        BiscuitAuthorizationResult compatParentAuth = BiscuitAuthorizer
+            .For(compatParent)
+            .AddFact("""operation("read")""")
+            .AddPolicy("""allow if right("workspace.main", "read");""")
+            .Authorize();
+        Check(compatParentAuth.IsAuthorized, "Rust parent authorizes through the bridge");
+        // Direction 3 setup: the bridge attenuates the Rust parent for direct-Rust verification.
+        BiscuitToken compatChild = compatParent.Attenuate(BiscuitBlock.Create("""check if operation("read");"""));
+        Check(BiscuitToken.Parse(compatChild.ToBytes(), compatPub) == compatChild, "attenuated Rust parent re-verifies");
+        File.WriteAllText(
+            Path.Combine(managedFxDir, "child.json"),
+            $"{{\"token_b64\":\"{Convert.ToBase64String(compatChild.ToBytes())}\"}}");
+        // Direction 2 setup: a bridge-issued token for direct-Rust verification.
+        using BiscuitPrivateKey managedRootKey = BiscuitPrivateKey.Generate();
+        BiscuitToken managedIssued = BiscuitTokenBuilder
+            .Create()
+            .AddFact("""right("workspace.main", "read")""")
+            .AddFact("""perms("repo", {1, 2})""")
+            .Build(managedRootKey);
+        BiscuitAuthorizationResult managedSanity = BiscuitAuthorizer
+            .For(managedIssued)
+            .AddFact("""operation("read")""")
+            .AddPolicy("""allow if right("workspace.main", "read");""")
+            .Authorize();
+        Check(managedSanity.IsAuthorized, "bridge-issued token authorizes locally");
+        File.WriteAllText(
+            Path.Combine(managedFxDir, "token.json"),
+            $"{{\"algorithm\":\"{(managedRootKey.Algorithm == BiscuitKeyAlgorithm.Ed25519 ? "ed25519" : "secp256r1")}\",\"public_b64\":\"{Convert.ToBase64String(managedRootKey.PublicKey.Encoded)}\",\"token_b64\":\"{Convert.ToBase64String(managedIssued.ToBytes())}\"}}");
+    }
+    else
+    {
+        Console.WriteLine("SKIP: Rust compat fixtures absent (run eng/Test-Compat.ps1); skipping generated exchange.");
+    }
+    }
+    else
+    {
+        Console.WriteLine("SKIP: generated exchange (consume mode; using the prior run's fixtures).");
+    }
+
+    // 31. Consume phase: the direct-Rust-attenuated child of the managed token.
+    if (compatConsumeOnly)
+    {
+        string child2Path = rustFxDir == "" ? "" : Path.Combine(rustFxDir, "child2.json");
+        string managedTokenPath = managedFxDir == "" ? "" : Path.Combine(managedFxDir, "token.json");
+        Check(child2Path != "" && File.Exists(child2Path) && File.Exists(managedTokenPath), "compat consume fixtures present");
+        if (child2Path != "" && File.Exists(child2Path) && File.Exists(managedTokenPath))
+        {
+            using JsonDocument managedTokenDoc = JsonDocument.Parse(File.ReadAllBytes(managedTokenPath));
+            var consumeRoot = new BiscuitPublicKey(
+                Convert.FromBase64String(FxString(managedTokenDoc.RootElement, "public_b64")),
+                FxString(managedTokenDoc.RootElement, "algorithm") == "ed25519" ? BiscuitKeyAlgorithm.Ed25519 : BiscuitKeyAlgorithm.P256);
+            using JsonDocument child2Doc = JsonDocument.Parse(File.ReadAllBytes(child2Path));
+            BiscuitToken consumedChild = BiscuitToken.Parse(Convert.FromBase64String(FxString(child2Doc.RootElement, "token_b64")), consumeRoot);
+            Check(consumedChild.Inspect().BlockCount == 2, "Rust-attenuated child verifies through the bridge");
+            BiscuitAuthorizationResult consumedAuth = BiscuitAuthorizer
+                .For(consumedChild)
+                .AddFact("""operation("read")""")
+                .AddPolicy("""allow if right("workspace.main", "read");""")
+                .Authorize();
+            Check(consumedAuth.IsAuthorized, "Rust-attenuated child authorizes through the bridge");
+        }
+    }
+    else
+    {
+        Console.WriteLine("SKIP: compat consume phase (set BISCUITSHARP_COMPAT_CONSUME=1 after the Rust consume step).");
+    }
 }
 finally
 {
     Environment.SetEnvironmentVariable("BISCUITSHARP_NATIVE_PATH", previousOverride);
 }
+
+static string FindRepoRoot()
+{
+    string? dir = AppContext.BaseDirectory;
+    for (int i = 0; i < 10 && dir != null; i++)
+    {
+        if (File.Exists(Path.Combine(dir, "native", "Cargo.toml")))
+        {
+            return dir;
+        }
+
+        dir = Path.GetDirectoryName(dir.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
+    }
+
+    return "";
+}
+
+static string FxString(JsonElement root, string field) =>
+    root.TryGetProperty(field, out JsonElement value) && value.ValueKind == JsonValueKind.String
+        ? value.GetString() ?? throw new InvalidOperationException($"Fixture field '{field}' is null.")
+        : throw new InvalidOperationException($"Fixture is missing string field '{field}'.");
 
 static string FindNativeAsset(string fileName)
 {

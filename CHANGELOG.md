@@ -13,14 +13,14 @@
 - M1 version slice: native `version` op with strict identity JSON and
   `{"code","message"}` error envelope (6 native tests green); managed
   process-lifetime loader with ABI check plus live `BiscuitEngine.GetVersion()`
-  with   differential binary/lockfile hash verification (20 checks green on .NET 8
+  with   differential binary/lockfile hash verification (17 checks green on .NET 8
   and .NET 10 against the real `cdylib`).
 - M1 key slice: native `key_generate`/`key_import`/`key_export_*`/`key_destroy`
   over opaque handles (Ed25519 + Secp256r1, PEM/DER with upstream
   algorithm auto-detection, `key_error` envelope code; 12 native tests green
   incl. differential round-trips vs direct upstream and 8×25 concurrency);
   managed `BiscuitPrivateKey` with finalizer-backed disposal, DER export, and
-  mapped `BiscuitKeyException` failures (41 checks green on .NET 8 and .NET 10).
+  mapped `BiscuitKeyException` failures (38 checks green on .NET 8 and .NET 10).
 - M1 token slice: native `token_create`/`parse_verify`/`attenuate`/`seal`/
   `revocation_ids`/`inspect` over verified bytes (upstream `code` with typed
   str/int/bool/bytes params, canonical round-trips, stable `sealed_token`/
@@ -28,11 +28,19 @@
   incl. tamper/truncation codes and the finding that sealing flips the chain
   terminator without appending a block); managed immutable `BiscuitToken` with
   equality, `BiscuitTokenBuilder` with parameterized facts, typed
-  `Biscuit*Exception` mapping (81 checks green on .NET 8 and .NET 10).
+  `Biscuit*Exception` mapping (76 checks green on .NET 8 and .NET 10).
 - M1 authorization slice: native `token_authorize` (verify → ambient
   facts/checks/policies via upstream `code` → allow/deny answers with
   matched-policy indices and structured failed-check/policy errors,
   first-match-wins order, default limits, no ambient time injection; 34 native
   tests green incl. allow-matched-but-check-failed and explicit deny);
   managed `BiscuitAuthorizer` with contradiction guard and extended error
-  records (104 checks green on .NET 8 and .NET 10).
+  records (99 checks green on .NET 8 and .NET 10).
+- M1 compatibility gate: `eng/Test-Compat.ps1` exchanges fixtures between
+  direct upstream Rust and the bridge in all four directions (issue, verify,
+  authorize, cross-attenuate both ways) plus committed deterministic
+  `fixtures/compat/genesis.json` vectors (108 checks green per TFM, 107 in the
+  compat consume run).
+  Finding: token bytes are never byte-stable across runs — issuance mints a
+  fresh ephemeral next-key per token — so fixtures pin keys exactly and verify
+  tokens structurally.

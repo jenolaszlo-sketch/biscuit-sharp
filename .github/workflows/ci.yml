@@ -18,9 +18,22 @@ jobs:
           dotnet-version: |
             8.0.x
             10.0.x
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo build --locked --manifest-path native/Cargo.toml
       - run: dotnet build BiscuitSharp.slnx
       - run: dotnet run --project tests/BiscuitSharp.Tests --framework net8.0
       - run: dotnet run --project tests/BiscuitSharp.Tests --framework net10.0
-  # M1/M2 add: native --locked builds + tests per RID, differential and
-  # bidirectional compatibility, mutation/fuzz, Valgrind, NativeAOT per RID,
-  # package verification, and six clean consumers. See docs/implementation-plan.md.
+  compat:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            8.0.x
+            10.0.x
+      - uses: dtolnay/rust-toolchain@stable
+      - run: powershell -NoProfile -ExecutionPolicy Bypass -File eng/Test-Compat.ps1
+  # M2 add: native builds + tests per RID (linux-x64, osx-arm64), mutation/fuzz,
+  # Valgrind, NativeAOT per RID, package verification, and six clean consumers.
+  # See docs/implementation-plan.md.

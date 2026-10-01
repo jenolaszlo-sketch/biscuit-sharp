@@ -71,11 +71,11 @@ key checks × 2 TFMs), builder
 (textual Datalog + parameterized overloads; discourage untrusted interpolation),
 token (parse/verify, base64url, attenuate, seal, revocation IDs, inspection —
 done 2026-10-01: canonical bytes, equality, typed params incl. reflection
-convenience overload, 40 managed token checks × 2 TFMs),
+convenience overload, 38 managed token checks × 2 TFMs),
 authorizer (facts, policies, checks → `BiscuitAuthorizationResult` with
 matched-policy indices, structured errors, `RequireAuthorized()` — done
 2026-10-01, 23 managed checks × 2 TFMs), version discovery reporting the loaded asset (done 2026-10-01: process-lifetime
-loader, strict JSON decoding, file-hash identity, 20 managed checks × 2 TFMs), and the
+loader, strict JSON decoding, file-hash identity, 17 managed checks × 2 TFMs), and the
 `BiscuitException` taxonomy with boundary rules (bridge ≠ token ≠ Datalog ≠
 enforcement failures; Deny is a result).
 
@@ -89,11 +89,17 @@ Datalog; Unicode; invalid UTF-8 at the bridge; oversized inputs; concurrent
 calls; panic containment. Strongest tests run the same scenario through direct
 Rust vs the bridge and compare semantic results.
 
-Cross-implementation compatibility (required — the token is a portable
-artifact): Rust-issues→BiscuitSharp-verifies/authorizes; BiscuitSharp-issues→
-Rust-verifies/authorizes; BiscuitSharp-attenuates-Rust-token→Rust-verifies;
-Rust-attenuates-BiscuitSharp-token→BiscuitSharp-verifies; plus spec/sample-token
-fixtures. Goal: BiscuitSharp creates Biscuit tokens, not just self-readable ones.
+Cross-implementation compatibility — done 2026-10-01 via `eng/Test-Compat.ps1`
+(unit → compat_gen → committed fixtures → managed generate → compat_consume →
+managed consume), proving all four directions: Rust-issues→bridge-verifies/
+authorizes; bridge-issues→direct-Rust-verifies/authorizes;
+bridge-attenuates-Rust-token→direct-Rust-verifies; direct-Rust-attenuates-
+bridge-token→bridge-verifies/authorizes. Committed `fixtures/compat/genesis.json`
+(fixed seed) is verified semantically. Finding: token bytes are never
+byte-stable across runs by design — issuance mints a fresh ephemeral next-key
+per token (`build` → `build_with_rng`), so fixtures pin seed-derived keys
+exactly and verify tokens structurally. Goal met: BiscuitSharp creates Biscuit
+tokens, not just self-readable ones.
 
 Managed tests (.NET 8 + .NET 10, real asset, each RID): immutability,
 nullability, exception contracts, base64url, binary round-trips, concurrency,
