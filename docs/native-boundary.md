@@ -1,10 +1,21 @@
 # Native ABI and distribution contract
 
-Baseline (M0 target, confirm during pinning): biscuit-auth 6.0.0, bridge 0.1.0,
-ABI 1, Rust 1.89.0 (confirm MSRV against upstream CI before freezing).
-Upstream source commit: `0f0b4e0e6fe07220c1ba6b51bff21d450d94a975`.
-`Cargo.lock` is committed. Do not follow floating Cargo versions.
-Record the Biscuit token/spec version in the native manifest.
+Baseline (pinned 2026-10-01): biscuit-auth 6.0.0, bridge 0.1.0, ABI 1,
+Rust 1.89.0 via `rust-toolchain.toml` (auto-installs through rustup).
+Upstream source commit: `0f0b4e0e6fe07220c1ba6b51bff21d450d94a975` —
+verified equal to upstream tag `biscuit-auth-6.0.0` via `git ls-remote`.
+`Cargo.lock` is committed (94 packages, `cargo fetch --locked` green).
+Do not follow floating Cargo versions.
+
+Upstream identity details:
+- biscuit-auth crate checksum (Cargo.lock):
+  `d5884fc86b3e21f5649ef4326e17ef729b3096e6502deaf13db7b7fb05bb992b`.
+- The published crate declares no `rust-version` (no upstream MSRV); the 1.89.0
+  pin is the bridge's own choice and stays frozen until an upgrade re-runs the gate.
+- Token/spec versions from the pinned source (`src/token/mod.rs`,
+  `src/format/mod.rs`): `MIN_SCHEMA_VERSION = 3`, `MAX_SCHEMA_VERSION = 6`,
+  `DATALOG_3_3_SIGNATURE_VERSION = 1`. The staged `biscuitsharp-native.json`
+  (M2) records these alongside the ABI/bridge/toolchain identity.
 
 ## ABI 1
 

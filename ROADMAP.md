@@ -7,8 +7,8 @@ See [verification evidence](docs/verification.md) for executed results (currentl
 
 - [x] Establish an independent wrapper boundary and ADR 0001.
 - [x] Define ABI 1, supported algorithms (Ed25519, P-256), and the managed API shape.
-- [ ] Pin biscuit-auth 6.0.0 at commit `0f0b4e0e6fe07220c1ba6b51bff21d450d94a975`, commit `Cargo.lock`, confirm the Rust toolchain, record the token/spec version, and inventory licenses/notices.
-- [ ] Confirm Datalog 3.3 syntax scope, PEM/DER key encodings, and the staged feature set against the pinned source.
+- [x] Pin biscuit-auth 6.0.0 at commit `0f0b4e0e6fe07220c1ba6b51bff21d450d94a975` (= upstream tag `biscuit-auth-6.0.0`), commit `Cargo.lock` (94 packages, locked fetch green on Rust 1.89.0), record the token/spec version (schema 3..6, Datalog 3.3), and inventory licenses/notices (upstream + transitive notices complete with M2 staging).
+- [ ] Confirm Datalog 3.3 syntax scope, PEM/DER key encodings, and the staged feature set against the pinned source (partially done: signature/schema version constants read from source; full API confirmation lands with M1).
 
 ## M1: first usable wrapper
 

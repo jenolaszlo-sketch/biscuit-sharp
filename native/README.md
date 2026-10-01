@@ -10,3 +10,9 @@ Scaffolding for the versioned Rust `cdylib` over `biscuit-auth = "=6.0.0"`.
   the operations listed in `docs/native-boundary.md` and `docs/implementation-plan.md`.
 
 Build (once Rust is installed): `cargo build --locked --release`.
+
+Prerequisites: the pinned toolchain (rustup auto-installs it from
+`../rust-toolchain.toml`) and, on Windows, the MSVC linker — Visual Studio with
+the "Desktop development with C++" workload. Without `link.exe`, dependency
+resolution (`cargo fetch --locked`) still works but compiling the `cdylib` fails.
+`Cargo.lock` is committed; never build with floating versions.

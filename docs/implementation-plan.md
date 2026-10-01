@@ -18,11 +18,17 @@ RIDs win-x64, linux-x64, osx-arm64. Initial consumer: Penghou.Hufu
    authorization, serialization, revocation IDs, inspection, interop. Hufu owns
    workflow authority, grants, revocation storage, revisions, approval, envelopes.
 2. Pin the baseline: exact `biscuit-auth` version + source commit, committed
-   `Cargo.lock` (generate with `cargo generate-lockfile`/`cargo fetch` once Rust
-   is available — not yet present in this environment), pinned Rust toolchain,
-   recorded token/spec version, bridge 0.1.0, ABI 1.
+   `Cargo.lock`, pinned Rust toolchain, recorded token/spec version, bridge 0.1.0,
+   ABI 1. Status 2026-10-01: `cargo generate-lockfile` + `cargo fetch --locked`
+   green on Rust 1.89.0 (94 packages); tag `biscuit-auth-6.0.0` verified equal to
+   the pinned commit; crate checksum and schema versions recorded in
+   `docs/native-boundary.md`. The published crate declares no `rust-version`, so
+   1.89.0 is the bridge's own frozen choice. `cargo check --locked` is blocked
+   only by the missing MSVC linker on this machine (see verification ledger).
 3. Confirm the toolchain against upstream MSRV/CI; record crate checksums and the
-   staged feature set (PEM/DER, P-256 per 6.0.0).
+   staged feature set (PEM/DER, P-256 per 6.0.0). Toolchain confirmed working
+   (rustup auto-installs 1.89.0 from `rust-toolchain.toml`); full checksum +
+   feature inventory completes with the M2 staging gate.
 4. Inventory licenses/notices into `native/legal/` + `NOTICE`.
 5. Define the managed API shape (done in scaffolding: `BiscuitPrivateKey`,
    `BiscuitPublicKey`, `BiscuitToken`, `BiscuitTokenBuilder`, `BiscuitBlock`,
