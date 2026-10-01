@@ -145,8 +145,10 @@ public sealed class BiscuitPrivateKey : IDisposable
     private static bool LooksLikePem(ReadOnlySpan<byte> encoded) =>
         encoded.IndexOf("-----BEGIN"u8) >= 0;
 
+    // Status 1 carries the operation's own failure codes; any other status is a
+    // native/ABI/transport problem regardless of the (possibly empty) body.
     private static BiscuitException MapKeyError(uint status, string code, string message) =>
-        (status == 3 || code is "panic" or "oversized_output" or "unsupported_operation")
+        status != 1
             ? new BiscuitBridgeException(
                 $"Biscuit native key call failed with status {status} ({code}: {message}).")
             : new BiscuitKeyException($"Biscuit key operation failed ({code}): {message}.");

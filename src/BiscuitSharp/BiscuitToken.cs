@@ -37,7 +37,6 @@ public sealed record BiscuitRevocationId(byte[] Value)
 /// Immutable Biscuit token holding canonical upstream-serialized bytes plus the
 /// root public key it verified against. Parsing verifies the cryptographic
 /// token; a valid token is still not an authorized request.
-/// See <see cref="BiscuitAuthorizer"/> (next M1 slice).
 /// </summary>
 public sealed class BiscuitToken : IEquatable<BiscuitToken>
 {
@@ -312,21 +311,21 @@ public sealed class BiscuitToken : IEquatable<BiscuitToken>
 internal static class BiscuitErrorMapping
 {
     internal static BiscuitException MapTokenError(uint status, string code, string message) =>
-        (status, code) switch
-        {
-            (3, _) => Bridge(status, code, message),
-            (_, "panic" or "oversized_output" or "unsupported_operation") => Bridge(status, code, message),
-            (_, "signature_error") => new BiscuitSignatureException(
-                $"Biscuit signature verification failed: {message}."),
-            (_, "sealed_token") => new BiscuitSealedTokenException(
-                $"Biscuit sealed-token violation: {message}."),
-            (_, "format_error") => new BiscuitFormatException(
-                $"Malformed Biscuit token or encoding: {message}."),
-            (_, "datalog_error") => new BiscuitDatalogException(
-                $"Invalid Biscuit Datalog: {message}."),
-            _ => new BiscuitTokenException(
-                $"Biscuit token operation failed ({code}): {message}."),
-        };
+        status != 1
+            ? Bridge(status, code, message)
+            : code switch
+            {
+                "signature_error" => new BiscuitSignatureException(
+                    $"Biscuit signature verification failed: {message}."),
+                "sealed_token" => new BiscuitSealedTokenException(
+                    $"Biscuit sealed-token violation: {message}."),
+                "format_error" => new BiscuitFormatException(
+                    $"Malformed Biscuit token or encoding: {message}."),
+                "datalog_error" => new BiscuitDatalogException(
+                    $"Invalid Biscuit Datalog: {message}."),
+                _ => new BiscuitTokenException(
+                    $"Biscuit token operation failed ({code}): {message}."),
+            };
 
     private static BiscuitBridgeException Bridge(uint status, string code, string message) =>
         new($"Biscuit native token call failed with status {status} ({code}: {message}).");

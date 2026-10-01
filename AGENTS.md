@@ -2,9 +2,9 @@
 
 Read README.md, ROADMAP.md, docs/implementation-plan.md, docs/architecture.md,
 docs/native-boundary.md, docs/api-contract.md, docs/security.md, and ADR 0001
-before implementation. The repository is scaffolding: no native behavior is
-qualified. Consult docs/verification.md for executed evidence; do not mistake
-planned gates for qualified packages.
+before implementation. M0 and the M1 functional surface are implemented and
+tested on Windows x64; consult docs/verification.md for executed evidence
+(and its limits) and do not mistake planned gates for qualified packages.
 
 Preserve upstream Biscuit semantics rather than reinterpreting them for Hufu.
 Keep workflow authority, grant issuance policy, revocation storage, workflow

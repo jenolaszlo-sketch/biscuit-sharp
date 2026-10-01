@@ -50,7 +50,12 @@ failures, and ordinary denial are never flattened into one error.
 ## Nullability, ownership, lifetime
 
 - All public inputs are non-null; null throws `ArgumentNullException`.
-- `BiscuitToken` is immutable and thread-safe. Authorization calls are synchronous.
+- `BiscuitToken` is immutable and thread-safe; `BiscuitTokenBuilder` and
+  `BiscuitAuthorizer` are mutable single-threaded accumulators (one instance
+  per request; `Authorize()` itself may be called repeatedly and concurrently).
+  Authorization calls are synchronous. Each `Build()` mints fresh ephemeral
+  chain keys, so rebuilding from the same builder yields distinct but equally
+  valid tokens — compare behavior, not bytes, across issuances.
 - `BiscuitPrivateKey` is an opaque native handle: `IDisposable`, `ToString()`
   never reveals secrets, disposal zeroes/frees native material as far as the
   implementation permits (documented honestly: no protection against dumps or a

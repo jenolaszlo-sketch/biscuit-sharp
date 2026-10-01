@@ -7,9 +7,10 @@
 
 It is useful when authority must travel with the request: delegated access, offline attenuation, and capability-style checks that remain verifiable without a central policy call. BiscuitSharp preserves Biscuit semantics and keeps valid-token, authorized-request, and failure states distinct so the application can enforce explicitly.
 
-> Status: M1 in progress. Keys, tokens (issue/verify/attenuate/seal),
-> revocation IDs, inspection, and version identity work against the real
-> `biscuit-auth 6.0.0` bridge; authorization lands next. See [ROADMAP](ROADMAP.md) and
+> Status: M0 and the M1 functional surface (keys, tokens, authorization) are
+> implemented and tested on Windows x64 with .NET 8 and .NET 10, including a
+> bidirectional compatibility gate against direct upstream Rust. Distribution
+> (other RIDs, packaging) and hardening remain open. See [ROADMAP](ROADMAP.md) and
 > [docs/implementation-plan.md](docs/implementation-plan.md). No package is published.
 
 ## Try it
@@ -30,6 +31,9 @@ BiscuitToken token = BiscuitTokenBuilder
 BiscuitToken child = token.Attenuate(BiscuitBlock.Create("""
     check if operation("read");
     """));
+
+// The anonymous-object overload above uses reflection; prefer the
+// `IDictionary<string, BiscuitParam>` overload for trimming and NativeAOT.
 
 BiscuitInspection view = child.Inspect();
 Console.WriteLine($"blocks={view.BlockCount} sealed={view.IsSealed}");
@@ -52,7 +56,11 @@ token does not mean a request is authorized. `IsAuthorized` is true only for an
 error-free Allow; use `RequireAuthorized()` to enforce. Policies apply
 first-match-wins in the order supplied, so place `deny` policies first.
 
-## What you get (M1 in progress: keys, tokens, inspection live; authorization next)
+## What you get
+
+Biscuit behavior, reviewable outcomes, safe credential handling, and
+deployment choices as below — all verified on Windows x64 so far (other RIDs
+await the M2 gate).
 
 - **Biscuit behavior:** signature verification, block-chain integrity, attenuation that only narrows authority, sealing, and default-deny authorization from the pinned engine.
 - **Reviewable outcomes:** typed decisions, structured authorization errors, inspection (block count, sealed state, algorithms, revocation IDs, block source), and loaded-asset identity.
@@ -77,7 +85,7 @@ Qualified by CI on these environments, with .NET 8 and .NET 10:
 Upstream baseline: `biscuit-auth 6.0.0` (commit `0f0b4e0`), Biscuit Datalog 3.3,
 Ed25519 + P-256 signatures, ABI 1. Older OS baselines and other architectures are
 not qualified until built and exercised. See [docs/verification.md](docs/verification.md)
-for executed release evidence (empty until the M2 gate passes).
+for executed release evidence.
 
 ## Learn more
 

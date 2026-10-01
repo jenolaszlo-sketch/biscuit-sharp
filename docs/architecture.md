@@ -1,6 +1,6 @@
 # BiscuitSharp architecture
 
-Scaffolding architecture for the M0 baseline. See [ADR 0001](decisions/0001-native-wrapper-boundary.md) for the binding decision, the [implementation plan](implementation-plan.md) for delivery order, and [verification](verification.md) for executed evidence (currently none).
+Current architecture for the M0 baseline and M1 implementation. See [ADR 0001](decisions/0001-native-wrapper-boundary.md) for the binding decision and [verification](verification.md) for executed evidence.
 
 ## Layers
 

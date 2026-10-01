@@ -1,19 +1,18 @@
 # Changelog
 
-## Unreleased (scaffolding)
+## Unreleased
 
 - Establish the repository scaffolding: solution, managed API shape (keys, token,
   builder, attenuation, seal, authorizer, revocation IDs, inspection, version info),
-  native ABI 1 skeleton, docs, and roadmap. No native behavior is implemented or
-  qualified; every operation fails closed with `BiscuitBridgeException` until M1.
+  native ABI 1 skeleton, docs, and roadmap.
 - Pin the M0 baseline: biscuit-auth 6.0.0 (tag verified equal to the pinned
   commit, crate checksum recorded), `Cargo.lock` committed (94 packages, locked
-  fetch green on Rust 1.89.0),   schema versions 3..6 / Datalog 3.3 recorded; locked check, `cdylib` link, and
+  fetch green on Rust 1.89.0), schema versions 3..6 / Datalog 3.3 recorded; locked check, `cdylib` link, and
   ABI exports verified on MSVC.
 - M1 version slice: native `version` op with strict identity JSON and
   `{"code","message"}` error envelope (6 native tests green); managed
   process-lifetime loader with ABI check plus live `BiscuitEngine.GetVersion()`
-  with   differential binary/lockfile hash verification (17 checks green on .NET 8
+  with differential binary/lockfile hash verification (17 checks green on .NET 8
   and .NET 10 against the real `cdylib`).
 - M1 key slice: native `key_generate`/`key_import`/`key_export_*`/`key_destroy`
   over opaque handles (Ed25519 + Secp256r1, PEM/DER with upstream
@@ -40,12 +39,11 @@
   direct upstream Rust and the bridge in all four directions (issue, verify,
   authorize, cross-attenuate both ways) plus committed deterministic
   `fixtures/compat/genesis.json` vectors (108 checks green per TFM, 107 in the
-  compat consume run).
+  compat consume run). Finding: token bytes are never byte-stable across runs —
+  issuance mints a fresh ephemeral next-key per token — so fixtures pin keys
+  exactly and verify tokens structurally.
 - M2.5 mutation matrix: deterministic 4,096-case native run (`src/adversarial.rs`,
   zero panics, zero unjustified successes) plus a managed 96-position token
   sweep and 7 invalid policies, all fail-closed. Findings pinned: upstream
   framing tolerates trailing bytes (parse canonicalizes; allow requires
   byte-identical content); DER seed-region mutations yield different valid keys.
-  Finding: token bytes are never byte-stable across runs — issuance mints a
-  fresh ephemeral next-key per token — so fixtures pin keys exactly and verify
-  tokens structurally.

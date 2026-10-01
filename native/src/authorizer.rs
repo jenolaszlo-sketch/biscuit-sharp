@@ -189,44 +189,13 @@ pub fn op_token_authorize(input: &[u8], output: *mut BiscuitSharpBuffer) -> u32 
         Ok(v) => v,
         Err(e) => return invalid(output, e),
     };
-    let token = match req
-        .get("token")
-        .and_then(|v| v.as_str())
-        .ok_or_else(|| "missing string field 'token'".to_owned())
-    {
-        Ok(s) => match base64::decode(s) {
-            Ok(t) => t,
-            Err(e) => return invalid(output, format!("token is not valid base64: {e}")),
-        },
+    let token = match crate::tokens::decode_token(&req) {
+        Ok(t) => t,
         Err(e) => return invalid(output, e),
     };
-    let root = match req.get("root") {
-        Some(r) => {
-            let name = match r.get("algorithm").and_then(|v| v.as_str()) {
-                Some(s) => s,
-                None => return invalid(output, "missing string field 'root.algorithm'".to_owned()),
-            };
-            let algorithm = match name.parse::<biscuit_auth::Algorithm>() {
-                Ok(a) => a,
-                Err(e) => return invalid(output, format!("unknown root algorithm '{name}': {e}")),
-            };
-            let bytes = match r.get("public_key").and_then(|v| v.as_str()) {
-                Some(s) => match base64::decode(s) {
-                    Ok(b) => b,
-                    Err(e) => {
-                        return invalid(output, format!("root public_key is not valid base64: {e}"));
-                    }
-                },
-                None => {
-                    return invalid(output, "missing string field 'root.public_key'".to_owned());
-                }
-            };
-            match biscuit_auth::PublicKey::from_bytes(&bytes, algorithm) {
-                Ok(k) => k,
-                Err(e) => return invalid(output, format!("invalid root public key: {e}")),
-            }
-        }
-        None => return invalid(output, "missing object field 'root'".to_owned()),
+    let root = match crate::tokens::decode_root(&req) {
+        Ok(r) => r,
+        Err(e) => return invalid(output, e),
     };
     let biscuit = match Biscuit::from(&token, root) {
         Ok(b) => b,

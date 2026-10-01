@@ -1,7 +1,8 @@
 # Implementation plan
 
-Current delivery plan for BiscuitSharp. Status: scaffolding (M0, 2026-10-01).
-For release status see [verification](verification.md); for scope see
+Current delivery plan for BiscuitSharp. Status 2026-10-01: M0 complete, M1 functional
+surface and bidirectional gate green on Windows x64; M2 distribution and M2.5
+hardening open. For release status see [verification](verification.md); for scope see
 [architecture](architecture.md), [native boundary](native-boundary.md),
 [API contract](api-contract.md), and [security](security.md).
 

@@ -65,7 +65,7 @@ fn required_str<'a>(req: &'a serde_json::Value, field: &str) -> Result<&'a str, 
         .ok_or_else(|| format!("missing string field '{field}'"))
 }
 
-fn decode_root(req: &serde_json::Value) -> Result<PublicKey, String> {
+pub(crate) fn decode_root(req: &serde_json::Value) -> Result<PublicKey, String> {
     let root = req
         .get("root")
         .ok_or_else(|| "missing object field 'root'".to_owned())?;
@@ -80,7 +80,7 @@ fn decode_root(req: &serde_json::Value) -> Result<PublicKey, String> {
         .map_err(|e| format!("invalid root public key: {e}"))
 }
 
-fn decode_token(req: &serde_json::Value) -> Result<Vec<u8>, String> {
+pub(crate) fn decode_token(req: &serde_json::Value) -> Result<Vec<u8>, String> {
     let s = required_str(req, "token")?;
     base64::decode(s).map_err(|e| format!("token is not valid base64: {e}"))
 }

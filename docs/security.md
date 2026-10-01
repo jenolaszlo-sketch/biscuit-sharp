@@ -28,5 +28,6 @@ explicitly designed not to become bearer material.
 - Revocation requires application-managed external state; the consumer order is
   verify → revocation-id lookup → authorize (or whatever its threat model
   requires). Hufu owns that store.
-- Report vulnerabilities via the repository's private channel; do not file
-  public issues for suspected credential-bypass or key-exposure flaws.
+- Report vulnerabilities privately to the maintainers — prefer a GitHub private
+  security advisory on this repository over a public issue — for suspected
+  credential-bypass or key-exposure flaws.

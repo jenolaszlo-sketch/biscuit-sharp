@@ -73,6 +73,7 @@ try
         $"abi={version.AbiVersion} triple={version.TargetTriple} rid={version.RuntimeIdentifier}");
     Check(version.BiscuitAuthVersion == "6.0.0", "biscuit-auth version is 6.0.0");
     Check(version.AbiVersion == 1, "ABI version is 1");
+    Check(BiscuitEngine.AbiVersion == NativeBridge.ExpectedAbiVersion, "managed ABI constants agree");
     Check(version.BridgeVersion == "0.1.0", "bridge version is 0.1.0");
     Check(version.RustVersion.StartsWith("1.89.0", StringComparison.Ordinal), "Rust version is pinned 1.89.0");
     Check(version.RuntimeIdentifier == rid, "runtime identifier matches host");

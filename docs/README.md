@@ -7,6 +7,7 @@ New to BiscuitSharp? Start with the [README](../README.md) for the purpose and f
 | Guide | When to read it |
 | --- | --- |
 | [API contract](api-contract.md) | Exact result, exception, ownership, and compatibility behavior |
+| [Deployment](deployment.md) | Qualified platforms, package assets, trimming, and NativeAOT |
 | [Security](security.md) | Invariants, privacy defaults, and disclosure |
 
 ## Build and understand it
