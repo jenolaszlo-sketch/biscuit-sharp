@@ -1,8 +1,8 @@
 # Implementation plan
 
-Current delivery plan for BiscuitSharp. Status 2026-10-01: M0 complete, M1 functional
-surface and bidirectional gate green on Windows x64; M2 distribution and M2.5
-hardening open. For release status see [verification](verification.md); for scope see
+Current delivery plan for BiscuitSharp. Status 2026-10-02: M0 complete, M1 functional
+surface and bidirectional gate green, M2 distribution matrix green in CI; pre-publish
+review and first preview publication remain. For release status see [verification](verification.md); for scope see
 [architecture](architecture.md), [native boundary](native-boundary.md),
 [API contract](api-contract.md), and [security](security.md).
 
@@ -138,7 +138,7 @@ archive verification, one isolated-cache clean consumer — all green. Linux and
 macOS builds, the remaining five consumers, and `Verify-NativeStaging` /
 `Verify-NuGetPackage` / `Test-PackagedConsumer` automation stay open.
 
-CI matrix 2026-10-02 (configured, awaiting its first green run): per-OS
+CI matrix 2026-10-02 (green across the matrix, maintainer-confirmed): per-OS
 `managed` (build + tests), per-OS `compat` (full `Test-Compat.ps1` under pwsh),
 `native-lints` (fmt + clippy), per-OS `dist` (stage + verify + AOT, artifacts
 uploaded), `pack` (three-RID assembly + verification + symbols upload),

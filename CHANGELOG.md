@@ -71,6 +71,12 @@
 - Third review pass: documented open items in [docs/review-findings.md](docs/review-findings.md)
   (several since fixed: public-key import, authorizer rules, load-time manifest
   verification, clippy/CI coverage).
+- Reliability fix: upstream's default 1 ms authorization budget made the
+  default path deny with `evaluation_failure` under CI load. BiscuitSharp now
+  applies a robust default (100k facts / 100k iterations / 5 s) at the bridge
+  and in `BiscuitAuthorizerLimits.Default`, with `UpstreamDefault` for strict
+  parity, plus regression guards (native default-limits test, 128-way parallel
+  managed authorizations).
 - Release-profile hardening: full native suite green under
   `cargo test --release` (43/43); the mutation matrix holds its invariants in
   both profiles (per-run distribution varies from fresh corpus randomness, so
