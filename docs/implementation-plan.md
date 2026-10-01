@@ -163,11 +163,14 @@ Exit: preview published; `verification.md` holds the exact evidence.
   denies 0, allows 3 (all byte-identical canonical content), panics 0 — plus a
   managed 96-position mutation sweep and 7 invalid policies (fail-fast or deny,
   never allow) and a native panic-containment test (a real Rust panic surfaces
-  as `STATUS_PANIC` with an empty body; no unwind crosses the ABI). Findings pinned: upstream framing tolerates trailing bytes
+  as `STATUS_PANIC` with an empty body; no unwind crosses the ABI). Release
+  profile verified 2026-10-02 (43/43 green; matrix distribution varies run to
+  run from fresh corpus randomness in both profiles — the test asserts
+  invariants, not counts). Findings pinned: upstream framing tolerates trailing bytes
   (parse canonicalizes; authorization requires byte-identical content); DER
   seed-region mutations yield different valid keys (import success requires a
-  usable, destroyable handle). Release-profile + all-RID repetition stays open
-  with the M2 matrix.
+  usable, destroyable handle). Release-profile repetition on all RIDs stays open
+  with the M2 matrix (a `native-release` CI job now locks in the Ubuntu run).
 - Leak instrumentation: Linux Valgrind (or equivalent) over repeated
   issue/parse/attenuate/authorize/dispose cycles; record limitations honestly.
 - Diagnostics/privacy tests (safe defaults per `security.md`), strict

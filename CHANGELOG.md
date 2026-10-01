@@ -71,6 +71,11 @@
 - Third review pass: documented open items in [docs/review-findings.md](docs/review-findings.md)
   (several since fixed: public-key import, authorizer rules, load-time manifest
   verification, clippy/CI coverage).
+- Release-profile hardening: full native suite green under
+  `cargo test --release` (43/43); the mutation matrix holds its invariants in
+  both profiles (per-run distribution varies from fresh corpus randomness, so
+  the test asserts invariants, not counts). Locked in with a CI
+  `native-release` job.
 - M2 win-x64 staging (local): release-triple build via `eng/Build-Native.ps1`,
   `eng/Verify-NativeStaging.ps1`, load-time manifest verification with
   child-process probes, NativeAOT publish + execute, single-RID pack +
@@ -79,5 +84,5 @@
 - CI distribution matrix: per-OS managed/compat/dist jobs, three-RID pack +
   six-consumer jobs, Valgrind leak-probe job, and a pwsh-cross-platform `eng/`
   suite (`$HOME` cargo discovery, forward-slash joins, no `powershell.exe`
-  nesting) — configured, awaiting its first green run. Added a native
-  `leak_probe_cycles` workload (50 full-lifecycle bridge cycles) for it.
+  nesting) — green across the matrix, including a `native-release` job. Added a
+  native `leak_probe_cycles` workload (50 full-lifecycle bridge cycles) for it.

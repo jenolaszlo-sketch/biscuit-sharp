@@ -66,6 +66,18 @@ jobs:
       - run: cargo fmt --manifest-path native/Cargo.toml -- --check
       - run: cargo clippy --locked --all-targets --manifest-path native/Cargo.toml -- -D warnings
 
+  # Release-profile native tests (overflow wraps instead of panicking; the
+  # matrix asserts invariants, not exact counts, so profile differences in the
+  # distribution are expected and fine).
+  native-release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.89.0
+      - run: cargo test --locked --release --lib --manifest-path native/Cargo.toml
+
   # Per-RID release staging + NativeAOT smoke; staging trees upload as artifacts.
   dist:
     strategy:
