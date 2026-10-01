@@ -197,7 +197,7 @@ jobs:
           if valgrind --help 2>&1 | grep -q -- "--errors-for-leaks"; then leak_opt="--errors-for-leaks=yes"; fi
           log=$(mktemp)
           set +e
-          valgrind --leak-check=full --show-leak-kinds=definite $leak_opt --error-exitcode=99 "$bin" adversarial::leak_probe_cycles --exact --nocapture > "$log" 2>&1
+          valgrind --leak-check=full --show-leak-kinds=all $leak_opt --error-exitcode=99 -s "$bin" adversarial::leak_probe_cycles --exact --nocapture > "$log" 2>&1
           code=$?
           set -e
           cat "$log"
