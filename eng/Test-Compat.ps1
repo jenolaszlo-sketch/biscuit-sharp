@@ -29,6 +29,9 @@ foreach ($candidate in @((Join-Path $HOME ".cargo/bin/cargo"), (Join-Path $HOME 
     if (Test-Path -LiteralPath $candidate) { $cargo = $candidate; break }
 }
 
+Write-Output "=== compat: native bridge build (cdylib for managed tests) ==="
+& $cargo build --locked --manifest-path (Join-Path $repoRoot "native/Cargo.toml")
+if ($LASTEXITCODE -ne 0) { throw "cargo build failed" }
 Write-Output "=== compat: cargo unit tests ==="
 & $cargo test --locked --lib --manifest-path (Join-Path $repoRoot "native/Cargo.toml")
 if ($LASTEXITCODE -ne 0) { throw "cargo unit tests failed" }
