@@ -48,8 +48,8 @@ $lockHash = (Get-FileHash -LiteralPath (Join-Path $nativeDir "Cargo.lock") -Algo
 
 foreach ($r in $rids) {
     if (-not $triples.ContainsKey($r)) { Fail "unexpected staged directory '$r'" }
-    $nativeStage = Join-Path $stagingRoot "$r\native"
-    $legalStage = Join-Path $stagingRoot "$r\legal"
+    $nativeStage = Join-Path $stagingRoot "$r/native"
+    $legalStage = Join-Path $stagingRoot "$r/legal"
     $dllPath = Join-Path $nativeStage $files[$r]
     $manifestPath = Join-Path $nativeStage "biscuitsharp-native.json"
     if (-not (Test-Path -LiteralPath $dllPath)) { Fail "$r : missing $($files[$r])" }

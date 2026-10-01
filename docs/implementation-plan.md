@@ -133,10 +133,19 @@ seal, tamper, and privacy proofs recorded in `verification.md`.
 Win-x64 progress 2026-10-02 (local, single RID — the gate stays open until all
 RIDs pass in CI): release-triple build, `eng/Build-Native.ps1` staging
 (binary + manifest + licenses), load-time manifest verification with
-child-process probe tests, NativeAOT publish + execute, single-RID pack +
+child-process probes, NativeAOT publish + execute, single-RID pack +
 archive verification, one isolated-cache clean consumer — all green. Linux and
 macOS builds, the remaining five consumers, and `Verify-NativeStaging` /
 `Verify-NuGetPackage` / `Test-PackagedConsumer` automation stay open.
+
+CI matrix 2026-10-02 (configured, awaiting its first green run): per-OS
+`managed` (build + tests), per-OS `compat` (full `Test-Compat.ps1` under pwsh),
+`native-lints` (fmt + clippy), per-OS `dist` (stage + verify + AOT, artifacts
+uploaded), `pack` (three-RID assembly + verification + symbols upload),
+per-OS × TFM `consume` (six isolated-cache consumers), and a Linux `valgrind`
+leak-probe job. All `eng/` scripts are PowerShell 5.1/7 cross-platform
+(forward-slash joins, `$HOME` cargo discovery, no `powershell.exe`
+nesting); Linux/macOS evidence lands here after the first green run.
 
 Exit: preview published; `verification.md` holds the exact evidence.
 

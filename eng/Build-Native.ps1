@@ -22,8 +22,16 @@ $ErrorActionPreference = "Stop"
 
 $repoRoot = Split-Path -Parent $PSScriptRoot
 $nativeDir = Join-Path $repoRoot "native"
-$cargo = Join-Path $env:USERPROFILE ".cargo\bin\cargo.exe"
-if (-not (Test-Path -LiteralPath $cargo)) { $cargo = "cargo" }
+# Cross-platform cargo discovery: rustup home on PATH-independent location,
+# falling back to PATH. ($HOME exists on Windows PowerShell 5.1 and PS 7.)
+$cargo = "cargo"
+foreach ($candidate in @((Join-Path $HOME ".cargo/bin/cargo"), (Join-Path $HOME ".cargo/bin/cargo.exe"))) {
+    if (Test-Path -LiteralPath $candidate) { $cargo = $candidate; break }
+}
+$rustc = "rustc"
+foreach ($candidate in @((Join-Path $HOME ".cargo/bin/rustc"), (Join-Path $HOME ".cargo/bin/rustc.exe"))) {
+    if (Test-Path -LiteralPath $candidate) { $rustc = $candidate; break }
+}
 
 $triples = @{
     "win-x64"   = "x86_64-pc-windows-msvc"
@@ -66,8 +74,8 @@ if ($bridgeVersion -ne $expectedBridge) {
 $toolchain = Select-String -LiteralPath (Join-Path $repoRoot "rust-toolchain.toml") -Pattern 'channel = "([^"]+)"' |
     Select-Object -First 1 -ExpandProperty Matches |
     ForEach-Object { $_.Groups[1].Value }
-$rustVersion = & "$env:USERPROFILE\.cargo\bin\rustc.exe" --version 2>$null
-if (-not $rustVersion) { $rustVersion = (& rustc --version) }
+$rustVersion = & $rustc --version 2>$null
+if (-not $rustVersion) { $rustVersion = "unknown (rustc not on PATH)" }
 # Strip the "rustc " prefix to match the bridge's BISCUITSHARP_RUST_VERSION env.
 $rustVersion = "$rustVersion" -replace '^rustc ', ''
 if ($rustVersion -notmatch [regex]::Escape($toolchain)) {
@@ -78,11 +86,11 @@ Write-Output "Building $Rid ($triple)..."
 & $cargo build --locked --release --target $triple --manifest-path (Join-Path $nativeDir "Cargo.toml")
 if ($LASTEXITCODE -ne 0) { throw "cargo build failed for $Rid" }
 
-$builtDll = Join-Path $nativeDir "target\$triple\release\$dllName"
+$builtDll = Join-Path $nativeDir "target/$triple/release/$dllName"
 if (-not (Test-Path -LiteralPath $builtDll)) { throw "Expected asset missing: $builtDll" }
 
-$stageDir = Join-Path $nativeDir "staging\$Rid\native"
-$legalDir = Join-Path $nativeDir "staging\$Rid\legal"
+$stageDir = Join-Path $nativeDir "staging/$Rid/native"
+$legalDir = Join-Path $nativeDir "staging/$Rid/legal"
 New-Item -ItemType Directory -Path $stageDir -Force | Out-Null
 New-Item -ItemType Directory -Path $legalDir -Force | Out-Null
 Copy-Item -LiteralPath $builtDll -Destination (Join-Path $stageDir $dllName) -Force
@@ -115,9 +123,13 @@ $manifest | ConvertTo-Json -Depth 4 | ForEach-Object {
 }
 
 # Upstream license text (published biscuit-auth crate ships its LICENSE).
-$registry = Get-ChildItem -LiteralPath (Join-Path $env:USERPROFILE ".cargo\registry\src") -Directory | Select-Object -First 1
-$biscuitLicense = Join-Path $registry.FullName "biscuit-auth-6.0.0\LICENSE"
-if (Test-Path -LiteralPath $biscuitLicense) {
+$registry = Get-ChildItem -LiteralPath (Join-Path $HOME ".cargo/registry/src") -Directory -ErrorAction SilentlyContinue |
+    Select-Object -First 1
+$biscuitLicense = $null
+if ($null -ne $registry) {
+    $biscuitLicense = Join-Path $registry.FullName "biscuit-auth-6.0.0/LICENSE"
+}
+if ($biscuitLicense -and (Test-Path -LiteralPath $biscuitLicense)) {
     Copy-Item -LiteralPath $biscuitLicense -Destination (Join-Path $legalDir "biscuit-auth-LICENSE") -Force
 }
 

@@ -35,8 +35,8 @@ try {
 
     $root = Join-Path $work "unpacked"
     $need = @(
-        "lib\net8.0\BiscuitSharp.dll", "lib\net8.0\BiscuitSharp.xml",
-        "lib\net10.0\BiscuitSharp.dll", "lib\net10.0\BiscuitSharp.xml",
+        "lib/net8.0/BiscuitSharp.dll", "lib/net8.0/BiscuitSharp.xml",
+        "lib/net10.0/BiscuitSharp.dll", "lib/net10.0/BiscuitSharp.xml",
         "README.md", "LICENSE", "NOTICE"
     )
     foreach ($rel in $need) {
@@ -45,8 +45,8 @@ try {
 
     foreach ($r in $Rids) {
         if (-not $files.ContainsKey($r)) { Fail "unknown RID '$r'" }
-        $dll = Join-Path $root "runtimes\$r\native\$($files[$r])"
-        $manifest = Join-Path $root "runtimes\$r\native\biscuitsharp-native.json"
+        $dll = Join-Path $root "runtimes/$r/native/$($files[$r])"
+        $manifest = Join-Path $root "runtimes/$r/native/biscuitsharp-native.json"
         if (-not (Test-Path -LiteralPath $dll)) { Fail "missing runtimes/$r/native/$($files[$r])" }
         if (-not (Test-Path -LiteralPath $manifest)) { Fail "missing runtimes/$r/native/biscuitsharp-native.json" }
         $info = Get-Content -LiteralPath $manifest -Raw | ConvertFrom-Json
@@ -57,9 +57,9 @@ try {
         # Legal notices are split by the project packing rules: the upstream
         # license travels with the runtime, the transitive inventory under
         # third-party/.
-        $runtimeLegal = Get-ChildItem -File -LiteralPath (Join-Path $root "runtimes\$r\legal") -ErrorAction SilentlyContinue |
+        $runtimeLegal = Get-ChildItem -File -LiteralPath (Join-Path $root "runtimes/$r/legal") -ErrorAction SilentlyContinue |
             Select-Object -ExpandProperty Name
-        $thirdPartyLegal = Join-Path $root "third-party\$r\legal\THIRD_PARTY_NOTICES.md"
+        $thirdPartyLegal = Join-Path $root "third-party/$r/legal/THIRD_PARTY_NOTICES.md"
         if (-not ($runtimeLegal -contains "biscuit-auth-LICENSE")) {
             Fail "$r : runtimes legal notices omit biscuit-auth-LICENSE"
         }

@@ -58,7 +58,8 @@
   `WithLimits` wired to upstream `set_limits` (documented 1 ms default, breach
   denies with `evaluation_failure`); `eng/Verify-NativeStaging.ps1`,
   `eng/Verify-NuGetPackage.ps1`, `eng/Test-PackagedConsumer.ps1`, and
-  `eng/Test-DistWinX64.ps1` implemented with a CI `dist-win-x64` job.
+  `eng/Test-Dist.ps1` (per-RID orchestrator) implemented with CI
+  `dist`/`pack`/`consume`/`valgrind` jobs.
 - Review fixes part 2: `BiscuitPublicKey.Parse` over a new `key_import_public`
   bridge op (verification without the private half); `AddRule` on the token
   builder and the authorizer; `unsafe extern "C"` FFI entry with documented
@@ -67,8 +68,13 @@
 - Third review pass: documented open items in [docs/review-findings.md](docs/review-findings.md)
   (several since fixed: public-key import, authorizer rules, load-time manifest
   verification, clippy/CI coverage).
-- M2 win-x64 staging (local): release-triple build, `biscuitsharp-native.json`
-  manifest + license staging (`eng/Build-Native.ps1`), load-time manifest
-  verification (hash + live identity, tamper-refusing; covered by child-process
-  probes), NativeAOT publish + execute, single-RID pack verification, and a
-  clean isolated-cache external consumer — all green. Linux/macOS still open.
+- M2 win-x64 staging (local): release-triple build via `eng/Build-Native.ps1`,
+  `eng/Verify-NativeStaging.ps1`, load-time manifest verification with
+  child-process probes, NativeAOT publish + execute, single-RID pack +
+  `eng/Verify-NuGetPackage.ps1`, and `eng/Test-PackagedConsumer.ps1` on
+  net8.0/net10.0 via `eng/Test-Dist.ps1 -Rid win-x64` — all green. Linux/macOS still open.
+- CI distribution matrix: per-OS managed/compat/dist jobs, three-RID pack +
+  six-consumer jobs, Valgrind leak-probe job, and a pwsh-cross-platform `eng/`
+  suite (`$HOME` cargo discovery, forward-slash joins, no `powershell.exe`
+  nesting) — configured, awaiting its first green run. Added a native
+  `leak_probe_cycles` workload (50 full-lifecycle bridge cycles) for it.

@@ -23,16 +23,19 @@
 $ErrorActionPreference = "Stop"
 
 $repoRoot = Split-Path -Parent $PSScriptRoot
-$cargo = Join-Path $env:USERPROFILE ".cargo\bin\cargo.exe"
-if (-not (Test-Path -LiteralPath $cargo)) { $cargo = "cargo" }
+# Cross-platform cargo discovery ($HOME exists on Windows PowerShell 5.1 and PS 7).
+$cargo = "cargo"
+foreach ($candidate in @((Join-Path $HOME ".cargo/bin/cargo"), (Join-Path $HOME ".cargo/bin/cargo.exe"))) {
+    if (Test-Path -LiteralPath $candidate) { $cargo = $candidate; break }
+}
 
-& $cargo test --locked --lib --manifest-path (Join-Path $repoRoot "native\Cargo.toml")
+& $cargo test --locked --lib --manifest-path (Join-Path $repoRoot "native/Cargo.toml")
 if ($LASTEXITCODE -ne 0) { throw "cargo unit tests failed" }
 
-& $cargo test --locked --test compat_gen --manifest-path (Join-Path $repoRoot "native\Cargo.toml")
+& $cargo test --locked --test compat_gen --manifest-path (Join-Path $repoRoot "native/Cargo.toml")
 if ($LASTEXITCODE -ne 0) { throw "compat_gen failed" }
 
-& $cargo test --locked --test committed_fixtures --manifest-path (Join-Path $repoRoot "native\Cargo.toml")
+& $cargo test --locked --test committed_fixtures --manifest-path (Join-Path $repoRoot "native/Cargo.toml")
 if ($LASTEXITCODE -ne 0) { throw "committed fixtures failed" }
 
 Push-Location -LiteralPath $repoRoot
@@ -42,7 +45,7 @@ try {
 }
 finally { Pop-Location }
 
-& $cargo test --locked --test compat_consume --manifest-path (Join-Path $repoRoot "native\Cargo.toml")
+& $cargo test --locked --test compat_consume --manifest-path (Join-Path $repoRoot "native/Cargo.toml")
 if ($LASTEXITCODE -ne 0) { throw "compat_consume failed" }
 
 Push-Location -LiteralPath $repoRoot

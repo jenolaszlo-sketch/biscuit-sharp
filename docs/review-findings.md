@@ -28,7 +28,10 @@ inherent, documented), **Deferred** (planned, spec §13/14/M2),
    archive verification green, one isolated-cache clean consumer green. The
    three-RID CI matrix, `Verify-NativeStaging` / `Verify-NuGetPackage` /
    `Test-PackagedConsumer` automation, and publication stay open (M2).
-5. **Deferred — leak instrumentation.** No Valgrind/equivalent run (needs Linux).
+5. **Valgrind wired, awaiting its run.** A `leak_probe_cycles` workload
+   (50 full-lifecycle bridge cycles, every handle destroyed) plus a Linux CI
+   job (`--leak-check=full --errors-for-leaks=yes`, definite leaks fail).
+   No results yet — first green run pending.
 6. **Fixed 2026-10-02 — execution limits.** `BiscuitAuthorizerLimits` plus
    `WithLimits`, wired to upstream `set_limits`/`authorize_with_limits`
    (documented 1 ms default); breaches deny with `evaluation_failure`.
@@ -36,10 +39,10 @@ inherent, documented), **Deferred** (planned, spec §13/14/M2),
 7. **Gap — loader failure tests not written** for tampered/wrong-ABI/wrong-version
    assets (some depend on the M2 manifest). Current coverage: missing asset and
    relative override only.
-8. **Gap — mutation matrix is dev-profile and Windows-only.** It runs inside
-   `cargo test --lib`, which only the Windows compat job executes; release-profile
-   and Linux/macOS runs (where the shipped artifact's overflow behavior differs)
-   remain open. M2.
+8. **Partially fixed 2026-10-02 — mutation matrix runs per-OS in CI now**
+   (`compat` job on Windows/Linux/macOS), but stays dev-profile. A
+   release-profile run (where the shipped artifact's overflow behavior differs)
+   remains open with M2.
 
 ## Known limitations (by design / inherent)
 

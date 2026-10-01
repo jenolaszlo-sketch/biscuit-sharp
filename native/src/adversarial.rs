@@ -516,3 +516,74 @@ fn deterministic_mutation_matrix() {
     assert_eq!(panics, 0, "a panic crossed the ABI");
     assert_eq!(rejected + proved + denies + allows, 4096);
 }
+
+/// Leak-probe workload for Valgrind runs (M2.5): repeated full-lifecycle
+/// cycles through the bridge (generate, create, parse, attenuate, authorize,
+/// inspect, revocation ids, destroy). Every handle is destroyed and every
+/// buffer is freed by the harness contract, so Valgrind must report zero
+/// definite leaks:
+/// valgrind --leak-check=full --errors-for-leaks=yes --error-exitcode=99 \
+///   ./target/debug/deps/biscuitsharp_native-<hash> leak_probe --exact
+#[test]
+fn leak_probe_cycles() {
+    let (status, v) = call(
+        crate::keys::OP_KEY_GENERATE,
+        &serde_json::json!({ "algorithm": "ed25519" }),
+    );
+    assert_eq!(status, STATUS_OK);
+    let handle = v["handle"].as_u64().unwrap();
+    let root = serde_json::json!({
+        "algorithm": v["algorithm"],
+        "public_key": v["public_key"],
+    });
+    for _ in 0..50 {
+        let (status, v) = call(
+            crate::tokens::OP_TOKEN_CREATE,
+            &serde_json::json!({
+                "root_handle": handle,
+                "facts": [{ "source": "right(\"workspace.main\", \"read\")" }],
+            }),
+        );
+        assert_eq!(status, STATUS_OK);
+        let token = v["token"].as_str().unwrap().to_owned();
+        let token_bytes = base64::decode(&token).unwrap();
+        let req = || {
+            serde_json::json!({
+                "token": base64::encode(&token_bytes),
+                "root": root,
+            })
+        };
+        let (status, _) = call(crate::tokens::OP_TOKEN_PARSE_VERIFY, &req());
+        assert_eq!(status, STATUS_OK);
+        let (status, v) = call(
+            crate::tokens::OP_TOKEN_ATTENUATE,
+            &serde_json::json!({
+                "token": base64::encode(&token_bytes),
+                "root": root,
+                "block": { "source": "check if operation(\"read\");" },
+            }),
+        );
+        assert_eq!(status, STATUS_OK);
+        let child = v["token"].as_str().unwrap().to_owned();
+        let (status, v) = call(
+            crate::authorizer::OP_TOKEN_AUTHORIZE,
+            &serde_json::json!({
+                "token": child,
+                "root": root,
+                "facts": ["operation(\"read\")"],
+                "policies": ["allow if right(\"workspace.main\", \"read\");"],
+            }),
+        );
+        assert_eq!(status, STATUS_OK);
+        assert_eq!(v["decision"], "allow");
+        let (status, _) = call(crate::tokens::OP_TOKEN_INSPECT, &req());
+        assert_eq!(status, STATUS_OK);
+        let (status, _) = call(crate::tokens::OP_TOKEN_REVOCATION_IDS, &req());
+        assert_eq!(status, STATUS_OK);
+    }
+    let (status, _) = call(
+        crate::keys::OP_KEY_DESTROY,
+        &serde_json::json!({ "handle": handle }),
+    );
+    assert_eq!(status, STATUS_OK);
+}

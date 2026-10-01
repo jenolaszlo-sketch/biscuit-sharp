@@ -6,10 +6,17 @@ on:
   pull_request:
 
 jobs:
+  # Managed build + tests on every qualified OS (.NET 8 + .NET 10, real asset).
   managed:
     strategy:
       matrix:
-        os: [windows-latest, ubuntu-latest, macos-latest]
+        include:
+          - os: windows-latest
+            rid: win-x64
+          - os: ubuntu-latest
+            rid: linux-x64
+          - os: macos-latest
+            rid: osx-arm64
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -23,8 +30,22 @@ jobs:
       - run: dotnet build BiscuitSharp.slnx
       - run: dotnet run --project tests/BiscuitSharp.Tests --framework net8.0
       - run: dotnet run --project tests/BiscuitSharp.Tests --framework net10.0
+
+  # Bidirectional compatibility gate on every qualified OS (pwsh everywhere).
   compat:
-    runs-on: windows-latest
+    strategy:
+      matrix:
+        include:
+          - os: windows-latest
+            rid: win-x64
+          - os: ubuntu-latest
+            rid: linux-x64
+          - os: macos-latest
+            rid: osx-arm64
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: pwsh
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
@@ -33,7 +54,9 @@ jobs:
             8.0.x
             10.0.x
       - uses: dtolnay/rust-toolchain@1.89.0
-      - run: powershell -NoProfile -ExecutionPolicy Bypass -File eng/Test-Compat.ps1
+      - run: ./eng/Test-Compat.ps1
+
+  # Native lints (one OS is enough: toolchain-pinned, deterministic).
   native-lints:
     runs-on: ubuntu-latest
     steps:
@@ -43,8 +66,22 @@ jobs:
           components: rustfmt, clippy
       - run: cargo fmt --manifest-path native/Cargo.toml -- --check
       - run: cargo clippy --locked --all-targets --manifest-path native/Cargo.toml -- -D warnings
-  dist-win-x64:
-    runs-on: windows-latest
+
+  # Per-RID release staging + NativeAOT smoke; staging trees upload as artifacts.
+  dist:
+    strategy:
+      matrix:
+        include:
+          - os: windows-latest
+            rid: win-x64
+          - os: ubuntu-latest
+            rid: linux-x64
+          - os: macos-latest
+            rid: osx-arm64
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: pwsh
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
@@ -53,7 +90,85 @@ jobs:
             8.0.x
             10.0.x
       - uses: dtolnay/rust-toolchain@1.89.0
-      - run: powershell -NoProfile -ExecutionPolicy Bypass -File eng/Test-DistWinX64.ps1
-  # M2 add: native builds + tests per RID (linux-x64, osx-arm64), mutation/fuzz,
-  # Valgrind, NativeAOT per RID, package verification, and six clean consumers.
-  # See docs/implementation-plan.md.
+      - run: ./eng/Test-Dist.ps1 -Rid ${{ matrix.rid }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: staging-${{ matrix.rid }}
+          path: native/staging/${{ matrix.rid }}
+          if-no-files-found: error
+
+  # Assemble the three-RID package, verify it, then clean consumers per OS × TFM.
+  pack:
+    needs: [dist]
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            8.0.x
+            10.0.x
+      - uses: dtolnay/rust-toolchain@1.89.0
+      - uses: actions/download-artifact@v4
+        with:
+          name: staging-win-x64
+          path: native/staging/win-x64
+      - uses: actions/download-artifact@v4
+        with:
+          name: staging-linux-x64
+          path: native/staging/linux-x64
+      - uses: actions/download-artifact@v4
+        with:
+          name: staging-osx-arm64
+          path: native/staging/osx-arm64
+      - run: ./eng/Verify-NativeStaging.ps1
+      - run: dotnet pack src/BiscuitSharp/BiscuitSharp.csproj -p:BiscuitSharpEnablePack=true -o artifacts/packages
+      - run: |
+          $pkg = Get-ChildItem artifacts/packages/BiscuitSharp.*.nupkg | Where-Object { $_.Name -notlike '*.snupkg' } | Select-Object -First 1 -ExpandProperty FullName
+          ./eng/Verify-NuGetPackage.ps1 -Package $pkg -Rids win-x64,linux-x64,osx-arm64
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nupkg
+          path: artifacts/packages/BiscuitSharp.*.nupkg
+          if-no-files-found: error
+
+  consume:
+    needs: [pack]
+    strategy:
+      matrix:
+        os: [windows-latest, ubuntu-latest, macos-latest]
+        tfm: [net8.0, net10.0]
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            8.0.x
+            10.0.x
+      - uses: actions/download-artifact@v4
+        with:
+          name: nupkg
+          path: artifacts/packages
+      - run: |
+          $pkg = Get-ChildItem artifacts/packages/BiscuitSharp.*.nupkg | Where-Object { $_.Name -notlike '*.snupkg' } | Select-Object -First 1 -ExpandProperty FullName
+          ./eng/Test-PackagedConsumer.ps1 -Package $pkg -TargetFramework ${{ matrix.tfm }}
+
+  # Native-memory instrumentation (Linux): leak-probe cycles under Valgrind.
+  # Definite leaks fail the job; record possible-loss output honestly.
+  valgrind:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.89.0
+      - run: sudo apt-get update && sudo apt-get install -y valgrind
+      - run: |
+          bin=$(cargo test --locked --lib --no-run --manifest-path native/Cargo.toml 2>&1 | grep -o 'native/target/debug/deps/biscuitsharp_native-[^ )]*' | head -n 1)
+          test -n "$bin" || { echo "leak-probe test binary not found"; exit 1; }
+          valgrind --leak-check=full --show-leak-kinds=definite --errors-for-leaks=yes --error-exitcode=99 "$bin" leak_probe --exact --nocapture

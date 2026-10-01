@@ -7,7 +7,7 @@
 | `Verify-NuGetPackage.ps1 -Package <nupkg> -Rids <rids>` | Archive inventory, per-RID asset/manifest/hash checks, nuspec, symbols package |
 | `Test-PackagedConsumer.ps1 -Package <nupkg> -TargetFramework <tfm>` | Isolated-cache external consumer exercising the full credential flow |
 | `Test-Compat.ps1` | Bidirectional compatibility gate (unit, gen, fixtures, managed, consume) |
-| `Test-DistWinX64.ps1` | Windows x64 distribution gate orchestrator (staging through both consumers) |
+| `Test-Dist.ps1 -Rid <rid>` | Per-RID distribution gate: staging, staging verification, NativeAOT publish + execute |
 
 Still open for M2: `Test-Native.ps1` equivalent per-RID automation beyond what CI
 jobs already run, and `Test-NativeMemory.sh` (Valgrind, needs Linux).
