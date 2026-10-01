@@ -64,7 +64,7 @@ await the M2 gate).
 
 - **Biscuit behavior:** signature verification, block-chain integrity, attenuation that only narrows authority, sealing, and default-deny authorization from the pinned engine.
 - **Reviewable outcomes:** typed decisions, structured authorization errors, inspection (block count, sealed state, algorithms, revocation IDs, block source), and loaded-asset identity.
-- **Safe credential handling:** opaque private-key handles with explicit export, `ToString()` that never reveals secrets, revocation IDs without an implicit revocation store.
+- **Safe credential handling:** opaque private-key handles with explicit DER/PEM export, `ToString()` that never reveals secrets, value-equal revocation IDs without an implicit revocation store, and an explicit `AddTimeFact` for deterministic expiration checks.
 - **Deployment choices:** framework-dependent, self-contained, trimmed, and NativeAOT applications on the [qualified environments](docs/deployment.md) (M2).
 
 BiscuitSharp verifies tokens and evaluates authorization. Your application owns grant

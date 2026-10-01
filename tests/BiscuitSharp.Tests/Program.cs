@@ -574,6 +574,45 @@ try
     }
 
     Check(policyFailures == 0, "invalid policies never authorize");
+
+    // 33. Value equality over key/revocation material (array bytes, not identity).
+    var replicatedKey = new BiscuitPublicKey((byte[])rootKey.PublicKey.Encoded.Clone(), rootKey.Algorithm);
+    Check(replicatedKey == rootKey.PublicKey, "public keys compare by value");
+    Check(replicatedKey.GetHashCode() == rootKey.PublicKey.GetHashCode(), "equal public keys hash equally");
+    Check(replicatedKey != p256Root.PublicKey, "different public keys are unequal");
+    BiscuitRevocationId revIdA = token.GetRevocationIds()[0];
+    BiscuitRevocationId revIdB = BiscuitToken.Parse(token.ToBytes(), rootKey.PublicKey).GetRevocationIds()[0];
+    Check(revIdA == revIdB, "revocation ids from separate parses compare equal");
+    Check(new HashSet<BiscuitRevocationId> { revIdA }.Contains(revIdB), "revocation ids work as dictionary keys");
+
+    // 34. PEM export round-trips through Import (asymmetric with DER Export()).
+    string pemExport = edKey.ExportPem();
+    Check(pemExport.StartsWith("-----BEGIN PRIVATE KEY-----", StringComparison.Ordinal), "PEM export is armored");
+    using BiscuitPrivateKey fromExportPem = BiscuitPrivateKey.Import(Encoding.ASCII.GetBytes(pemExport));
+    Check(fromExportPem.PublicKey == edKey.PublicKey, "PEM export round-trips the public half");
+    Check(!edKey.ToString().Contains(pemExport, StringComparison.Ordinal), "ToString never exposes exported PEM");
+
+    // 35. Explicit ambient time fact drives expiration checks deterministically.
+    BiscuitToken expiring = BiscuitTokenBuilder
+        .Create()
+        .AddFact("""right("a", "read")""")
+        .AddCheck("""check if time($t), $t < 2030-01-01T00:00:00Z;""")
+        .Build(rootKey);
+    BiscuitAuthorizationResult beforeExpiry = BiscuitAuthorizer
+        .For(expiring)
+        .AddTimeFact(new DateTimeOffset(2025, 1, 1, 0, 0, 0, TimeSpan.Zero))
+        .AddPolicy("""allow if right("a", "read");""")
+        .Authorize();
+    Check(beforeExpiry.IsAuthorized, "time fact before expiry allows");
+    BiscuitAuthorizationResult afterExpiry = BiscuitAuthorizer
+        .For(expiring)
+        .AddTimeFact(new DateTimeOffset(2031, 1, 1, 0, 0, 0, TimeSpan.Zero))
+        .AddPolicy("""allow if right("a", "read");""")
+        .Authorize();
+    Check(afterExpiry.Decision == BiscuitDecision.Deny, "time fact after expiry denies");
+    Check(
+        afterExpiry.Errors.Any(e => e.Code == "failed_check"),
+        "expired check is reported as a failed check");
 }
 finally
 {

@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text.Json;
 
 namespace BiscuitSharp;
@@ -93,6 +94,18 @@ public sealed class BiscuitAuthorizer
         RejectEmpty(datalogCheck, nameof(datalogCheck));
         _checks.Add(datalogCheck);
         return this;
+    }
+
+    /// <summary>
+    /// Adds an explicit ambient <c>time(...)</c> fact (RFC 3339, UTC) so
+    /// expiration checks like <c>check if time($t), $t &lt; 2030-01-01T00:00:00Z;</c>
+    /// evaluate deterministically. Time is never injected implicitly.
+    /// </summary>
+    public BiscuitAuthorizer AddTimeFact(DateTimeOffset value)
+    {
+        string rfc3339 = value.ToUniversalTime()
+            .ToString("yyyy-MM-dd'T'HH:mm:ss'Z'", CultureInfo.InvariantCulture);
+        return AddFact($"time({rfc3339})");
     }
 
     public BiscuitAuthorizationResult Authorize()

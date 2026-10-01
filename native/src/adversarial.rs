@@ -194,6 +194,16 @@ fn parses(token: &[u8], root: &serde_json::Value) -> Option<Vec<u8>> {
     (status == STATUS_OK).then(|| base64::decode(v["token"].as_str().unwrap()).unwrap())
 }
 
+/// Exercises the FFI panic boundary: a Rust panic is caught, never unwinds
+/// across the ABI, reports `STATUS_PANIC`, and leaves the pre-initialized
+/// empty buffer (no allocation after unwind is attempted).
+#[test]
+fn panic_is_contained_with_empty_output() {
+    let (status, body) = call_bytes(crate::OP_TEST_PANIC, b"");
+    assert_eq!(status, STATUS_PANIC, "panic must surface as STATUS_PANIC");
+    assert!(body.is_none(), "panic path must not emit a body");
+}
+
 #[test]
 fn deterministic_mutation_matrix() {
     let corpus = corpus();

@@ -60,6 +60,12 @@ pub const STATUS_UNSUPPORTED_OP: u32 = 2;
 pub const STATUS_PANIC: u32 = 3;
 pub const STATUS_OVERSIZED: u32 = 4;
 
+/// Test-only operation that panics, exercising FFI panic containment
+/// (`catch_unwind` → `STATUS_PANIC` with an empty body). Never dispatched in
+/// shipped builds (`#[cfg(test)]`).
+#[cfg(test)]
+pub const OP_TEST_PANIC: u32 = 0xFFFF_FFF1;
+
 /// Returns the bridge ABI version.
 #[no_mangle]
 pub extern "C" fn biscuitsharp_abi_version() -> u32 {
@@ -116,6 +122,10 @@ fn dispatch(
         // SAFETY: caller guarantees readable input for the duration of the call.
         unsafe { slice::from_raw_parts(input, input_len) }
     };
+    #[cfg(test)]
+    if operation == OP_TEST_PANIC {
+        panic!("intentional test panic");
+    }
     match operation {
         OP_VERSION => op_version(bytes, output),
         keys::OP_KEY_GENERATE => keys::op_key_generate(bytes, output),

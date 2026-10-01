@@ -1,4 +1,4 @@
-// NativeAOT smoke: publish + execute per qualified RID in CI (M2).
+// NativeAOT smoke: published and executed per qualified RID in CI (M2).
 using BiscuitSharp;
 
 try
@@ -8,5 +8,5 @@ try
 }
 catch (BiscuitBridgeException ex)
 {
-    Console.WriteLine($"Scaffolding mode (expected until M1): {ex.Message}");
+    Console.WriteLine($"Native asset unavailable (build it first): {ex.Message}");
 }

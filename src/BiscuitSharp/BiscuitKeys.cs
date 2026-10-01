@@ -77,6 +77,34 @@ public sealed class BiscuitPrivateKey : IDisposable
         return BridgeJson.RequiredBase64(doc.RootElement, "private_key", "key_export_private");
     }
 
+    /// <summary>
+    /// Explicit export as a PKCS#8 PEM string (<c>-----BEGIN PRIVATE KEY-----</c>
+    /// armored DER), matching upstream's PEM format so <see cref="Import"/>
+    /// round-trips it. The returned string holds secret material; do not log it.
+    /// </summary>
+    public string ExportPem()
+    {
+        byte[] der = Export();
+        try
+        {
+            string base64 = Convert.ToBase64String(der);
+            var sb = new StringBuilder(base64.Length + (base64.Length / 64 * 2) + 64);
+            sb.Append("-----BEGIN PRIVATE KEY-----\n");
+            for (int i = 0; i < base64.Length; i += 64)
+            {
+                sb.Append(base64, i, Math.Min(64, base64.Length - i));
+                sb.Append('\n');
+            }
+
+            sb.Append("-----END PRIVATE KEY-----\n");
+            return sb.ToString();
+        }
+        finally
+        {
+            Array.Clear(der);
+        }
+    }
+
     public void Dispose()
     {
         if (Interlocked.Exchange(ref _disposed, 1) == 0)
@@ -154,7 +182,45 @@ public sealed class BiscuitPrivateKey : IDisposable
             : new BiscuitKeyException($"Biscuit key operation failed ({code}): {message}.");
 }
 
-/// <summary>Public half of a Biscuit keypair. Safe to log and share.</summary>
-/// <param name="Encoded">Raw upstream public-key bytes, interpreted with <paramref name="Algorithm"/>.</param>
-/// <param name="Algorithm">Signature algorithm.</param>
-public sealed record BiscuitPublicKey(byte[] Encoded, BiscuitKeyAlgorithm Algorithm);
+/// <summary>
+/// Public half of a Biscuit keypair. Safe to log and share. Value equality is
+/// over the algorithm and the encoded bytes (not array identity), so keys
+/// rebuilt from the same material compare equal and can key dictionaries.
+/// </summary>
+public sealed class BiscuitPublicKey : IEquatable<BiscuitPublicKey>
+{
+    /// <summary>Raw upstream public-key bytes, interpreted with <see cref="Algorithm"/>.</summary>
+    public byte[] Encoded { get; }
+
+    public BiscuitKeyAlgorithm Algorithm { get; }
+
+    public BiscuitPublicKey(byte[] encoded, BiscuitKeyAlgorithm algorithm)
+    {
+        ArgumentNullException.ThrowIfNull(encoded);
+        Encoded = (byte[])encoded.Clone();
+        Algorithm = algorithm;
+    }
+
+    public bool Equals(BiscuitPublicKey? other) =>
+        other is not null
+            && Algorithm == other.Algorithm
+            && Encoded.AsSpan().SequenceEqual(other.Encoded);
+
+    public override bool Equals(object? obj) => Equals(obj as BiscuitPublicKey);
+
+    public override int GetHashCode()
+    {
+        var hash = new HashCode();
+        hash.Add((int)Algorithm);
+        hash.AddBytes(Encoded);
+        return hash.ToHashCode();
+    }
+
+    public static bool operator ==(BiscuitPublicKey? left, BiscuitPublicKey? right) =>
+        left is null ? right is null : left.Equals(right);
+
+    public static bool operator !=(BiscuitPublicKey? left, BiscuitPublicKey? right) => !(left == right);
+
+    public override string ToString() =>
+        $"BiscuitPublicKey {{ Algorithm = {Algorithm}, Length = {Encoded.Length} }}";
+}

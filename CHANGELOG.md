@@ -47,3 +47,9 @@
   sweep and 7 invalid policies, all fail-closed. Findings pinned: upstream
   framing tolerates trailing bytes (parse canonicalizes; allow requires
   byte-identical content); DER seed-region mutations yield different valid keys.
+- Second review pass: value equality for `BiscuitPublicKey`/`BiscuitRevocationId`
+  (byte-based, not array identity — required for revocation lookups); the key
+  store lock is no longer held across token builds; a native panic-containment
+  test; `BiscuitPrivateKey.ExportPem()`; `BiscuitAuthorizer.AddTimeFact(...)`;
+  CI pins Rust 1.89.0; package-validation baseline removed until the first
+  preview is published.

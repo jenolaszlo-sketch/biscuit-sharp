@@ -26,10 +26,40 @@ public sealed class BiscuitBlock
     public override string ToString() => $"BiscuitBlock {{ Length = {Source.Length} }}";
 }
 
-/// <summary>Revocation identifier for one Biscuit block. Application-managed revocation state lives outside this library.</summary>
-/// <param name="Value">Opaque upstream revocation id bytes.</param>
-public sealed record BiscuitRevocationId(byte[] Value)
+/// <summary>
+/// Revocation identifier for one Biscuit block. Application-managed revocation
+/// state lives outside this library. Value equality is over the opaque bytes
+/// (not array identity), so identifiers from separate parses of the same token
+/// are equal — required for revocation lookups keyed by these ids.
+/// </summary>
+public sealed class BiscuitRevocationId : IEquatable<BiscuitRevocationId>
 {
+    /// <summary>Opaque upstream revocation id bytes.</summary>
+    public byte[] Value { get; }
+
+    public BiscuitRevocationId(byte[] value)
+    {
+        ArgumentNullException.ThrowIfNull(value);
+        Value = (byte[])value.Clone();
+    }
+
+    public bool Equals(BiscuitRevocationId? other) =>
+        other is not null && Value.AsSpan().SequenceEqual(other.Value);
+
+    public override bool Equals(object? obj) => Equals(obj as BiscuitRevocationId);
+
+    public override int GetHashCode()
+    {
+        var hash = new HashCode();
+        hash.AddBytes(Value);
+        return hash.ToHashCode();
+    }
+
+    public static bool operator ==(BiscuitRevocationId? left, BiscuitRevocationId? right) =>
+        left is null ? right is null : left.Equals(right);
+
+    public static bool operator !=(BiscuitRevocationId? left, BiscuitRevocationId? right) => !(left == right);
+
     public override string ToString() => Convert.ToBase64String(Value);
 }
 

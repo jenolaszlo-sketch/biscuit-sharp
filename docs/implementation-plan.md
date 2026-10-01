@@ -142,7 +142,8 @@ Exit: preview published; `verification.md` holds the exact evidence.
   `cargo test --lib`): 4,096 cases — rejected 4074, proved-legitimate 19,
   denies 0, allows 3 (all byte-identical canonical content), panics 0 — plus a
   managed 96-position mutation sweep and 7 invalid policies (fail-fast or deny,
-  never allow). Findings pinned: upstream framing tolerates trailing bytes
+  never allow) and a native panic-containment test (a real Rust panic surfaces
+  as `STATUS_PANIC` with an empty body; no unwind crosses the ABI). Findings pinned: upstream framing tolerates trailing bytes
   (parse canonicalizes; authorization requires byte-identical content); DER
   seed-region mutations yield different valid keys (import success requires a
   usable, destroyable handle). Release-profile + all-RID repetition stays open

@@ -1,5 +1,5 @@
-// Framework-dependent smoke: exercises the M1 flow once the native bridge lands.
-// Until then it reports the expected scaffolding failure and exits 0 (scaffolding mode).
+// Framework-dependent smoke: reports the loaded bridge identity. Requires a
+// built native asset (`cargo build --locked` in native/) or BISCUITSHARP_NATIVE_PATH.
 using BiscuitSharp;
 
 try
@@ -9,5 +9,5 @@ try
 }
 catch (BiscuitBridgeException ex)
 {
-    Console.WriteLine($"Scaffolding mode (expected until M1): {ex.Message}");
+    Console.WriteLine($"Native asset unavailable (build it first): {ex.Message}");
 }

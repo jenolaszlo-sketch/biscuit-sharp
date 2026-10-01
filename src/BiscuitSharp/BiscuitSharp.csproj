@@ -20,7 +20,9 @@
     <IncludeSymbols>true</IncludeSymbols>
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
     <EnablePackageValidation>true</EnablePackageValidation>
-    <PackageValidationBaselineVersion>0.1.0-preview.1</PackageValidationBaselineVersion>
+    <!-- No API-compatibility baseline until the first preview is published; a
+         baseline version that is not on NuGet makes `dotnet pack` fail. Add
+         PackageValidationBaselineVersion once 0.1.0-preview.1 is public. -->
     <!-- Packaging stays opt-in: pass -p:BiscuitSharpEnablePack=true. Without it the project is not packable by design. -->
     <IsPackable Condition="'$(BiscuitSharpEnablePack)' != 'true'">false</IsPackable>
     <IsPackable Condition="'$(BiscuitSharpEnablePack)' == 'true'">true</IsPackable>

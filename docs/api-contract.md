@@ -56,6 +56,16 @@ failures, and ordinary denial are never flattened into one error.
   Authorization calls are synchronous. Each `Build()` mints fresh ephemeral
   chain keys, so rebuilding from the same builder yields distinct but equally
   valid tokens — compare behavior, not bytes, across issuances.
+- `BiscuitPublicKey` and `BiscuitRevocationId` implement value equality over
+  their bytes (not array identity), so keys and revocation ids from separate
+  constructions compare equal and can key dictionaries/sets — required for
+  revocation lookups keyed by ids.
+- `BiscuitPrivateKey.Export()` returns PKCS#8 DER; `ExportPem()` returns the
+  armored PEM form; both are secret material (do not log). `Import()` accepts
+  either.
+- `BiscuitAuthorizer.AddTimeFact(DateTimeOffset)` adds an explicit RFC 3339
+  `time(...)` fact so expiration checks evaluate deterministically; time is
+  never injected implicitly.
 - `BiscuitPrivateKey` is an opaque native handle: `IDisposable`, `ToString()`
   never reveals secrets, disposal zeroes/frees native material as far as the
   implementation permits (documented honestly: no protection against dumps or a

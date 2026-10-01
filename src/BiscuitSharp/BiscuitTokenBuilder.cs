@@ -124,7 +124,7 @@ public sealed class BiscuitTokenBuilder
         var dict = new Dictionary<string, BiscuitParam>(StringComparer.Ordinal);
         foreach (PropertyInfo property in parameters.GetType().GetProperties(BindingFlags.Public | BindingFlags.Instance))
         {
-            if (!property.CanRead)
+            if (!property.CanRead || property.GetIndexParameters().Length != 0)
             {
                 continue;
             }
