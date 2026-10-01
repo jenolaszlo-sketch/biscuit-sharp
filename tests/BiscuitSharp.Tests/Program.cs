@@ -513,6 +513,66 @@ try
     {
         Console.WriteLine("SKIP: compat consume phase (set BISCUITSHARP_COMPAT_CONSUME=1 after the Rust consume step).");
     }
+
+    // 32. Adversarial: systematically mutated tokens never verify; invalid
+    // policies either fail fast as Datalog errors or deny — never authorize.
+    byte[] canonical = token.ToBytes();
+    int mutationSurvivors = 0;
+    var positions = Enumerable
+        .Range(0, Math.Min(64, canonical.Length))
+        .Concat(Enumerable.Range(Math.Max(0, canonical.Length - 32), Math.Min(32, canonical.Length)))
+        .Distinct()
+        .ToList();
+    foreach (int pos in positions)
+    {
+        byte[] mutant = (byte[])canonical.Clone();
+        mutant[pos] ^= 0xFF;
+        try
+        {
+            BiscuitToken.Parse(mutant, rootKey.PublicKey);
+            mutationSurvivors++;
+        }
+        catch (BiscuitTokenException)
+        {
+        }
+    }
+
+    Check(mutationSurvivors == 0, "mutated tokens never verify");
+    string[] invalidPolicies = new[]
+    {
+        "allow if",
+        "deny if",
+        "allow if right(",
+        "allow if right(\"a\")",
+        "permit(principal, action, resource);",
+        "allow if 1 == 2;",
+        "allow if operation(",
+    };
+    int policyFailures = 0;
+    foreach (string badPolicy in invalidPolicies)
+    {
+        bool closed = false;
+        try
+        {
+            BiscuitAuthorizationResult r = BiscuitAuthorizer
+                .For(token)
+                .AddFact("""operation("read")""")
+                .AddPolicy(badPolicy)
+                .Authorize();
+            closed = !r.IsAuthorized;
+        }
+        catch (BiscuitDatalogException)
+        {
+            closed = true;
+        }
+
+        if (!closed)
+        {
+            policyFailures++;
+        }
+    }
+
+    Check(policyFailures == 0, "invalid policies never authorize");
 }
 finally
 {

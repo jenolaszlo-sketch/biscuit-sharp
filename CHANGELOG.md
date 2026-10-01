@@ -41,6 +41,11 @@
   authorize, cross-attenuate both ways) plus committed deterministic
   `fixtures/compat/genesis.json` vectors (108 checks green per TFM, 107 in the
   compat consume run).
+- M2.5 mutation matrix: deterministic 4,096-case native run (`src/adversarial.rs`,
+  zero panics, zero unjustified successes) plus a managed 96-position token
+  sweep and 7 invalid policies, all fail-closed. Findings pinned: upstream
+  framing tolerates trailing bytes (parse canonicalizes; allow requires
+  byte-identical content); DER seed-region mutations yield different valid keys.
   Finding: token bytes are never byte-stable across runs — issuance mints a
   fresh ephemeral next-key per token — so fixtures pin keys exactly and verify
   tokens structurally.

@@ -137,6 +137,15 @@ Exit: preview published; `verification.md` holds the exact evidence.
   bridge envelopes, key encodings, and structured native responses (thousands of
   cases per native run). Prove: no panic crosses the ABI, no malformed input
   becomes success, no malformed signature verifies, no malformed token authorizes.
+  Done 2026-10-01 on Windows x64 dev profile (`src/adversarial.rs`, runs inside
+  `cargo test --lib`): 4,096 cases — rejected 4074, proved-legitimate 19,
+  denies 0, allows 3 (all byte-identical canonical content), panics 0 — plus a
+  managed 96-position mutation sweep and 7 invalid policies (fail-fast or deny,
+  never allow). Findings pinned: upstream framing tolerates trailing bytes
+  (parse canonicalizes; authorization requires byte-identical content); DER
+  seed-region mutations yield different valid keys (import success requires a
+  usable, destroyable handle). Release-profile + all-RID repetition stays open
+  with the M2 matrix.
 - Leak instrumentation: Linux Valgrind (or equivalent) over repeated
   issue/parse/attenuate/authorize/dispose cycles; record limitations honestly.
 - Diagnostics/privacy tests (safe defaults per `security.md`), strict

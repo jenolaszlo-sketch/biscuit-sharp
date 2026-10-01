@@ -41,6 +41,9 @@ mod keys;
 mod tokens;
 mod authorizer;
 
+#[cfg(test)]
+mod adversarial;
+
 /// Operation ids. Key operations live in [`keys`], token operations in
 /// [`tokens`], authorization in [`authorizer`].
 /// Reserved: 7=token_serialize (unneeded: managed tokens hold canonical bytes).
