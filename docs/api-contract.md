@@ -1,8 +1,8 @@
 # API contract
 
-Scaffolding contract for the M1 surface. Until M1 lands, every operation throws
-`BiscuitBridgeException`. After M1, this document is the compatibility baseline
-enforced by package validation and integration tests.
+Contract for the M1 functional surface (keys, tokens, authorization live).
+This document is the compatibility baseline enforced by package validation and
+integration tests from the first preview onward.
 
 ## Result semantics
 
@@ -19,6 +19,14 @@ enforced by package validation and integration tests.
 - `BiscuitAuthorizationResult.IsAuthorized` is true only for Allow with zero
   errors. `RequireAuthorized()` throws `BiscuitAuthorizationException` (carrying
   the result) otherwise. An ordinary Deny is a result, not a bridge failure.
+- Policies apply first-match-wins in the order supplied: place `deny` policies
+  before the `allow` policies they must override. The result reports matched
+  policy indices and structured errors (`failed_check` with block/check/rule,
+  `allow_policy_matched`, `deny_policy_matched`, `no_matching_policy`,
+  `invalid_block_rule`, `evaluation_failure`). Malformed facts/policies/checks
+  throw `BiscuitDatalogException` — no evaluation ran — while a completed
+  evaluation always returns a result. Upstream default execution limits apply;
+  no ambient time fact is injected.
 
 ## Exception semantics
 

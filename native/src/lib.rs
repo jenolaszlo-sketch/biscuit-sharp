@@ -39,11 +39,11 @@ pub struct BiscuitSharpBuffer {
 
 mod keys;
 mod tokens;
+mod authorizer;
 
 /// Operation ids. Key operations live in [`keys`], token operations in
-/// [`tokens`]; authorization follows in a later M1 slice.
-/// Reserved: 7=token_serialize (unneeded: managed tokens hold canonical bytes),
-/// 10=token_authorize.
+/// [`tokens`], authorization in [`authorizer`].
+/// Reserved: 7=token_serialize (unneeded: managed tokens hold canonical bytes).
 pub const OP_VERSION: u32 = 0;
 
 /// Status codes: 0 ok (including Deny answers once authorize lands), 1 invalid
@@ -126,6 +126,7 @@ fn dispatch(
         tokens::OP_TOKEN_SEAL => tokens::op_token_seal(bytes, output),
         tokens::OP_TOKEN_REVOCATION_IDS => tokens::op_token_revocation_ids(bytes, output),
         tokens::OP_TOKEN_INSPECT => tokens::op_token_inspect(bytes, output),
+        authorizer::OP_TOKEN_AUTHORIZE => authorizer::op_token_authorize(bytes, output),
         _ => emit_error(
             output,
             STATUS_UNSUPPORTED_OP,

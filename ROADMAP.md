@@ -1,7 +1,9 @@
 # BiscuitSharp roadmap
 
-Updated 2026-10-01. Scaffolding only: no native behavior is qualified yet.
-See [verification evidence](docs/verification.md) for executed results (currently none).
+Updated 2026-10-01. M0 baseline pinned and verified; M1 functional surface
+(keys, tokens, authorization) implemented and tested on Windows x64 with .NET 8
+and .NET 10. Linux/macOS, packaging, and hardening gates remain open.
+See [verification evidence](docs/verification.md) for executed results.
 
 ## M0: design and baseline
 
@@ -12,11 +14,11 @@ See [verification evidence](docs/verification.md) for executed results (currentl
 
 ## M1: first usable wrapper
 
-- [ ] Implement the native bridge: key generate/import/export, token create/parse-verify/serialize/attenuate/seal, authorize, revocation IDs, inspection, version identity.
-- [ ] Implement the managed surface: keys, builder (textual + parameterized Datalog), token, attenuation, seal, authorizer, revocation IDs, inspection, version info, exception taxonomy.
-- [ ] Add native differential tests (bridge vs direct Rust) and managed integration tests, including attenuation-narrows, seal, tamper/wrong-root/truncation, malformed Datalog, Unicode, invalid UTF-8, oversized inputs, concurrency, panic containment.
+- [x] Implement the native bridge: key generate/import/export/destroy, token create/parse-verify/attenuate/seal, authorize, revocation IDs, inspection, version identity (serialize unneeded: managed tokens hold canonical bytes).
+- [x] Implement the managed surface: keys, builder (textual + parameterized Datalog), token, attenuation, seal, authorizer, revocation IDs, inspection, version info, exception taxonomy.
+- [x] Add native differential tests (bridge vs direct Rust) and managed integration tests, including attenuation-narrows, seal, tamper/wrong-root/truncation, malformed Datalog, Unicode, invalid UTF-8, oversized inputs, concurrency (panic containment and bidirectional compat still open — see below).
 - [ ] Add bidirectional compatibility tests: Rust↔BiscuitSharp issue/verify/attenuate plus spec/sample-token fixtures.
-- [ ] Compile and run the .NET 8 / .NET 10 solution with the real native asset.
+- [x] Compile and run the .NET 8 / .NET 10 solution with the real native asset (Windows x64; Linux/macOS await M2 CI).
 
 ## M2: distribution gate
 

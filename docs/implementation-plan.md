@@ -56,7 +56,10 @@ vs direct upstream and concurrency), token `create`/`parse_verify`/`attenuate`/
 `code`/`code_with_params` with typed str/int/bool/bytes params, canonical
 round-trips, `sealed_token`/`signature_error`/`format_error`/`datalog_error`
 codes, 14 native tests incl. tamper/truncation and seal semantics),
-`token_authorize` (next slice).
+`token_authorize` (done 2026-10-01: ambient facts/checks/policies via upstream
+`code`, allow/deny answers with matched-policy indices and structured
+failed-check/policy errors, first-match-wins order, 8 native tests incl.
+allow-matched-but-check-failed and explicit deny).
 Consolidation is allowed; managed callers must not depend on
 Rust ABI details. Private keys live in opaque native handles; export is explicit.
 
@@ -70,7 +73,8 @@ token (parse/verify, base64url, attenuate, seal, revocation IDs, inspection —
 done 2026-10-01: canonical bytes, equality, typed params incl. reflection
 convenience overload, 40 managed token checks × 2 TFMs),
 authorizer (facts, policies, checks → `BiscuitAuthorizationResult` with
-`RequireAuthorized()`), version discovery reporting the loaded asset (done 2026-10-01: process-lifetime
+matched-policy indices, structured errors, `RequireAuthorized()` — done
+2026-10-01, 23 managed checks × 2 TFMs), version discovery reporting the loaded asset (done 2026-10-01: process-lifetime
 loader, strict JSON decoding, file-hash identity, 20 managed checks × 2 TFMs), and the
 `BiscuitException` taxonomy with boundary rules (bridge ≠ token ≠ Datalog ≠
 enforcement failures; Deny is a result).

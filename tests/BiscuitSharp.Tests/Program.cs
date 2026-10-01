@@ -296,6 +296,111 @@ try
         }
     });
     Check(tokenErrors == 0, "concurrent issue/parse/attenuate");
+
+    // 22. Allow: the specification's end-to-end shape.
+    BiscuitAuthorizationResult allowResult = BiscuitAuthorizer
+        .For(token)
+        .AddFact("""resource("/src/Foo.cs")""")
+        .AddFact("""operation("read")""")
+        .AddPolicy("""allow if right("workspace.main", "read");""")
+        .Authorize();
+    Check(allowResult.IsAuthorized, "matching request is authorized");
+    Check(allowResult.Decision == BiscuitDecision.Allow && allowResult.Errors.Count == 0, "clean allow carries no errors");
+    Check(allowResult.AllowPolicyIndex == 0, "allow reports policy index 0");
+    allowResult.RequireAuthorized();
+    Check(true, "RequireAuthorized passes on clean allow");
+
+    // 23. Deny without a match is a result, never an exception.
+    // (The token carries read+write, so "delete" genuinely matches nothing.)
+    BiscuitAuthorizationResult denyResult = BiscuitAuthorizer
+        .For(token)
+        .AddFact("""operation("delete")""")
+        .AddPolicy("""allow if right("workspace.main", "delete");""")
+        .Authorize();
+    Check(denyResult.Decision == BiscuitDecision.Deny && !denyResult.IsAuthorized, "non-matching request is denied");
+    Check(denyResult.Errors.Any(e => e.Code == "no_matching_policy"), "deny names no_matching_policy");
+    bool threw = false;
+    try
+    {
+        denyResult.RequireAuthorized();
+    }
+    catch (BiscuitAuthorizationException ex)
+    {
+        threw = ex.Result is not null && ex.Result.Decision == BiscuitDecision.Deny;
+    }
+
+    Check(threw, "RequireAuthorized throws carrying the denial");
+
+    // 24. Allow matched but attenuation check failed: deny with failed checks.
+    BiscuitAuthorizationResult narrowed = BiscuitAuthorizer
+        .For(child)
+        .AddFact("""operation("write")""")
+        .AddPolicy("""allow if right("workspace.main", "read");""")
+        .Authorize();
+    Check(narrowed.Decision == BiscuitDecision.Deny, "attenuated-away request is denied");
+    Check(narrowed.AllowPolicyIndex == 0, "matched allow policy is reported");
+    IReadOnlyList<BiscuitAuthorizationError> failed =
+        narrowed.Errors.Where(e => e.Code == "failed_check").ToList();
+    Check(failed.Count > 0, "failed checks are reported");
+    Check(failed.All(e => e.BlockId.HasValue && e.Rule is not null), "failed checks carry block and rule");
+    Check(failed.Any(e => e.Rule!.Contains("operation", StringComparison.Ordinal)), "failed rule text is shown");
+
+    // 25. Explicit deny first: first-match-wins in policy order.
+    BiscuitAuthorizationResult denied = BiscuitAuthorizer
+        .For(token)
+        .AddFact("""operation("read")""")
+        .AddFact("""banned("workspace.main")""")
+        .AddPolicy("""deny if banned("workspace.main");""")
+        .AddPolicy("""allow if right("workspace.main", "read");""")
+        .Authorize();
+    Check(denied.Decision == BiscuitDecision.Deny, "explicit deny denies");
+    Check(denied.DenyPolicyIndex == 0, "deny reports policy index 0");
+    Check(denied.Errors.Any(e => e.Code == "deny_policy_matched"), "deny names the matched policy");
+
+    // 26. Malformed Datalog never becomes a decision.
+    Check(Throws<BiscuitDatalogException>(() => BiscuitAuthorizer.For(token).AddPolicy("allow if").Authorize()), "malformed policy is a Datalog error");
+    Check(Throws<BiscuitDatalogException>(() => BiscuitAuthorizer.For(token).AddFact("fact(").AddPolicy("""allow if right("workspace.main", "read");""").Authorize()), "malformed fact is a Datalog error");
+    Check(Throws<ArgumentException>(() => BiscuitAuthorizer.For(token).AddPolicy("  ")), "empty policy fails fast");
+
+    // 27. Repeated authorization is deterministic.
+    BiscuitAuthorizer reusable = BiscuitAuthorizer
+        .For(token)
+        .AddFact("""operation("read")""")
+        .AddPolicy("""allow if right("workspace.main", "read");""");
+    BiscuitAuthorizationResult first = reusable.Authorize();
+    BiscuitAuthorizationResult second = reusable.Authorize();
+    Check(first.Decision == second.Decision, "repeated decisions agree");
+    Check(first.Errors.Count == second.Errors.Count, "repeated errors agree");
+    Check(first.AllowPolicyIndex == second.AllowPolicyIndex, "repeated indices agree");
+
+    // 28. P-256 authorizes; concurrency holds.
+    BiscuitAuthorizationResult p256Allow = BiscuitAuthorizer
+        .For(p256Token)
+        .AddFact("""operation("read")""")
+        .AddPolicy("""allow if right("a", "read");""")
+        .Authorize();
+    Check(p256Allow.IsAuthorized, "P-256 request is authorized");
+    int authErrors = 0;
+    Parallel.For(0, 32, _ =>
+    {
+        try
+        {
+            var r = BiscuitAuthorizer
+                .For(token)
+                .AddFact("""operation("read")""")
+                .AddPolicy("""allow if right("workspace.main", "read");""")
+                .Authorize();
+            if (!r.IsAuthorized)
+            {
+                Interlocked.Increment(ref authErrors);
+            }
+        }
+        catch
+        {
+            Interlocked.Increment(ref authErrors);
+        }
+    });
+    Check(authErrors == 0, "concurrent authorization");
 }
 finally
 {
@@ -360,5 +465,5 @@ static string ChunkBase64(byte[] bytes)
     return sb.ToString();
 }
 
-Console.WriteLine(failures == 0 ? "M1 version+key+token checks passed." : $"{failures} check(s) failed.");
+Console.WriteLine(failures == 0 ? "M1 checks passed." : $"{failures} check(s) failed.");
 return failures;

@@ -37,11 +37,20 @@ foreach (BiscuitRevocationId id in child.GetRevocationIds())
 {
     Console.WriteLine($"revocation id: {id}");
 }
+
+BiscuitAuthorizationResult result = BiscuitAuthorizer
+    .For(child)
+    .AddFact("""resource("/src/Foo.cs")""")
+    .AddFact("""operation("read")""")
+    .AddPolicy("""allow if right("workspace.main", "read");""")
+    .Authorize();
+Console.WriteLine(result.IsAuthorized ? "Allowed" : "Denied or requires review");
 ```
 
 Parsing with a root public key verifies the cryptographic token. A successfully parsed
-token does not mean a request is authorized — authorization (`BiscuitAuthorizer`,
-`IsAuthorized`, `RequireAuthorized()`) lands in the next M1 slice.
+token does not mean a request is authorized. `IsAuthorized` is true only for an
+error-free Allow; use `RequireAuthorized()` to enforce. Policies apply
+first-match-wins in the order supplied, so place `deny` policies first.
 
 ## What you get (M1 in progress: keys, tokens, inspection live; authorization next)
 

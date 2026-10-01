@@ -21,7 +21,7 @@ pub const OP_TOKEN_PARSE_VERIFY: u32 = 6;
 // so no serialize operation is needed.
 pub const OP_TOKEN_ATTENUATE: u32 = 8;
 pub const OP_TOKEN_SEAL: u32 = 9;
-// 10 = token_authorize: lands with the authorizer slice.
+// 10 = token_authorize: implemented in authorizer.rs.
 pub const OP_TOKEN_REVOCATION_IDS: u32 = 11;
 pub const OP_TOKEN_INSPECT: u32 = 12;
 

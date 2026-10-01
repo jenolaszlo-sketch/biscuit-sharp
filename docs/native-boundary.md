@@ -51,7 +51,7 @@ output addresses violate the C contract and are not recoverable validation error
 | 7 | token_serialize (reserved; unneeded — managed tokens already hold canonical bytes) |
 | 8 | token_attenuate (implemented: verify → append `{source, params?}` block; sealed append fails `sealed_token`) |
 | 9 | token_seal (implemented: verify → seal; reseal fails `sealed_token`. Sealing flips the chain terminator, it does not append a block) |
-| 10 | token_authorize (lands with the authorizer slice) |
+| 10 | token_authorize (implemented: verify → ambient facts/checks/policies through upstream `code` → allow/deny answer with structured errors; first-match-wins in policy order; upstream default limits; no ambient time fact injected) |
 | 11 | token_revocation_ids (implemented: verify → per-block ids) |
 | 12 | token_inspect (implemented: verify → block count/sources/versions, seal probe, root key id, verified root algorithms, size) |
 | 13 | key_destroy (implemented: handle → drop native key; unknown handles error) |

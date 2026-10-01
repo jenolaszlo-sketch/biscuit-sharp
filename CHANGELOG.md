@@ -29,3 +29,10 @@
   terminator without appending a block); managed immutable `BiscuitToken` with
   equality, `BiscuitTokenBuilder` with parameterized facts, typed
   `Biscuit*Exception` mapping (81 checks green on .NET 8 and .NET 10).
+- M1 authorization slice: native `token_authorize` (verify → ambient
+  facts/checks/policies via upstream `code` → allow/deny answers with
+  matched-policy indices and structured failed-check/policy errors,
+  first-match-wins order, default limits, no ambient time injection; 34 native
+  tests green incl. allow-matched-but-check-failed and explicit deny);
+  managed `BiscuitAuthorizer` with contradiction guard and extended error
+  records (104 checks green on .NET 8 and .NET 10).

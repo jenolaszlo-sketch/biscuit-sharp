@@ -25,6 +25,7 @@ internal static partial class NativeBridge
     internal const uint OpTokenSeal = 9;
     internal const uint OpTokenRevocationIds = 11;
     internal const uint OpTokenInspect = 12;
+    internal const uint OpTokenAuthorize = 10;
 
     internal static string GetNativeAssetPath(string rid)
     {
