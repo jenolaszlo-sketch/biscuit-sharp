@@ -53,3 +53,6 @@
   test; `BiscuitPrivateKey.ExportPem()`; `BiscuitAuthorizer.AddTimeFact(...)`;
   CI pins Rust 1.89.0; package-validation baseline removed until the first
   preview is published.
+- Third review pass: documented open items (no public-key import, no authorizer
+  rules, load-time manifest verification, AOT/packaging/Valgrind, clippy
+  findings, CI coverage gaps) in [docs/review-findings.md](docs/review-findings.md).
