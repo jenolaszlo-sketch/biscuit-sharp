@@ -121,6 +121,14 @@ inherent, documented), **Deferred** (planned, spec §13/14/M2),
 30. **Process — package-validation baseline removed** (a non-published baseline
     breaks `dotnet pack`); restore `PackageValidationBaselineVersion` once
     `0.1.0-preview.1` is on NuGet.
+31. **Consistency — no parameterized authorizer facts/rules or block params.**
+    The bridge supports `params` on every `code()` call, but only
+    `BiscuitTokenBuilder.AddFact` exposes them; authorizer facts/rules/checks
+    and `BiscuitBlock` are source-only. Harmless (textual Datalog covers all
+    cases) but asymmetric; add if Hufu templating needs it.
+32. **Gap — no builder `root_key_id`.** Upstream supports tagging the authority
+    block with a root key id (reported back by inspection, usually null).
+    Unexposed; add if multi-root deployments need it.
 
 ## Suggested order of follow-on work (updated 2026-10-02)
 

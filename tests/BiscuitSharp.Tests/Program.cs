@@ -275,6 +275,31 @@ try
     Check(paramToken.Inspect().BlockSources[0].Contains("workspace.main", StringComparison.Ordinal), "params substituted");
     Check(Throws<BiscuitDatalogException>(() => BiscuitTokenBuilder.Create().AddFact("right(").Build(rootKey)), "malformed fact is a Datalog error");
     Check(Throws<ArgumentException>(() => BiscuitTokenBuilder.Create().AddFact("")), "empty fact fails fast");
+    Check(
+        Throws<BiscuitDatalogException>(() => BiscuitTokenBuilder
+            .Create()
+            .AddFact("right({resource}, \"read\")", new Dictionary<string, BiscuitParam>())
+            .Build(rootKey)),
+        "unbound template placeholder fails");
+
+    // An empty authority block is legal upstream but carries no rights: it
+    // verifies, then denies everything.
+    BiscuitToken emptyToken = BiscuitTokenBuilder.Create().Build(rootKey);
+    Check(BiscuitToken.Parse(emptyToken.ToBytes(), rootKey.PublicKey) == emptyToken, "empty token verifies");
+    Check(
+        !BiscuitAuthorizer.For(emptyToken).AddPolicy("""allow if right("a", "read");""").Authorize().IsAuthorized,
+        "empty token authorizes nothing");
+
+    // Rebuilding from one builder mints fresh chain keys: distinct but equally
+    // valid tokens. Compare behavior, not bytes.
+    BiscuitTokenBuilder reuseBuilder = BiscuitTokenBuilder.Create().AddFact("""right("a", "read")""");
+    BiscuitToken firstBuild = reuseBuilder.Build(rootKey);
+    BiscuitToken rebuild = reuseBuilder.Build(rootKey);
+    Check(firstBuild != rebuild, "rebuilds differ in bytes");
+    Check(
+        BiscuitToken.Parse(rebuild.ToBytes(), rootKey.PublicKey) == rebuild
+            && BiscuitAuthorizer.For(rebuild).AddPolicy("""allow if right("a", "read");""").Authorize().IsAuthorized,
+        "rebuilds verify and authorize identically");
 
     // 20. P-256 tokens verify; unicode survives the round-trip.
     using BiscuitPrivateKey p256Root = BiscuitPrivateKey.Generate(BiscuitKeyAlgorithm.P256);

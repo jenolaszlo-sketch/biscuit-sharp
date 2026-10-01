@@ -73,6 +73,9 @@ fn parse_limits(value: &serde_json::Value) -> Result<AuthorizerLimits, String> {
 /// too small to be reliable: a trivial evaluation under scheduler load can
 /// exceed it and deny with `evaluation_failure`. The budget stays bounded
 /// (resource protection), and callers can override it per request.
+/// Must stay identical to `BiscuitAuthorizerLimits.Default` in
+/// `src/BiscuitSharp/BiscuitAuthorizer.cs`; both are pinned by tests on each
+/// side.
 fn default_limits() -> AuthorizerLimits {
     AuthorizerLimits {
         max_facts: 100_000,

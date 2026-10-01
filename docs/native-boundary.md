@@ -53,7 +53,7 @@ output addresses violate the C contract and are not recoverable validation error
 | 9 | token_seal (implemented: verify → seal; reseal fails `sealed_token`. Sealing flips the chain terminator, it does not append a block) |
 | 10 | token_authorize (implemented: verify → ambient facts/rules/checks/policies through upstream `code` → allow/deny answer with structured errors; first-match-wins in policy order; robust default limits 100k facts / 100k iterations / 5 s unless overridden; no ambient time fact injected) |
 | 11 | token_revocation_ids (implemented: verify → per-block ids) |
-| 12 | token_inspect (implemented: verify → block count/sources/versions, seal probe, root key id, verified root algorithms, size) |
+| 12 | token_inspect (implemented: verify → block count/sources/versions, seal probe, root key id, verified root algorithms, size; refuses tokens with more than 4,096 blocks to bound inspection output) |
 | 13 | key_destroy (implemented: handle → drop native key; unknown handles error) |
 | 14 | key_import_public (implemented: algorithm + raw public bytes → validated canonical public key; validation is upstream decode, lenient about non-canonical encodings) |
 

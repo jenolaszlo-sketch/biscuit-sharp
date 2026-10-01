@@ -57,16 +57,25 @@ token does not mean a request is authorized. `IsAuthorized` is true only for an
 error-free Allow; use `RequireAuthorized()` to enforce. Policies apply
 first-match-wins in the order supplied, so place `deny` policies first.
 
+A verifier holding only the root public key needs no private material:
+
+```csharp
+using BiscuitSharp;
+
+BiscuitPublicKey root = BiscuitPublicKey.ParsePrefixed("ed25519/<hex of the root public key>");
+BiscuitToken token = BiscuitToken.Parse(tokenBytes, root);
+```
+
 ## What you get
 
 Biscuit behavior, reviewable outcomes, safe credential handling, and
-deployment choices as below — all verified on Windows x64 so far (other RIDs
-await the M2 gate).
+deployment choices as below — verified on Windows x64, Linux x64, and macOS
+ARM64 with .NET 8 and .NET 10 (see [verification](docs/verification.md)).
 
 - **Biscuit behavior:** signature verification, block-chain integrity, attenuation that only narrows authority, sealing, and default-deny authorization from the pinned engine.
 - **Reviewable outcomes:** typed decisions, structured authorization errors, inspection (block count, sealed state, algorithms, revocation IDs, block source), and loaded-asset identity.
 - **Safe credential handling:** opaque private-key handles with explicit DER/PEM export, `ToString()` that never reveals secrets, value-equal revocation IDs without an implicit revocation store, and an explicit `AddTimeFact` for deterministic expiration checks.
-- **Deployment choices:** framework-dependent, self-contained, trimmed, and NativeAOT applications on the [qualified environments](docs/deployment.md) (M2).
+- **Deployment choices:** framework-dependent, self-contained, trimmed, and NativeAOT applications on the [qualified environments](docs/deployment.md).
 
 BiscuitSharp verifies tokens and evaluates authorization. Your application owns grant
 issuance policy, revocation storage, workflow revisions, human approval, delegation

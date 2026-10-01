@@ -63,7 +63,9 @@ public sealed record BiscuitAuthorizerLimits(ulong MaxFacts, ulong MaxIterations
     /// <see cref="UpstreamDefault"/> (1 ms), which is too small to be reliable
     /// under scheduler load and can deny a trivial request with
     /// <c>evaluation_failure</c>. The budget stays bounded for resource
-    /// protection.
+    /// protection. Must stay identical to the bridge fallback in
+    /// <c>native/src/authorizer.rs</c> (`default_limits`); both are pinned by
+    /// tests on each side.
     /// </summary>
     public static BiscuitAuthorizerLimits Default { get; } =
         new(100_000, 100_000, TimeSpan.FromSeconds(5));

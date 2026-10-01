@@ -77,6 +77,11 @@
   and in `BiscuitAuthorizerLimits.Default`, with `UpstreamDefault` for strict
   parity, plus regression guards (native default-limits test, 128-way parallel
   managed authorizations).
+- Self-audit fixes: explicit Cdecl on all P/Invokes; unbound template
+  placeholders and empty authority blocks pinned by test (both fail closed or
+  behave harmlessly); builder-reuse semantics pinned; inspect 4,096-block print
+  cap documented; managed/native default-limits coupling cross-referenced;
+  verify-only README snippet.
 - Release-profile hardening: full native suite green under
   `cargo test --release` (43/43); the mutation matrix holds its invariants in
   both profiles (per-run distribution varies from fresh corpus randomness, so

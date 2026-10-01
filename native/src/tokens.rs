@@ -707,6 +707,40 @@ mod tests {
     }
 
     #[test]
+    fn unbound_template_placeholders_are_rejected() {
+        let h = generate_root("ed25519");
+        // A `{placeholder}` with no supplied value must fail, never produce a
+        // fact with a hole.
+        let (status, v) = call(
+            OP_TOKEN_CREATE,
+            serde_json::json!({
+                "root_handle": h,
+                "facts": [{ "source": "right({resource}, \"read\")" }],
+            }),
+        );
+        assert_eq!(status, STATUS_INVALID_INPUT);
+        assert_eq!(v["code"], "datalog_error");
+        destroy(h);
+    }
+
+    #[test]
+    fn empty_authority_block_creates_a_token_with_no_authority() {
+        let h = generate_root("ed25519");
+        let root = root_object(h);
+        // No facts, rules, or checks: upstream accepts an empty authority
+        // block. Such a token carries no rights, so it verifies but can never
+        // authorize.
+        let (status, v) = call(
+            OP_TOKEN_CREATE,
+            serde_json::json!({ "root_handle": h, "facts": [], "checks": [] }),
+        );
+        assert_eq!(status, STATUS_OK, "empty create: {v}");
+        let token = base64::decode(v["token"].as_str().expect("token")).expect("base64");
+        assert_eq!(parse(&token, &root).0, STATUS_OK);
+        destroy(h);
+    }
+
+    #[test]
     fn wrong_root_is_a_signature_error() {
         let h = generate_root("ed25519");
         let root = root_object(h);

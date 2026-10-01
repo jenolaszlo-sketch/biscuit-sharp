@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text.Json;
 
@@ -143,7 +144,7 @@ internal static partial class NativeBridge
         }
     }
 
-    // ABI 1 (native/src/lib.rs):
+    // ABI 1 (native/src/lib.rs, `extern "C"` == Cdecl on all qualified targets):
     // uint32_t biscuitsharp_abi_version(void);
     // uint32_t biscuitsharp_call_v1(uint32_t op, const uint8_t* input, size_t input_len, BiscuitSharpBuffer* output);
     // void biscuitsharp_free_v1(BiscuitSharpBuffer buffer);
@@ -156,9 +157,11 @@ internal static partial class NativeBridge
     }
 
     [LibraryImport("biscuitsharp_native", EntryPoint = "biscuitsharp_abi_version")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     internal static partial uint AbiVersion();
 
     [LibraryImport("biscuitsharp_native", EntryPoint = "biscuitsharp_call_v1")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     internal static unsafe partial uint CallV1(
         uint operation,
         byte* input,
@@ -166,5 +169,6 @@ internal static partial class NativeBridge
         ref NativeBuffer output);
 
     [LibraryImport("biscuitsharp_native", EntryPoint = "biscuitsharp_free_v1")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     internal static partial void FreeV1(NativeBuffer buffer);
 }
