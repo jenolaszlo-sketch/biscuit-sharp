@@ -41,7 +41,7 @@ output addresses violate the C contract and are not recoverable validation error
 
 | Operation | Concept |
 | --- | --- |
-| 0 | version / loaded-asset identity |
+| 0 | version / loaded-asset identity (implemented: strict JSON payload with biscuit-auth version, schema min/max, Datalog marker, bridge/ABI versions, Rust version, target triple, enabled features, upstream commit, Cargo.lock SHA-256) |
 | 1 | key_generate |
 | 2 | key_import |
 | 3 | key_export_public |
@@ -62,9 +62,13 @@ not promised recoverable.
 
 Status 0 means a complete Biscuit answer, including a Deny; denial is not a
 boundary failure. Status 1 is invalid boundary input, 2 unsupported operation,
-3 caught panic, 4 oversized output. Managed calls copy the output and free it in
-`finally`, including response-decoding failure. A lazy singleton verifies and
-retains the native library for process lifetime so concurrent calls cannot race
+3 caught panic, 4 oversized output. Every nonzero status except the panic path
+also carries a JSON `{"code","message"}` body (`invalid_input`,
+`unsupported_operation`, `oversized_output`); the panic path leaves the
+pre-initialized empty buffer. Managed calls copy the output and free it in
+`finally`, including response-decoding failure. Version decoding is strict:
+every documented field is required. A lazy singleton verifies and retains
+the native library for process lifetime so concurrent calls cannot race
 unloading. Public APIs expose no raw pointers.
 
 ## Asset identity and distribution

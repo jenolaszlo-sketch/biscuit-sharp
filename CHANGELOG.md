@@ -8,5 +8,10 @@
   qualified; every operation fails closed with `BiscuitBridgeException` until M1.
 - Pin the M0 baseline: biscuit-auth 6.0.0 (tag verified equal to the pinned
   commit, crate checksum recorded), `Cargo.lock` committed (94 packages, locked
-  fetch green on Rust 1.89.0), schema versions 3..6 / Datalog 3.3 recorded.
-  Local `cargo check` awaits an MSVC linker install (VS C++ workload).
+  fetch green on Rust 1.89.0),   schema versions 3..6 / Datalog 3.3 recorded; locked check, `cdylib` link, and
+  ABI exports verified on MSVC.
+- M1 version slice: native `version` op with strict identity JSON and
+  `{"code","message"}` error envelope (6 native tests green); managed
+  process-lifetime loader with ABI check plus live `BiscuitEngine.GetVersion()`
+  with differential binary/lockfile hash verification (20 checks green on .NET 8
+  and .NET 10 against the real `cdylib`).

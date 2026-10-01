@@ -1,17 +1,19 @@
 using System.Runtime.InteropServices;
+using System.Text.Json;
 
 namespace BiscuitSharp;
 
 /// <summary>
-/// Native loader + ABI declarations (ABI 1). Scaffolding only: resolves the asset path
-/// and verifies identity in M1/M2. No arbitrary PATH probing, no network download.
-/// Honors BISCUITSHARP_NATIVE_PATH override subject to manifest/hash/ABI verification.
+/// ABI 1 declarations + call helper. Input is borrowed for the call; native
+/// output is copied to managed memory and freed exactly once in `finally`,
+/// including JSON decoding failure. No raw pointers reach public callers.
 /// </summary>
 internal static partial class NativeBridge
 {
     internal const uint ExpectedAbiVersion = 1;
     internal const int MaxInputBytes = 16 * 1024 * 1024;
     internal const int MaxOutputBytes = 64 * 1024 * 1024;
+    internal const uint OpVersion = 0;
 
     internal static string GetNativeAssetPath(string rid)
     {
@@ -40,7 +42,78 @@ internal static partial class NativeBridge
         rid.StartsWith("osx-", StringComparison.OrdinalIgnoreCase) ? "libbiscuitsharp_native.dylib" :
         "libbiscuitsharp_native.so";
 
-    // ABI 1 declarations (implemented in native/src/lib.rs during M1):
+    internal static unsafe byte[] Call(uint operation, ReadOnlySpan<byte> input)
+    {
+        NativeLoader.EnsureLoaded();
+        if (input.Length > MaxInputBytes)
+        {
+            throw new BiscuitBridgeException(
+                $"Native input exceeds the {MaxInputBytes}-byte bridge bound.");
+        }
+
+        NativeBuffer output = default;
+        uint status;
+        fixed (byte* p = input)
+        {
+            status = CallV1(operation, p, (UIntPtr)input.Length, ref output);
+        }
+
+        try
+        {
+            ulong length = output.Length.ToUInt64();
+            if (length > (ulong)MaxOutputBytes)
+            {
+                throw new BiscuitBridgeException(
+                    "Native output exceeds the 64 MiB bridge bound.");
+            }
+
+            byte[] bytes = (output.Data == IntPtr.Zero || length == 0)
+                ? Array.Empty<byte>()
+                : new ReadOnlySpan<byte>((void*)output.Data, checked((int)length)).ToArray();
+
+            if (status != 0)
+            {
+                throw DecodeBridgeError(operation, status, bytes);
+            }
+
+            return bytes;
+        }
+        finally
+        {
+            if (output.Data != IntPtr.Zero && output.Length.ToUInt64() != 0)
+            {
+                FreeV1(output);
+            }
+        }
+    }
+
+    private static BiscuitBridgeException DecodeBridgeError(uint operation, uint status, byte[] body)
+    {
+        string detail = body.Length == 0 ? "empty body" : TryReadErrorBody(body);
+        return new BiscuitBridgeException(
+            $"Biscuit native call {operation} failed with status {status} ({detail}).");
+    }
+
+    private static string TryReadErrorBody(byte[] body)
+    {
+        try
+        {
+            using JsonDocument doc = JsonDocument.Parse(body);
+            string code = doc.RootElement.TryGetProperty("code", out JsonElement c)
+                ? c.GetString() ?? "?"
+                : "?";
+            string message = doc.RootElement.TryGetProperty("message", out JsonElement m)
+                ? m.GetString() ?? "?"
+                : "?";
+            return $"{code}: {message}";
+        }
+        catch (JsonException)
+        {
+            return $"undecodable {body.Length}-byte body";
+        }
+    }
+
+    // ABI 1 (native/src/lib.rs):
     // uint32_t biscuitsharp_abi_version(void);
     // uint32_t biscuitsharp_call_v1(uint32_t op, const uint8_t* input, size_t input_len, BiscuitSharpBuffer* output);
     // void biscuitsharp_free_v1(BiscuitSharpBuffer buffer);
@@ -56,7 +129,11 @@ internal static partial class NativeBridge
     internal static partial uint AbiVersion();
 
     [LibraryImport("biscuitsharp_native", EntryPoint = "biscuitsharp_call_v1")]
-    internal static partial uint CallV1(uint operation, in byte input, UIntPtr inputLength, ref NativeBuffer output);
+    internal static unsafe partial uint CallV1(
+        uint operation,
+        byte* input,
+        UIntPtr inputLength,
+        ref NativeBuffer output);
 
     [LibraryImport("biscuitsharp_native", EntryPoint = "biscuitsharp_free_v1")]
     internal static partial void FreeV1(NativeBuffer buffer);
