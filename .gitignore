@@ -9,6 +9,7 @@ TestResults/
 *.suo
 *.nupkg
 *.snupkg
+*.log
 native/staging/
 native/upstream/
 native/target/
