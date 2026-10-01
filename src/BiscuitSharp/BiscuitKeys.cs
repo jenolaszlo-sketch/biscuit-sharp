@@ -33,7 +33,7 @@ public sealed class BiscuitPrivateKey : IDisposable
     {
         byte[] response = NativeBridge.Call(
             NativeBridge.OpKeyGenerate,
-            BridgeJson.EncodeAlgorithm(ToWireName(algorithm)),
+            BridgeJson.EncodeAlgorithm(BiscuitAlgorithms.ToWireName(algorithm)),
             MapKeyError);
         using JsonDocument doc = BridgeJson.Parse(response, "key_generate");
         return FromKeyResponse(doc.RootElement, "key_generate", algorithm);
@@ -88,6 +88,8 @@ public sealed class BiscuitPrivateKey : IDisposable
 
     public override string ToString() => $"BiscuitPrivateKey {{ Algorithm = {Algorithm} }}";
 
+    internal ulong NativeHandle => RequireHandle();
+
     private ulong RequireHandle()
     {
         ulong handle = _handle;
@@ -129,7 +131,7 @@ public sealed class BiscuitPrivateKey : IDisposable
         }
 
         BiscuitKeyAlgorithm algorithm =
-            FromWireName(BridgeJson.RequiredString(root, "algorithm", operation), operation);
+            BiscuitAlgorithms.FromWireName(BridgeJson.RequiredString(root, "algorithm", operation), operation);
         if (expected.HasValue && algorithm != expected.Value)
         {
             throw new BiscuitBridgeException(
@@ -139,21 +141,6 @@ public sealed class BiscuitPrivateKey : IDisposable
         byte[] publicKey = BridgeJson.RequiredBase64(root, "public_key", operation);
         return new BiscuitPrivateKey(handle, new BiscuitPublicKey(publicKey, algorithm), algorithm);
     }
-
-    private static string ToWireName(BiscuitKeyAlgorithm algorithm) => algorithm switch
-    {
-        BiscuitKeyAlgorithm.Ed25519 => "ed25519",
-        BiscuitKeyAlgorithm.P256 => "secp256r1",
-        _ => throw new ArgumentOutOfRangeException(nameof(algorithm), algorithm, "Unknown Biscuit key algorithm."),
-    };
-
-    private static BiscuitKeyAlgorithm FromWireName(string name, string operation) => name switch
-    {
-        "ed25519" => BiscuitKeyAlgorithm.Ed25519,
-        "secp256r1" => BiscuitKeyAlgorithm.P256,
-        _ => throw new BiscuitBridgeException(
-            $"The native {operation} response reported unknown algorithm '{name}'."),
-    };
 
     private static bool LooksLikePem(ReadOnlySpan<byte> encoded) =>
         encoded.IndexOf("-----BEGIN"u8) >= 0;

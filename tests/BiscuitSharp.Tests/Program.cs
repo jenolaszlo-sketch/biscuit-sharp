@@ -182,6 +182,120 @@ try
         }
     });
     Check(keyErrors == 0, "concurrent generate/export/import/dispose");
+
+    // 12. Tokens: issue with the specification's builder shape.
+    using BiscuitPrivateKey rootKey = BiscuitPrivateKey.Generate();
+    BiscuitToken token = BiscuitTokenBuilder
+        .Create()
+        .AddFact("""right("workspace.main", "read")""")
+        .AddFact("""right("workspace.main", "write")""")
+        .Build(rootKey);
+    Check(token.ToBytes().Length > 0, "issued token is non-empty");
+    Check(token.Root.Encoded.SequenceEqual(rootKey.PublicKey.Encoded), "token carries its root");
+
+    // 13. Parse round-trips canonical bytes; base64url too.
+    BiscuitToken parsed = BiscuitToken.Parse(token.ToBytes(), rootKey.PublicKey);
+    Check(parsed == token, "parse round-trips canonical bytes");
+    Check(parsed.GetHashCode() == token.GetHashCode(), "equal tokens hash equally");
+    BiscuitToken fromUrl = BiscuitToken.ParseBase64Url(token.ToBase64Url(), rootKey.PublicKey);
+    Check(fromUrl == token, "base64url round-trips");
+    Check(Throws<BiscuitFormatException>(() => BiscuitToken.Parse(Array.Empty<byte>(), rootKey.PublicKey)), "empty parse fails");
+    Check(Throws<BiscuitFormatException>(() => BiscuitToken.ParseBase64Url("!!!", rootKey.PublicKey)), "bad base64url fails");
+
+    // 14. Verification failures are typed and never success.
+    using BiscuitPrivateKey otherRoot = BiscuitPrivateKey.Generate();
+    Check(Throws<BiscuitSignatureException>(() => BiscuitToken.Parse(token.ToBytes(), otherRoot.PublicKey)), "wrong root is a signature error");
+    byte[] tampered = token.ToBytes();
+    tampered[^1] ^= 0xFF;
+    Check(Throws<BiscuitTokenException>(() => BiscuitToken.Parse(tampered, rootKey.PublicKey)), "tampered token fails");
+    byte[] truncated = token.ToBytes()[..^20];
+    Check(Throws<BiscuitFormatException>(() => BiscuitToken.Parse(truncated, rootKey.PublicKey)), "truncated token is a format error");
+    Check(Throws<BiscuitFormatException>(() => BiscuitToken.Parse(new byte[] { 1, 2, 3 }, rootKey.PublicKey)), "garbage token is a format error");
+
+    // 15. Attenuation appends a narrowing block.
+    BiscuitToken child = token.Attenuate(BiscuitBlock.Create("""
+        check if operation("read");
+        """));
+    Check(child != token, "attenuation produces a distinct token");
+    Check(BiscuitToken.Parse(child.ToBytes(), rootKey.PublicKey) == child, "child verifies");
+    BiscuitInspection childView = child.Inspect();
+    Check(childView.BlockCount == 2, "child has two blocks");
+    Check(childView.BlockSources[1].Contains("operation", StringComparison.Ordinal), "child carries the check");
+    Check(Throws<BiscuitDatalogException>(() => token.Attenuate(BiscuitBlock.Create("check if"))), "malformed attenuation is a Datalog error");
+    Check(Throws<ArgumentException>(() => BiscuitBlock.Create("  ")), "empty block source fails fast");
+
+    // 16. Sealing forbids further attenuation.
+    BiscuitToken sealedToken = token.Seal();
+    Check(sealedToken.Inspect().IsSealed, "sealed token reports sealed");
+    Check(!token.Inspect().IsSealed, "parent stays unsealed");
+    Check(Throws<BiscuitSealedTokenException>(() => sealedToken.Attenuate(BiscuitBlock.Create("""check if operation("read");"""))), "append after seal fails");
+    Check(Throws<BiscuitSealedTokenException>(() => sealedToken.Seal()), "seal after seal fails");
+
+    // 17. Revocation IDs grow with blocks and stay opaque.
+    IReadOnlyList<BiscuitRevocationId> parentIds = token.GetRevocationIds();
+    Check(parentIds.Count == 1 && parentIds[0].Value.Length > 0, "one revocation id per block");
+    IReadOnlyList<BiscuitRevocationId> childIds = child.GetRevocationIds();
+    Check(childIds.Count == 2, "child has two revocation ids");
+    Check(childIds.Any(id => id.Value.SequenceEqual(parentIds[0].Value)), "authority id persists");
+
+    // 18. Inspection reports structural facts.
+    BiscuitInspection view = token.Inspect();
+    Check(view.BlockCount == 1, "one authority block");
+    Check(!view.IsSealed, "fresh token is unsealed");
+    Check(view.SignatureAlgorithm == BiscuitKeyAlgorithm.Ed25519 && view.RootKeyAlgorithm == BiscuitKeyAlgorithm.Ed25519, "algorithms match root");
+    Check(view.TokenSizeBytes == token.ToBytes().Length, "token size matches");
+    Check(view.BlockSources.Count == 1 && view.BlockSources[0].Contains("workspace.main", StringComparison.Ordinal), "block source is printed");
+    Check(view.FormatVersion is not null, "format version reported");
+    Check(view.RootKeyId is null, "no root key id set");
+
+    // 19. Parameterized facts substitute without interpolation.
+    BiscuitToken paramToken = BiscuitTokenBuilder
+        .Create()
+        .AddFact(
+            "right({resource}, {operation})",
+            new Dictionary<string, BiscuitParam>
+            {
+                ["resource"] = BiscuitParam.Str("workspace.main"),
+                ["operation"] = BiscuitParam.Str("read"),
+            })
+#pragma warning disable IL2026, IL3050 // Intentional: exercises the reflection convenience overload.
+        .AddFact(
+            "right({resource}, {operation})",
+            new { resource = "workspace.main", operation = "write" })
+#pragma warning restore IL2026, IL3050
+        .Build(rootKey);
+    Check(paramToken.Inspect().BlockSources[0].Contains("workspace.main", StringComparison.Ordinal), "params substituted");
+    Check(Throws<BiscuitDatalogException>(() => BiscuitTokenBuilder.Create().AddFact("right(").Build(rootKey)), "malformed fact is a Datalog error");
+    Check(Throws<ArgumentException>(() => BiscuitTokenBuilder.Create().AddFact("")), "empty fact fails fast");
+
+    // 20. P-256 tokens verify; unicode survives the round-trip.
+    using BiscuitPrivateKey p256Root = BiscuitPrivateKey.Generate(BiscuitKeyAlgorithm.P256);
+    BiscuitToken p256Token = BiscuitTokenBuilder.Create().AddFact("""right("a", "read")""").Build(p256Root);
+    Check(BiscuitToken.Parse(p256Token.ToBytes(), p256Root.PublicKey) == p256Token, "P-256 token verifies");
+    Check(p256Token.Inspect().SignatureAlgorithm == BiscuitKeyAlgorithm.P256, "P-256 algorithm reported");
+    BiscuitToken uniToken = BiscuitTokenBuilder.Create().AddFact("""right("espace café ☕", "read")""").Build(rootKey);
+    Check(uniToken.Inspect().BlockSources[0].Contains("café", StringComparison.Ordinal), "unicode survives");
+
+    // 21. Token concurrency: parallel issue/parse/attenuate.
+    int tokenErrors = 0;
+    Parallel.For(0, 32, _ =>
+    {
+        try
+        {
+            using var k = BiscuitPrivateKey.Generate();
+            var t = BiscuitTokenBuilder.Create().AddFact("""right("a", "read")""").Build(k);
+            var c = t.Attenuate(BiscuitBlock.Create("""check if operation("read");"""));
+            if (BiscuitToken.Parse(c.ToBytes(), k.PublicKey) != c || c.Inspect().BlockCount != 2)
+            {
+                Interlocked.Increment(ref tokenErrors);
+            }
+        }
+        catch
+        {
+            Interlocked.Increment(ref tokenErrors);
+        }
+    });
+    Check(tokenErrors == 0, "concurrent issue/parse/attenuate");
 }
 finally
 {
@@ -246,5 +360,5 @@ static string ChunkBase64(byte[] bytes)
     return sb.ToString();
 }
 
-Console.WriteLine(failures == 0 ? "M1 version+key checks passed." : $"{failures} check(s) failed.");
+Console.WriteLine(failures == 0 ? "M1 version+key+token checks passed." : $"{failures} check(s) failed.");
 return failures;

@@ -9,4 +9,5 @@ public sealed record BiscuitInspection(
     IReadOnlyList<BiscuitRevocationId> RevocationIds,
     IReadOnlyList<string> BlockSources,
     long TokenSizeBytes,
-    string? FormatVersion);
+    string? FormatVersion,
+    uint? RootKeyId);

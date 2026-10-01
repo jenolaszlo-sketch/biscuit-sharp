@@ -46,21 +46,24 @@ output addresses violate the C contract and are not recoverable validation error
 | 2 | key_import (implemented: PEM string or base64 DER, algorithm auto-detected → handle + public half) |
 | 3 | key_export_public (implemented: handle → algorithm + raw public bytes) |
 | 4 | key_export_private (implemented: handle → base64 PKCS#8 DER) |
+| 5 | token_create (implemented: root handle + `{source, params?}` facts/checks through upstream `code`/`code_with_params` → canonical token) |
+| 6 | token_parse_verify (implemented: verify against root → canonical token) |
+| 7 | token_serialize (reserved; unneeded — managed tokens already hold canonical bytes) |
+| 8 | token_attenuate (implemented: verify → append `{source, params?}` block; sealed append fails `sealed_token`) |
+| 9 | token_seal (implemented: verify → seal; reseal fails `sealed_token`. Sealing flips the chain terminator, it does not append a block) |
+| 10 | token_authorize (lands with the authorizer slice) |
+| 11 | token_revocation_ids (implemented: verify → per-block ids) |
+| 12 | token_inspect (implemented: verify → block count/sources/versions, seal probe, root key id, verified root algorithms, size) |
 | 13 | key_destroy (implemented: handle → drop native key; unknown handles error) |
-| 5 | token_create |
-| 6 | token_parse_verify |
-| 7 | token_serialize |
-| 8 | token_attenuate |
-| 9 | token_seal |
-| 10 | token_authorize |
-| 11 | token_revocation_ids |
-| 12 | token_inspect |
 
 The exact ABI may consolidate operations, but managed callers must not depend on
 Rust ABI details. No Rust-owned pointers reach the public .NET API. Recoverable
 Rust unwinding is caught; abort, OOM abort, stack overflow, and memory faults are
 not promised recoverable.
 
+Upstream token failures map to stable codes: `sealed_token` (append/seal on
+sealed), `signature_error`, `format_error`, `datalog_error` (upstream language
+failures), `token_error` (catch-all), alongside `key_error` for key operations.
 Status 0 means a complete Biscuit answer, including a Deny; denial is not a
 boundary failure. Status 1 is invalid boundary input, 2 unsupported operation,
 3 caught panic, 4 oversized output. Key operations reuse status 1 with distinct

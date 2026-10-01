@@ -250,6 +250,46 @@ pub fn op_key_destroy(input: &[u8], output: *mut BiscuitSharpBuffer) -> u32 {
     }
 }
 
+/// Runs `f` against the keypair behind `handle` and emits its JSON result for
+/// operations (like token creation) that need the root key without exporting it.
+/// Unknown handles are an error, never silent success.
+pub(crate) fn use_keypair(
+    output: *mut BiscuitSharpBuffer,
+    handle: u64,
+    f: impl FnOnce(&KeyPair) -> Result<serde_json::Value, biscuit_auth::error::Token>,
+) -> u32 {
+    if handle == 0 {
+        return emit_error(
+            output,
+            STATUS_INVALID_INPUT,
+            "invalid_input",
+            "missing key handle",
+        );
+    }
+    let store = match lock_store(output) {
+        Ok(g) => g,
+        Err(status) => return status,
+    };
+    match store.get(&handle) {
+        Some(pair) => match f(pair) {
+            Ok(body) => {
+                drop(store);
+                emit_owned(output, body.to_string().into_bytes())
+            }
+            Err(e) => {
+                drop(store);
+                super::tokens::token_error(output, e)
+            }
+        },
+        None => emit_error(
+            output,
+            STATUS_INVALID_INPUT,
+            "invalid_input",
+            "unknown key handle",
+        ),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

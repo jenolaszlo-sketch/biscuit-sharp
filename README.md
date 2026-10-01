@@ -7,41 +7,43 @@
 
 It is useful when authority must travel with the request: delegated access, offline attenuation, and capability-style checks that remain verifiable without a central policy call. BiscuitSharp preserves Biscuit semantics and keeps valid-token, authorized-request, and failure states distinct so the application can enforce explicitly.
 
-> Status: scaffolding (M0). The managed API shape and native ABI 1 skeleton exist; the
-> native bridge is not implemented yet. See [ROADMAP](ROADMAP.md) and
+> Status: M1 in progress. Keys, tokens (issue/verify/attenuate/seal),
+> revocation IDs, inspection, and version identity work against the real
+> `biscuit-auth 6.0.0` bridge; authorization lands next. See [ROADMAP](ROADMAP.md) and
 > [docs/implementation-plan.md](docs/implementation-plan.md). No package is published.
 
-## Try it (M1 target)
+## Try it
 
 ```csharp
 using BiscuitSharp;
 
-var rootKey = BiscuitPrivateKey.Generate(BiscuitKeyAlgorithm.Ed25519);
+using var rootKey = BiscuitPrivateKey.Generate(BiscuitKeyAlgorithm.Ed25519);
 
-var token = BiscuitTokenBuilder
+BiscuitToken token = BiscuitTokenBuilder
     .Create()
     .AddFact("""right("workspace.main", "read")""")
+    .AddFact(
+        "right({resource}, {operation})",
+        new { resource = "workspace.main", operation = "write" })
     .Build(rootKey);
 
-var child = token.Attenuate(BiscuitBlock.Create("""
+BiscuitToken child = token.Attenuate(BiscuitBlock.Create("""
     check if operation("read");
     """));
 
-var authorizer = BiscuitAuthorizer
-    .For(child)
-    .AddFact("""resource("/src/Foo.cs")""")
-    .AddFact("""operation("read")""")
-    .AddPolicy("""allow if right("workspace.main", "read");""");
-
-BiscuitAuthorizationResult result = authorizer.Authorize();
-Console.WriteLine(result.IsAuthorized ? "Allowed" : "Denied or requires review");
+BiscuitInspection view = child.Inspect();
+Console.WriteLine($"blocks={view.BlockCount} sealed={view.IsSealed}");
+foreach (BiscuitRevocationId id in child.GetRevocationIds())
+{
+    Console.WriteLine($"revocation id: {id}");
+}
 ```
 
 Parsing with a root public key verifies the cryptographic token. A successfully parsed
-token does not mean a request is authorized. `IsAuthorized` is true only for an
-Allow decision with no errors; use `RequireAuthorized()` to enforce.
+token does not mean a request is authorized — authorization (`BiscuitAuthorizer`,
+`IsAuthorized`, `RequireAuthorized()`) lands in the next M1 slice.
 
-## What you get (when M1 lands)
+## What you get (M1 in progress: keys, tokens, inspection live; authorization next)
 
 - **Biscuit behavior:** signature verification, block-chain integrity, attenuation that only narrows authority, sealing, and default-deny authorization from the pinned engine.
 - **Reviewable outcomes:** typed decisions, structured authorization errors, inspection (block count, sealed state, algorithms, revocation IDs, block source), and loaded-asset identity.

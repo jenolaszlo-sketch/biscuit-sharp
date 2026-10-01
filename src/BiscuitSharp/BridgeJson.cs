@@ -50,6 +50,31 @@ internal static class BridgeJson
         return stream.ToArray();
     }
 
+    internal static void WriteRoot(Utf8JsonWriter writer, BiscuitPublicKey root)
+    {
+        writer.WriteStartObject("root");
+        writer.WriteString("algorithm", BiscuitAlgorithms.ToWireName(root.Algorithm));
+        writer.WriteBase64String("public_key", root.Encoded);
+        writer.WriteEndObject();
+    }
+
+    internal static byte[] EncodeTokenRoot(byte[] token, BiscuitPublicKey root) =>
+        EncodeObject(w =>
+        {
+            w.WriteBase64String("token", token);
+            WriteRoot(w, root);
+        });
+
+    internal static byte[] EncodeTokenAttenuate(byte[] token, BiscuitPublicKey root, string blockSource) =>
+        EncodeObject(w =>
+        {
+            w.WriteBase64String("token", token);
+            WriteRoot(w, root);
+            w.WriteStartObject("block");
+            w.WriteString("source", blockSource);
+            w.WriteEndObject();
+        });
+
     internal static JsonDocument Parse(byte[] json, string operation)
     {
         try
@@ -101,6 +126,18 @@ internal static class BridgeJson
 
         throw new BiscuitBridgeException(
             $"The native {operation} response is missing required number '{field}'.");
+    }
+
+    internal static bool RequiredBoolean(JsonElement root, string field, string operation)
+    {
+        if (root.TryGetProperty(field, out JsonElement value)
+            && (value.ValueKind == JsonValueKind.True || value.ValueKind == JsonValueKind.False))
+        {
+            return value.GetBoolean();
+        }
+
+        throw new BiscuitBridgeException(
+            $"The native {operation} response is missing required boolean '{field}'.");
     }
 
     internal static byte[] RequiredBase64(JsonElement root, string field, string operation)

@@ -21,3 +21,11 @@
   incl. differential round-trips vs direct upstream and 8×25 concurrency);
   managed `BiscuitPrivateKey` with finalizer-backed disposal, DER export, and
   mapped `BiscuitKeyException` failures (41 checks green on .NET 8 and .NET 10).
+- M1 token slice: native `token_create`/`parse_verify`/`attenuate`/`seal`/
+  `revocation_ids`/`inspect` over verified bytes (upstream `code` with typed
+  str/int/bool/bytes params, canonical round-trips, stable `sealed_token`/
+  `signature_error`/`format_error`/`datalog_error` codes; 26 native tests green
+  incl. tamper/truncation codes and the finding that sealing flips the chain
+  terminator without appending a block); managed immutable `BiscuitToken` with
+  equality, `BiscuitTokenBuilder` with parameterized facts, typed
+  `Biscuit*Exception` mapping (81 checks green on .NET 8 and .NET 10).

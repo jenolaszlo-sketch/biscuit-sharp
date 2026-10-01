@@ -1,6 +1,8 @@
+using System.Text.Json;
+
 namespace BiscuitSharp;
 
-/// <summary>A single Biscuit block (Datalog source) appended during creation or attenuation.</summary>
+/// <summary>A single Biscuit block (Datalog source) appended during attenuation.</summary>
 public sealed class BiscuitBlock
 {
     public string Source { get; }
@@ -13,6 +15,11 @@ public sealed class BiscuitBlock
     public static BiscuitBlock Create(string datalogSource)
     {
         ArgumentNullException.ThrowIfNull(datalogSource);
+        if (string.IsNullOrWhiteSpace(datalogSource))
+        {
+            throw new ArgumentException("Datalog block source must not be empty.", nameof(datalogSource));
+        }
+
         return new BiscuitBlock(datalogSource);
     }
 
@@ -20,36 +27,53 @@ public sealed class BiscuitBlock
 }
 
 /// <summary>Revocation identifier for one Biscuit block. Application-managed revocation state lives outside this library.</summary>
-/// <param name="Value">Opaque upstream revocation id bytes (base64url-safe rendering via ToString).</param>
+/// <param name="Value">Opaque upstream revocation id bytes.</param>
 public sealed record BiscuitRevocationId(byte[] Value)
 {
     public override string ToString() => Convert.ToBase64String(Value);
 }
 
 /// <summary>
-/// Immutable Biscuit token. Parsing with a root public key verifies the cryptographic token;
-/// a valid token is not an authorized request. See <see cref="BiscuitAuthorizer"/>.
+/// Immutable Biscuit token holding canonical upstream-serialized bytes plus the
+/// root public key it verified against. Parsing verifies the cryptographic
+/// token; a valid token is still not an authorized request.
+/// See <see cref="BiscuitAuthorizer"/> (next M1 slice).
 /// </summary>
-public sealed class BiscuitToken
+public sealed class BiscuitToken : IEquatable<BiscuitToken>
 {
     private readonly byte[] _bytes;
 
-    private BiscuitToken(byte[] bytes)
+    public BiscuitPublicKey Root { get; }
+
+    private BiscuitToken(byte[] bytes, BiscuitPublicKey root)
     {
         _bytes = bytes;
+        Root = root;
     }
 
     public static BiscuitToken Parse(ReadOnlySpan<byte> token, BiscuitPublicKey root)
     {
         ArgumentNullException.ThrowIfNull(root);
-        throw new BiscuitBridgeException("Native bridge is not implemented yet (M1). See docs/implementation-plan.md.");
+        if (token.IsEmpty)
+        {
+            throw new BiscuitFormatException("Cannot parse an empty token.");
+        }
+
+        byte[] response = NativeBridge.Call(
+            NativeBridge.OpTokenParseVerify,
+            BridgeJson.EncodeTokenRoot(token.ToArray(), root),
+            BiscuitErrorMapping.MapTokenError);
+        using JsonDocument doc = BridgeJson.Parse(response, "token_parse_verify");
+        return new BiscuitToken(
+            BridgeJson.RequiredBase64(doc.RootElement, "token", "token_parse_verify"),
+            root);
     }
 
     public static BiscuitToken ParseBase64Url(string token, BiscuitPublicKey root)
     {
         ArgumentNullException.ThrowIfNull(token);
         ArgumentNullException.ThrowIfNull(root);
-        throw new BiscuitBridgeException("Native bridge is not implemented yet (M1). See docs/implementation-plan.md.");
+        return Parse(Base64Url.Decode(token), root);
     }
 
     public byte[] ToBytes() => (byte[])_bytes.Clone();
@@ -59,58 +83,251 @@ public sealed class BiscuitToken
     public BiscuitToken Attenuate(BiscuitBlock block)
     {
         ArgumentNullException.ThrowIfNull(block);
-        throw new BiscuitBridgeException("Native bridge is not implemented yet (M1). See docs/implementation-plan.md.");
+        byte[] response = NativeBridge.Call(
+            NativeBridge.OpTokenAttenuate,
+            BridgeJson.EncodeTokenAttenuate(_bytes, Root, block.Source),
+            BiscuitErrorMapping.MapTokenError);
+        using JsonDocument doc = BridgeJson.Parse(response, "token_attenuate");
+        return new BiscuitToken(
+            BridgeJson.RequiredBase64(doc.RootElement, "token", "token_attenuate"),
+            Root);
     }
 
-    public BiscuitToken Seal() =>
-        throw new BiscuitBridgeException("Native bridge is not implemented yet (M1). See docs/implementation-plan.md.");
+    /// <summary>
+    /// Seals the token: the result cannot be further attenuated. Sealing a
+    /// sealed token throws <see cref="BiscuitSealedTokenException"/>.
+    /// </summary>
+    public BiscuitToken Seal()
+    {
+        byte[] response = NativeBridge.Call(
+            NativeBridge.OpTokenSeal,
+            BridgeJson.EncodeTokenRoot(_bytes, Root),
+            BiscuitErrorMapping.MapTokenError);
+        using JsonDocument doc = BridgeJson.Parse(response, "token_seal");
+        return new BiscuitToken(
+            BridgeJson.RequiredBase64(doc.RootElement, "token", "token_seal"),
+            Root);
+    }
 
-    public IReadOnlyList<BiscuitRevocationId> GetRevocationIds() =>
-        throw new BiscuitBridgeException("Native bridge is not implemented yet (M1). See docs/implementation-plan.md.");
+    public IReadOnlyList<BiscuitRevocationId> GetRevocationIds()
+    {
+        byte[] response = NativeBridge.Call(
+            NativeBridge.OpTokenRevocationIds,
+            BridgeJson.EncodeTokenRoot(_bytes, Root),
+            BiscuitErrorMapping.MapTokenError);
+        using JsonDocument doc = BridgeJson.Parse(response, "token_revocation_ids");
+        JsonElement root = doc.RootElement;
+        if (!root.TryGetProperty("revocation_ids", out JsonElement ids)
+            || ids.ValueKind != JsonValueKind.Array)
+        {
+            throw new BiscuitBridgeException(
+                "The native token_revocation_ids response is missing required array 'revocation_ids'.");
+        }
 
-    public BiscuitInspection Inspect() =>
-        throw new BiscuitBridgeException("Native bridge is not implemented yet (M1). See docs/implementation-plan.md.");
+        var result = new List<BiscuitRevocationId>();
+        foreach (JsonElement id in ids.EnumerateArray())
+        {
+            if (id.ValueKind != JsonValueKind.String || id.GetString() is not string s)
+            {
+                throw new BiscuitBridgeException(
+                    "The native token_revocation_ids response must be an array of base64 strings.");
+            }
 
-    internal static BiscuitToken FromVerifiedBytes(byte[] bytes) => new(bytes);
+            try
+            {
+                result.Add(new BiscuitRevocationId(Convert.FromBase64String(s)));
+            }
+            catch (FormatException ex)
+            {
+                throw new BiscuitBridgeException(
+                    "The native token_revocation_ids response contains invalid base64.", ex);
+            }
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// Safe structural inspection after verification. Reports block count,
+    /// sealed state, the verified root's algorithms, revocation IDs, printed
+    /// block sources, token size, and the highest block schema version.
+    /// Never private signing material.
+    /// </summary>
+    public BiscuitInspection Inspect()
+    {
+        byte[] response = NativeBridge.Call(
+            NativeBridge.OpTokenInspect,
+            BridgeJson.EncodeTokenRoot(_bytes, Root),
+            BiscuitErrorMapping.MapTokenError);
+        using JsonDocument doc = BridgeJson.Parse(response, "token_inspect");
+        JsonElement root = doc.RootElement;
+        const string operation = "token_inspect";
+
+        int blockCount = checked((int)BridgeJson.RequiredUInt32(root, "block_count", operation));
+        bool isSealed = BridgeJson.RequiredBoolean(root, "is_sealed", operation);
+        var signatureAlgorithm = BiscuitAlgorithms.FromWireName(
+            BridgeJson.RequiredString(root, "signature_algorithm", operation), operation);
+        var rootKeyAlgorithm = BiscuitAlgorithms.FromWireName(
+            BridgeJson.RequiredString(root, "root_key_algorithm", operation), operation);
+
+        uint? rootKeyId = null;
+        if (root.TryGetProperty("root_key_id", out JsonElement keyId))
+        {
+            if (keyId.ValueKind == JsonValueKind.Number && keyId.TryGetUInt32(out uint id))
+            {
+                rootKeyId = id;
+            }
+            else if (keyId.ValueKind != JsonValueKind.Null)
+            {
+                throw new BiscuitBridgeException(
+                    $"The native {operation} response field 'root_key_id' must be a number or null.");
+            }
+        }
+
+        var revocationIds = new List<BiscuitRevocationId>();
+        if (root.TryGetProperty("revocation_ids", out JsonElement ids)
+            && ids.ValueKind == JsonValueKind.Array)
+        {
+            foreach (JsonElement id in ids.EnumerateArray())
+            {
+                if (id.ValueKind != JsonValueKind.String || id.GetString() is not string s)
+                {
+                    throw new BiscuitBridgeException(
+                        $"The native {operation} response revocation IDs must be base64 strings.");
+                }
+
+                try
+                {
+                    revocationIds.Add(new BiscuitRevocationId(Convert.FromBase64String(s)));
+                }
+                catch (FormatException ex)
+                {
+                    throw new BiscuitBridgeException(
+                        $"The native {operation} response contains invalid base64 revocation IDs.", ex);
+                }
+            }
+        }
+        else
+        {
+            throw new BiscuitBridgeException(
+                $"The native {operation} response is missing required array 'revocation_ids'.");
+        }
+
+        var sources = RequiredStringList(root, "block_sources", operation);
+        if (sources.Count != blockCount)
+        {
+            throw new BiscuitBridgeException(
+                $"The native {operation} response block_sources length does not match block_count.");
+        }
+
+        uint maxVersion = 0;
+        if (root.TryGetProperty("block_versions", out JsonElement versions)
+            && versions.ValueKind == JsonValueKind.Array)
+        {
+            int count = 0;
+            foreach (JsonElement version in versions.EnumerateArray())
+            {
+                count++;
+                if (version.ValueKind != JsonValueKind.Number || !version.TryGetUInt32(out uint v))
+                {
+                    throw new BiscuitBridgeException(
+                        $"The native {operation} response block_versions must be numbers.");
+                }
+
+                maxVersion = Math.Max(maxVersion, v);
+            }
+
+            if (count != blockCount)
+            {
+                throw new BiscuitBridgeException(
+                    $"The native {operation} response block_versions length does not match block_count.");
+            }
+        }
+        else
+        {
+            throw new BiscuitBridgeException(
+                $"The native {operation} response is missing required array 'block_versions'.");
+        }
+
+        long tokenSize = checked((long)BridgeJson.RequiredUInt64(root, "token_size", operation));
+
+        return new BiscuitInspection(
+            blockCount,
+            isSealed,
+            signatureAlgorithm,
+            rootKeyAlgorithm,
+            revocationIds,
+            sources,
+            tokenSize,
+            maxVersion.ToString(),
+            rootKeyId);
+    }
+
+    public bool Equals(BiscuitToken? other) =>
+        other is not null && _bytes.SequenceEqual(other._bytes);
+
+    public override bool Equals(object? obj) => Equals(obj as BiscuitToken);
+
+    public override int GetHashCode()
+    {
+        var hash = new HashCode();
+        hash.AddBytes(_bytes);
+        return hash.ToHashCode();
+    }
+
+    public static bool operator ==(BiscuitToken? left, BiscuitToken? right) =>
+        left is null ? right is null : left.Equals(right);
+
+    public static bool operator !=(BiscuitToken? left, BiscuitToken? right) => !(left == right);
+
+    internal static BiscuitToken FromVerifiedBytes(byte[] bytes, BiscuitPublicKey root) =>
+        new(bytes, root);
+
+    private static List<string> RequiredStringList(JsonElement root, string field, string operation)
+    {
+        if (root.TryGetProperty(field, out JsonElement value)
+            && value.ValueKind == JsonValueKind.Array)
+        {
+            var items = new List<string>();
+            foreach (JsonElement item in value.EnumerateArray())
+            {
+                if (item.ValueKind != JsonValueKind.String || item.GetString() is not string s)
+                {
+                    throw new BiscuitBridgeException(
+                        $"The native {operation} response field '{field}' must be an array of strings.");
+                }
+
+                items.Add(s);
+            }
+
+            return items;
+        }
+
+        throw new BiscuitBridgeException(
+            $"The native {operation} response is missing required array '{field}'.");
+    }
 }
 
-/// <summary>Fluent builder for token creation. Prefer parameterized overloads over string interpolation of untrusted input.</summary>
-public sealed class BiscuitTokenBuilder
+/// <summary>Maps native token-operation failures to the typed exception taxonomy.</summary>
+internal static class BiscuitErrorMapping
 {
-    private readonly List<string> _facts = new();
-    private readonly List<string> _checks = new();
+    internal static BiscuitException MapTokenError(uint status, string code, string message) =>
+        (status, code) switch
+        {
+            (3, _) => Bridge(status, code, message),
+            (_, "panic" or "oversized_output" or "unsupported_operation") => Bridge(status, code, message),
+            (_, "signature_error") => new BiscuitSignatureException(
+                $"Biscuit signature verification failed: {message}."),
+            (_, "sealed_token") => new BiscuitSealedTokenException(
+                $"Biscuit sealed-token violation: {message}."),
+            (_, "format_error") => new BiscuitFormatException(
+                $"Malformed Biscuit token or encoding: {message}."),
+            (_, "datalog_error") => new BiscuitDatalogException(
+                $"Invalid Biscuit Datalog: {message}."),
+            _ => new BiscuitTokenException(
+                $"Biscuit token operation failed ({code}): {message}."),
+        };
 
-    private BiscuitTokenBuilder()
-    {
-    }
-
-    public static BiscuitTokenBuilder Create() => new();
-
-    public BiscuitTokenBuilder AddFact(string datalogFact)
-    {
-        ArgumentNullException.ThrowIfNull(datalogFact);
-        _facts.Add(datalogFact);
-        return this;
-    }
-
-    public BiscuitTokenBuilder AddFact(string template, object parameters)
-    {
-        // M1: render via upstream-supported parameterization; never interpolate untrusted strings.
-        ArgumentNullException.ThrowIfNull(template);
-        ArgumentNullException.ThrowIfNull(parameters);
-        throw new BiscuitBridgeException("Native bridge is not implemented yet (M1). See docs/implementation-plan.md.");
-    }
-
-    public BiscuitTokenBuilder AddCheck(string datalogCheck)
-    {
-        ArgumentNullException.ThrowIfNull(datalogCheck);
-        _checks.Add(datalogCheck);
-        return this;
-    }
-
-    public BiscuitToken Build(BiscuitPrivateKey rootKey)
-    {
-        ArgumentNullException.ThrowIfNull(rootKey);
-        throw new BiscuitBridgeException("Native bridge is not implemented yet (M1). See docs/implementation-plan.md.");
-    }
+    private static BiscuitBridgeException Bridge(uint status, string code, string message) =>
+        new($"Biscuit native token call failed with status {status} ({code}: {message}).");
 }

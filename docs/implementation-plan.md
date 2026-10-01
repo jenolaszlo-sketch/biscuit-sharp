@@ -51,10 +51,13 @@ native-owned outputs + single free, caught panics, bounded I/O, version identity
 native boundary tests), key `generate`/`import`/`export`/`destroy` over opaque
 native handles (done 2026-10-01: Ed25519 + Secp256r1, PEM/DER with upstream
 auto-detection, DER export for round-trips, 6 native tests incl. differential
-vs direct upstream and concurrency), `token_create`,
-`token_parse_verify`, `token_serialize`,
-`token_attenuate`, `token_seal`, `token_authorize`, `token_revocation_ids`,
-`token_inspect`. Consolidation is allowed; managed callers must not depend on
+vs direct upstream and concurrency), token `create`/`parse_verify`/`attenuate`/
+`seal`/`revocation_ids`/`inspect` over verified bytes (done 2026-10-01: upstream
+`code`/`code_with_params` with typed str/int/bool/bytes params, canonical
+round-trips, `sealed_token`/`signature_error`/`format_error`/`datalog_error`
+codes, 14 native tests incl. tamper/truncation and seal semantics),
+`token_authorize` (next slice).
+Consolidation is allowed; managed callers must not depend on
 Rust ABI details. Private keys live in opaque native handles; export is explicit.
 
 ### Managed surface (`src/BiscuitSharp/`)
@@ -63,7 +66,9 @@ Keys (generate/import/export over opaque handles with finalizer-backed disposal,
 DER export, PEM/DER import, `ToString` privacy — done 2026-10-01, 21 managed
 key checks × 2 TFMs), builder
 (textual Datalog + parameterized overloads; discourage untrusted interpolation),
-token (parse/verify, base64url, attenuate, seal, revocation IDs, inspection),
+token (parse/verify, base64url, attenuate, seal, revocation IDs, inspection —
+done 2026-10-01: canonical bytes, equality, typed params incl. reflection
+convenience overload, 40 managed token checks × 2 TFMs),
 authorizer (facts, policies, checks → `BiscuitAuthorizationResult` with
 `RequireAuthorized()`), version discovery reporting the loaded asset (done 2026-10-01: process-lifetime
 loader, strict JSON decoding, file-hash identity, 20 managed checks × 2 TFMs), and the
