@@ -1,10 +1,10 @@
 # BiscuitSharp roadmap
 
 Updated 2026-10-02. The complete 19-job release matrix passed at
-412f25f63f3bb0012b504540245681218444978d
-([CI run 36934972104](https://github.com/jenolaszlo-sketch/biscuit-sharp/actions/runs/36934972104)).
+5dd9e199b32ea18d1499a5e055cbe658c9e0b0a1
+([CI run 36940126702](https://github.com/jenolaszlo-sketch/biscuit-sharp/actions/runs/36940126702)).
 This includes corrected legal inventories and the real 50-cycle Valgrind probe.
-New release preparation changes require their own complete CI run before publication.
+The checked preview API, budget probes and SourceLink checks are included in this run. Publication awaits protected environment approval configuration.
 
 ## Implemented and qualified
 
@@ -27,7 +27,7 @@ New release preparation changes require their own complete CI run before publica
 
 ## Preview publication and contract freeze
 
-- [ ] Complete the full release matrix after adding the inventory/budget gates.
+- [x] Complete the full release matrix after adding the inventory/budget/SourceLink gates.
 - [ ] Configure the protected release environment and NuGet trusted publishing.
 - [ ] Publish 0.1.0-preview.1 from the exact qualified CI artifact.
 - [ ] Restore from NuGet.org on all three platforms and both frameworks; compare

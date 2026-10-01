@@ -8,11 +8,11 @@ Original audit scope: managed public API and contract, native boundary, authoriz
 
 ## Graduation follow-up — 2026-10-02
 
-The complete 19-job release matrix is green at 412f25f (run 36934972104),
+The complete 19-job release matrix is green at 5dd9e19 (run 36940126702),
 including all three RID/legal/NativeAOT gates, six packaged consumers and the
 corrected strict Valgrind workload. Preview semantics remain as documented in
 ADR 0002 under the maintainer-authorized graduation work. The checked API
-inventory and budget probes are implemented; see api-contract.md and
+inventory, budget probes and exact-SHA SourceLink checks are implemented and green; see api-contract.md and
 authorizer-budget.md. Publication, public-feed consumers and package-baseline
 restoration remain sequential release steps.
 

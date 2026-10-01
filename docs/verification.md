@@ -1,20 +1,45 @@
 # Verification
 
-## Current qualification — 2026-10-02
+## Current preview candidate qualification — 2026-10-02
 
-The full 19-job matrix passed at SHA 412f25f63f3bb0012b504540245681218444978d
-([run 36934972104](https://github.com/jenolaszlo-sketch/biscuit-sharp/actions/runs/36934972104)):
-managed .NET 8/10 on three OSes, compatibility in both directions on three RIDs,
-native lints/release tests, staging/legal verification and NativeAOT on three
-RIDs, full package/symbol/legal-tamper checks, six clean packaged consumers, and
-strict 50-cycle Linux Valgrind. All jobs succeeded. Earlier failed/zero-test
-Valgrind results below are historical, not current blockers.
+The complete 19-job matrix passed at release SHA
+5dd9e199b32ea18d1499a5e055cbe658c9e0b0a1
+([run 36940126702](https://github.com/jenolaszlo-sketch/biscuit-sharp/actions/runs/36940126702)).
+All jobs succeeded, covering:
 
-Graduation preparation adds checked API inventory, synthetic budget probes and
-post-publication six-consumer verification. These changes need a new complete CI
-run. Local solution build is warning-free; inventory agrees on both TFMs; local
-consumer still passes; release budget observations are in authorizer-budget.md.
-Preview publication and the public package-validation baseline remain pending.
+- Managed .NET 8/10 on Windows, Linux and macOS; public API inventory checks on
+  both frameworks and ordinary/concurrent/hostile-growth budget probes.
+- Bidirectional Rust compatibility on all three RIDs; native lints and release
+  hardening tests.
+- Three-RID assets, complete legal/source inventories and NativeAOT execution.
+- Full package verification, legal tamper rejection and portable PDB SourceLink
+  mappings bound to the exact release SHA.
+- Six isolated clean packaged consumers (.NET 8/10 on every supported RID).
+- Real 50-cycle Linux Valgrind with zero definite/indirect/possible losses,
+  zero suppressed errors and zero memory errors.
+
+Exact candidate artifacts downloaded from that run:
+
+| Artifact | SHA-256 |
+| --- | --- |
+| BiscuitSharp.0.1.0-preview.1.nupkg | 2b0d1ecfdd6a7835d387b5ddcc88e6aa6b2fbc71e09f5c29d86c82638ad342c1 |
+| BiscuitSharp.0.1.0-preview.1.snupkg | 2b921d6282a20986651952ee1df648e3a774eb81f46556323834678cddce4d56 |
+
+The checked preview surface has 189 inventory entries. Semantics are recorded in
+ADR 0002 and budget observations in authorizer-budget.md. NUGET_USER exists;
+the maintainer reports the trusted-publisher policy configured. Protected
+environment approval configuration is pending an explicit reviewer/self-review
+choice. Automatic approval review rejected creating it with self-approval
+enabled without explicit authorization; no environment was created by that
+attempt.
+
+Publication must dispatch publish.yml with run ID 36940126702 and the full SHA
+above. It must use that immutable artifact. After publication, dispatch
+verify-published.yml with the same inputs for six clean NuGet.org consumers and
+archive content comparisons, then restore the published API compatibility
+baseline and validate the next candidate. No preview or stable package was
+published during this preparation; baseline restoration remains dependent on
+public availability.
 
 ## Historical evidence
 

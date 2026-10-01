@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.0-preview.1 — release candidate
+## 0.1.0-preview.1 — qualified release candidate
 
 - Qualified three native RIDs with full legal inventories, NativeAOT, six clean
   consumers and the corrected strict Valgrind workload.
