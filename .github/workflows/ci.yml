@@ -26,12 +26,25 @@ jobs:
       - run: dotnet build BiscuitSharp.slnx
       - run: dotnet run --project tests/BiscuitSharp.ApiSurface --framework net8.0 -- --verify docs/public-api.txt
       - run: dotnet run --project tests/BiscuitSharp.ApiSurface --framework net10.0 -- --verify docs/public-api.txt
+      - run: dotnet run --project tests/BiscuitSharp.ApiSurface --framework net8.0 -- --self-test
+      - run: dotnet run --project tests/BiscuitSharp.ApiSurface --framework net10.0 -- --self-test
+      - name: Check native RID selection against process architecture
+        run: |
+          dotnet run --project tests/BiscuitSharp.RuntimeIdentifier.Tests --framework net8.0
+          dotnet run --project tests/BiscuitSharp.RuntimeIdentifier.Tests --framework net10.0
+      - name: Check BiscuitParam cannot be subclassed by external consumers
+        shell: pwsh
+        run: |
+          ./eng/Test-ClosedParam.ps1 -TargetFramework net8.0
+          ./eng/Test-ClosedParam.ps1 -TargetFramework net10.0
       - name: Check authorization budgets through the built native bridge
         shell: pwsh
         run: |
           $nativeName = if ($IsWindows) { "biscuitsharp_native.dll" } elseif ($IsMacOS) { "libbiscuitsharp_native.dylib" } else { "libbiscuitsharp_native.so" }
           $env:BISCUITSHARP_NATIVE_PATH = (Resolve-Path "native/target/debug/$nativeName").Path
           dotnet run --configuration Release --project tests/BiscuitSharp.BudgetProbe --framework net8.0
+          if ($LASTEXITCODE -ne 0) { throw "Budget probe failed" }
+          dotnet run --configuration Release --project tests/BiscuitSharp.BudgetProbe --framework net10.0
           if ($LASTEXITCODE -ne 0) { throw "Budget probe failed" }
       - run: dotnet run --project tests/BiscuitSharp.Tests --framework net8.0
       - run: dotnet run --project tests/BiscuitSharp.Tests --framework net10.0
@@ -168,8 +181,25 @@ jobs:
     needs: [pack]
     strategy:
       matrix:
-        os: [windows-latest, ubuntu-latest, macos-latest]
-        tfm: [net8.0, net10.0]
+        include:
+          - os: windows-latest
+            rid: win-x64
+            tfm: net8.0
+          - os: windows-latest
+            rid: win-x64
+            tfm: net10.0
+          - os: ubuntu-latest
+            rid: linux-x64
+            tfm: net8.0
+          - os: ubuntu-latest
+            rid: linux-x64
+            tfm: net10.0
+          - os: macos-latest
+            rid: osx-arm64
+            tfm: net8.0
+          - os: macos-latest
+            rid: osx-arm64
+            tfm: net10.0
     runs-on: ${{ matrix.os }}
     defaults:
       run:
@@ -185,9 +215,17 @@ jobs:
         with:
           name: nupkg
           path: artifacts/packages
+      - name: Install Linux NativeAOT toolchain
+        if: matrix.os == 'ubuntu-latest' && matrix.tfm == 'net10.0'
+        run: sudo apt-get update && sudo apt-get install -y clang zlib1g-dev
       - run: |
           $pkg = Get-ChildItem artifacts/packages/BiscuitSharp.*.nupkg | Where-Object { $_.Name -notlike '*.snupkg' } | Select-Object -First 1 -ExpandProperty FullName
-          ./eng/Test-PackagedConsumer.ps1 -Package $pkg -TargetFramework ${{ matrix.tfm }}
+          $consumerArgs = @{ Package = $pkg; TargetFramework = '${{ matrix.tfm }}' }
+          if ('${{ matrix.tfm }}' -eq 'net10.0') {
+            $consumerArgs.Aot = $true
+            $consumerArgs.Rid = '${{ matrix.rid }}'
+          }
+          ./eng/Test-PackagedConsumer.ps1 @consumerArgs
 
   # Native-memory instrumentation (Linux): leak-probe cycles under Valgrind.
   # Memory errors and definite/possible leaks fail; display every allocation kind.

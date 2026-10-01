@@ -34,27 +34,47 @@ internal static class NativeLoader
 
     internal static string GetRuntimeIdentifier()
     {
-        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
-            && RuntimeInformation.OSArchitecture == Architecture.X64)
+        Architecture processArchitecture = RuntimeInformation.ProcessArchitecture;
+        string? rid = SelectRuntimeIdentifier(
+            RuntimeInformation.IsOSPlatform(OSPlatform.Windows),
+            RuntimeInformation.IsOSPlatform(OSPlatform.Linux),
+            RuntimeInformation.IsOSPlatform(OSPlatform.OSX),
+            processArchitecture);
+        if (rid is not null)
+        {
+            return rid;
+        }
+
+        throw new BiscuitBridgeException(
+            $"Unsupported runtime: {RuntimeInformation.OSDescription} {processArchitecture}. " +
+            "Qualified RIDs: win-x64, linux-x64, osx-arm64.");
+    }
+
+    // ProcessArchitecture describes the architecture of this .NET process,
+    // which determines which native asset it can load. OSArchitecture may be
+    // wider when a 32-bit process runs under emulation on a 64-bit OS.
+    internal static string? SelectRuntimeIdentifier(
+        bool isWindows,
+        bool isLinux,
+        bool isOSX,
+        Architecture processArchitecture)
+    {
+        if (isWindows && processArchitecture == Architecture.X64)
         {
             return "win-x64";
         }
 
-        if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux)
-            && RuntimeInformation.OSArchitecture == Architecture.X64)
+        if (isLinux && processArchitecture == Architecture.X64)
         {
             return "linux-x64";
         }
 
-        if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX)
-            && RuntimeInformation.OSArchitecture == Architecture.Arm64)
+        if (isOSX && processArchitecture == Architecture.Arm64)
         {
             return "osx-arm64";
         }
 
-        throw new BiscuitBridgeException(
-            $"Unsupported runtime: {RuntimeInformation.OSDescription} {RuntimeInformation.OSArchitecture}. " +
-            "Qualified RIDs: win-x64, linux-x64, osx-arm64.");
+        return null;
     }
 
     internal static IntPtr GetExport(string name)

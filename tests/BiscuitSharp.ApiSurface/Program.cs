@@ -33,38 +33,42 @@ if (args.Length == 3 && args[0] == "--verify-symbols")
     return;
 }
 
+if (args.Length == 1 && args[0] == "--self-test")
+{
+    string[] complete = RenderMembers(typeof(ApiSurfaceOperatorAndProtectedConstructor));
+    string[] noOperator = RenderMembers(typeof(ApiSurfaceProtectedConstructorOnly));
+    string[] noProtectedConstructor = RenderMembers(typeof(ApiSurfaceOperatorOnly));
+    string[] NormalizeFixtureNames(string[] members) => members.Select(s => s
+        .Replace(nameof(ApiSurfaceOperatorAndProtectedConstructor), "Fixture", StringComparison.Ordinal)
+        .Replace(nameof(ApiSurfaceProtectedConstructorOnly), "Fixture", StringComparison.Ordinal)
+        .Replace(nameof(ApiSurfaceOperatorOnly), "Fixture", StringComparison.Ordinal)).ToArray();
+    if (!complete.Any(s => s.Contains("operator +", StringComparison.Ordinal)))
+        throw new InvalidOperationException("Public operator is missing from the API inventory.");
+    if (!complete.Any(s => s.StartsWith("protected ctor(", StringComparison.Ordinal)))
+        throw new InvalidOperationException("Protected constructor is missing from the API inventory.");
+    if (NormalizeFixtureNames(complete).SequenceEqual(NormalizeFixtureNames(noOperator), StringComparer.Ordinal))
+        throw new InvalidOperationException("Removing a public operator did not change the API inventory.");
+    if (NormalizeFixtureNames(complete).SequenceEqual(NormalizeFixtureNames(noProtectedConstructor), StringComparer.Ordinal))
+        throw new InvalidOperationException("Removing a protected constructor did not change the API inventory.");
+    if (noOperator.Any(s => s.Contains("operator +", StringComparison.Ordinal)))
+        throw new InvalidOperationException("Operator-free control unexpectedly contains an operator.");
+    if (noProtectedConstructor.Any(s => s.StartsWith("protected ctor(", StringComparison.Ordinal)))
+        throw new InvalidOperationException("Constructor-free control unexpectedly contains a protected constructor.");
+    Console.WriteLine("API surface self-test passed: removing an operator or protected constructor changes the inventory.");
+    return;
+}
+
 if (args.Length != 2 || args[0] is not ("--write" or "--verify"))
     throw new ArgumentException("Usage: --write|--verify <inventory-path>");
 
-var nullability = new NullabilityInfoContext();
 var lines = new List<string>();
 foreach (Type type in typeof(BiscuitToken).Assembly.GetExportedTypes().OrderBy(t => t.FullName, StringComparer.Ordinal))
 {
     string parents = string.Join(", ", new[] { type.BaseType }.Where(t => t is not null).Cast<Type>()
         .Concat(type.GetInterfaces()).Select(t => Name(t)).Order(StringComparer.Ordinal));
-    lines.Add($"type {Name(type)} [{(type.IsEnum ? "enum" : type.IsValueType ? "struct" : "class")}; abstract={type.IsAbstract}; sealed={type.IsSealed}] : {parents}");
-    foreach (MemberInfo member in type.GetMembers(BindingFlags.Public | BindingFlags.Instance | BindingFlags.Static | BindingFlags.DeclaredOnly)
-        .OrderBy(m => m.Name, StringComparer.Ordinal).ThenBy(m => m.ToString(), StringComparer.Ordinal))
-    {
-        string? signature = member switch
-        {
-            ConstructorInfo c => $"ctor({Parameters(c)})",
-            MethodInfo m when !m.IsSpecialName => $"{Modifiers(m)}{Name(m.ReturnType, nullability.Create(m.ReturnParameter))} {m.Name}{Generic(m)}({Parameters(m)})",
-            PropertyInfo p => $"{(p.GetMethod?.IsStatic == true || p.SetMethod?.IsStatic == true ? "static " : "")}{Name(p.PropertyType, nullability.Create(p))} {p.Name}{(p.GetIndexParameters().Length == 0 ? "" : $"[{string.Join(", ", p.GetIndexParameters().Select(Parameter))}]")} {{ {(p.GetMethod?.IsPublic == true ? "get; " : "")}{(p.SetMethod?.IsPublic == true ? (p.SetMethod.ReturnParameter.GetRequiredCustomModifiers().Any(t => t.FullName == "System.Runtime.CompilerServices.IsExternalInit") ? "init; " : "set; ") : "")}}}",
-            FieldInfo f => $"{(f.IsStatic ? "static " : "")}{(f.IsInitOnly ? "readonly " : "")}{Name(f.FieldType, nullability.Create(f))} {f.Name}{(f.IsLiteral ? " = " + Value(f.GetRawConstantValue()) : "")}",
-            EventInfo e => $"event {Name(e.EventHandlerType!)} {e.Name}",
-            _ => null
-        };
-        if (signature is not null)
-        {
-            lines.Add("  " + signature);
-            foreach (CustomAttributeData attribute in member.GetCustomAttributesData()
-                .Where(a => a.AttributeType.FullName is "System.ObsoleteAttribute"
-                    or "System.Diagnostics.CodeAnalysis.RequiresUnreferencedCodeAttribute"
-                    or "System.Diagnostics.CodeAnalysis.RequiresDynamicCodeAttribute"))
-                lines.Add("    " + attribute);
-        }
-    }
+    string kind = type.IsInterface ? "interface" : type.IsEnum ? "enum" : type.IsValueType ? "struct" : typeof(Delegate).IsAssignableFrom(type) ? "delegate" : "class";
+    lines.Add($"type {Name(type)} [{kind}; abstract={type.IsAbstract}; sealed={type.IsSealed}] : {parents}");
+    lines.AddRange(RenderMembers(type).Select(signature => "  " + signature));
 }
 string inventory = "# BiscuitSharp public API; generated by BiscuitSharp.ApiSurface. Review changes before accepting.\n"
     + string.Join("\n", lines) + "\n";
@@ -78,6 +82,97 @@ else if (!File.Exists(path) || File.ReadAllText(path).Replace("\r\n", "\n") != i
     throw new InvalidOperationException("Public API differs from the reviewed inventory. Regenerate and review docs/public-api.txt.");
 else
     Console.WriteLine($"Public API matches ({lines.Count} entries).");
+
+string[] RenderMembers(Type type)
+{
+    var rendered = new List<string>();
+    foreach (MemberInfo member in type.GetMembers(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static | BindingFlags.DeclaredOnly)
+        .Where(IsAccessibleMember).OrderBy(m => m.Name, StringComparer.Ordinal).ThenBy(m => m.ToString(), StringComparer.Ordinal))
+    {
+        if (member is MethodInfo method && method.IsSpecialName && !method.Name.StartsWith("op_", StringComparison.Ordinal)) continue;
+        if (member is PropertyInfo or EventInfo) continue;
+        AddMember(member);
+    }
+    foreach (PropertyInfo property in type.GetProperties(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static | BindingFlags.DeclaredOnly)
+        .Where(IsAccessibleProperty).OrderBy(p => p.Name, StringComparer.Ordinal)) AddMember(property);
+    foreach (EventInfo eventInfo in type.GetEvents(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static | BindingFlags.DeclaredOnly)
+        .Where(IsAccessibleEvent).OrderBy(e => e.Name, StringComparer.Ordinal)) AddMember(eventInfo);
+    return rendered.ToArray();
+
+    void AddMember(MemberInfo member)
+    {
+        string? signature = Signature(member);
+        if (signature is null) return;
+        rendered.Add(signature);
+        rendered.AddRange(member.GetCustomAttributesData().Where(IsContractAttribute).Select(a => "    " + a));
+    }
+}
+
+bool IsAccessibleMember(MemberInfo member) => member switch
+{
+    MethodBase method => IsAccessibleMethod(method),
+    FieldInfo field => field.IsPublic || field.IsFamily || field.IsFamilyOrAssembly,
+    PropertyInfo property => IsAccessibleProperty(property),
+    EventInfo eventInfo => IsAccessibleEvent(eventInfo),
+    _ => false
+};
+
+static bool IsAccessibleMethod(MethodBase method) => method.IsPublic || method.IsFamily || method.IsFamilyOrAssembly;
+static string Access(MemberInfo member) => member switch
+{
+    MethodBase method when method.IsPublic => "public ",
+    MethodBase method when method.IsFamilyOrAssembly => "protected internal ",
+    MethodBase method when method.IsFamily => "protected ",
+    FieldInfo field when field.IsPublic => "public ",
+    FieldInfo field when field.IsFamilyOrAssembly => "protected internal ",
+    FieldInfo field when field.IsFamily => "protected ",
+    _ => ""
+};
+bool IsAccessibleProperty(PropertyInfo property) =>
+    (property.GetGetMethod(true) is { } get && IsAccessibleMethod(get))
+    || (property.GetSetMethod(true) is { } set && IsAccessibleMethod(set));
+bool IsAccessibleEvent(EventInfo eventInfo) =>
+    (eventInfo.GetAddMethod(true) is { } add && IsAccessibleMethod(add))
+    || (eventInfo.GetRemoveMethod(true) is { } remove && IsAccessibleMethod(remove));
+
+MethodInfo PropertyAccessor(PropertyInfo property) =>
+    new[] { property.GetGetMethod(true), property.GetSetMethod(true) }.OfType<MethodInfo>().First(IsAccessibleMethod);
+
+string? Signature(MemberInfo member) => member switch
+{
+    ConstructorInfo constructor => $"{Access(constructor)}ctor({Parameters(constructor)})",
+    MethodInfo method when !method.IsSpecialName || method.Name.StartsWith("op_", StringComparison.Ordinal) =>
+        $"{Access(method)}{Modifiers(method)}{Name(method.ReturnType, new NullabilityInfoContext().Create(method.ReturnParameter))} {MethodName(method)}{Generic(method)}({Parameters(method)})",
+    PropertyInfo property => $"{Access(PropertyAccessor(property))}{Modifiers(PropertyAccessor(property))}{Name(property.PropertyType, new NullabilityInfoContext().Create(property))} {property.Name}{(property.GetIndexParameters().Length == 0 ? "" : $"[{string.Join(", ", property.GetIndexParameters().Select(Parameter))}]")} {{ {Accessor(property.GetGetMethod(true), "get")}{Accessor(property.GetSetMethod(true), property.GetSetMethod(true)?.ReturnParameter.GetRequiredCustomModifiers().Any(t => t.FullName == "System.Runtime.CompilerServices.IsExternalInit") == true ? "init" : "set")} }}",
+    FieldInfo field => $"{Access(field)}{(field.IsStatic && !field.IsLiteral ? "static " : "")}{(field.IsLiteral ? "const " : field.IsInitOnly ? "readonly " : "")}{Name(field.FieldType, new NullabilityInfoContext().Create(field))} {field.Name}{(field.IsLiteral ? " = " + Value(field.GetRawConstantValue()) : "")}",
+    EventInfo eventInfo => $"{Access(eventInfo.GetAddMethod(true) ?? eventInfo.GetRemoveMethod(true)!)}{Modifiers(eventInfo.GetAddMethod(true) ?? eventInfo.GetRemoveMethod(true)!)}event {Name(eventInfo.EventHandlerType!)} {eventInfo.Name}",
+    _ => null
+};
+
+string Accessor(MethodInfo? accessor, string kind) => accessor is null || !IsAccessibleMethod(accessor)
+    ? "" : $"{Access(accessor)}{kind}; ";
+
+static bool IsContractAttribute(CustomAttributeData attribute) => attribute.AttributeType.FullName is "System.ObsoleteAttribute"
+    or "System.Diagnostics.CodeAnalysis.RequiresUnreferencedCodeAttribute"
+    or "System.Diagnostics.CodeAnalysis.RequiresDynamicCodeAttribute";
+
+static string MethodName(MethodInfo method) => method.IsSpecialName && method.Name.StartsWith("op_", StringComparison.Ordinal)
+    ? "operator " + (method.Name switch
+    {
+        "op_Addition" => "+", "op_Subtraction" => "-", "op_Multiply" => "*", "op_Division" => "/",
+        "op_Modulus" => "%", "op_Equality" => "==", "op_Inequality" => "!=", "op_LessThan" => "<",
+        "op_GreaterThan" => ">", "op_LessThanOrEqual" => "<=", "op_GreaterThanOrEqual" => ">=",
+        "op_BitwiseAnd" => "&", "op_BitwiseOr" => "|", "op_ExclusiveOr" => "^", "op_LogicalNot" => "!",
+        "op_OnesComplement" => "~", "op_UnaryPlus" => "+", "op_UnaryNegation" => "-", "op_Increment" => "++",
+        "op_Decrement" => "--", "op_LeftShift" => "<<", "op_RightShift" => ">>", "op_True" => "true",
+        "op_False" => "false", "op_Implicit" => "implicit", "op_Explicit" => "explicit",
+        "op_CheckedAddition" => "checked +", "op_CheckedSubtraction" => "checked -", "op_CheckedMultiply" => "checked *",
+        "op_CheckedDivision" => "checked /", "op_CheckedUnaryNegation" => "checked -",
+        "op_CheckedImplicit" => "checked implicit", "op_CheckedExplicit" => "checked explicit",
+        "op_UnsignedRightShift" => ">>>",
+        _ => method.Name
+    })
+    : method.Name;
 
 string Name(Type type, NullabilityInfo? info = null)
 {
@@ -95,14 +190,42 @@ static string Nullable(Type type, NullabilityInfo? info) =>
     !type.IsValueType && info?.ReadState == NullabilityState.Nullable ? "?" : "";
 string Parameters(MethodBase method) => string.Join(", ", method.GetParameters().Select(Parameter));
 string Parameter(ParameterInfo p) =>
-    (p.IsOut ? "out " : p.ParameterType.IsByRef ? "ref " : p.GetCustomAttribute<ParamArrayAttribute>() is not null ? "params " : "")
-    + Name(p.ParameterType.IsByRef ? p.ParameterType.GetElementType()! : p.ParameterType, nullability.Create(p))
+    (p.IsOut ? "out " : p.ParameterType.IsByRef ? p.IsIn ? "in " : "ref " : p.GetCustomAttribute<ParamArrayAttribute>() is not null ? "params " : "")
+    + Name(p.ParameterType.IsByRef ? p.ParameterType.GetElementType()! : p.ParameterType, new NullabilityInfoContext().Create(p))
     + " " + p.Name + (p.HasDefaultValue ? " = " + Value(p.DefaultValue) : "");
 static string Value(object? value) => value is null ? "null"
     : value is string text ? System.Text.Json.JsonSerializer.Serialize(text)
     : Convert.ToString(value, CultureInfo.InvariantCulture) ?? "null";
 static string Modifiers(MethodInfo method) =>
-    (method.IsStatic ? "static " : "") + (method.IsAbstract ? "abstract " : method.IsVirtual && !method.IsFinal ? "virtual " : "");
+    (method.IsStatic ? "static " : "") + Dispatch(method);
+static string Dispatch(MethodInfo method)
+{
+    if (method.IsAbstract) return "abstract ";
+    if (!method.IsVirtual) return "";
+    bool newSlot = (method.Attributes & MethodAttributes.NewSlot) != 0;
+    return newSlot ? "virtual " : method.IsFinal ? "sealed override " : "override ";
+}
 string Generic(MethodInfo method) => !method.IsGenericMethod ? "" : "<" + string.Join(", ",
     method.GetGenericArguments().Select(t => t.Name + "[" + t.GenericParameterAttributes + "; "
     + string.Join(", ", t.GetGenericParameterConstraints().Select(c => Name(c))) + "]")) + ">";
+
+public class ApiSurfaceOperatorAndProtectedConstructor
+{
+    protected ApiSurfaceOperatorAndProtectedConstructor() { }
+    public static ApiSurfaceOperatorAndProtectedConstructor operator +(
+        ApiSurfaceOperatorAndProtectedConstructor left,
+        ApiSurfaceOperatorAndProtectedConstructor right) => left;
+}
+
+public class ApiSurfaceProtectedConstructorOnly
+{
+    protected ApiSurfaceProtectedConstructorOnly() { }
+}
+
+public class ApiSurfaceOperatorOnly
+{
+    public ApiSurfaceOperatorOnly() { }
+    public static ApiSurfaceOperatorOnly operator +(
+        ApiSurfaceOperatorOnly left,
+        ApiSurfaceOperatorOnly right) => left;
+}

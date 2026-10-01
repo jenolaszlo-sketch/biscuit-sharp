@@ -39,6 +39,14 @@ try {
     [System.IO.File]::AppendAllText($stageLicense, "`ntamper probe`n")
     Assert-Rejected { & (Join-Path $PSScriptRoot "Verify-NativeStaging.ps1") -Rid $Rid -StagingRoot $staging } "legal material hash mismatch"
 
+    $stageMaterial.sha256 = (Get-FileHash -LiteralPath $stageLicense -Algorithm SHA256).Hash.ToLowerInvariant()
+    ConvertTo-Json -InputObject @($stageInventory) -Depth 8 | Set-Content -LiteralPath (Join-Path $ridStage "legal/licenses.json") -Encoding UTF8
+    Assert-Rejected { & (Join-Path $PSScriptRoot "Verify-NativeStaging.ps1") -Rid $Rid -StagingRoot $staging } "archive content mismatch"
+    $stageInventory[0].license_material = @($stageInventory[0].license_material | Where-Object { $_.source_path -ne $stageMaterial.source_path })
+    Remove-Item -LiteralPath $stageLicense -Force
+    ConvertTo-Json -InputObject @($stageInventory) -Depth 8 | Set-Content -LiteralPath (Join-Path $ridStage "legal/licenses.json") -Encoding UTF8
+    Assert-Rejected { & (Join-Path $PSScriptRoot "Verify-NativeStaging.ps1") -Rid $Rid -StagingRoot $staging } "source coverage mismatch"
+
     # Prove package verification catches changed text after archive extraction.
     Add-Type -AssemblyName System.IO.Compression.FileSystem
     $unpacked = Join-Path $tempRoot "unpacked"
@@ -53,7 +61,18 @@ try {
     [System.IO.File]::AppendAllText($packageLicense, "`ntamper probe`n")
     $badPackage = Join-Path $tempRoot ([System.IO.Path]::GetFileName($Package))
     [System.IO.Compression.ZipFile]::CreateFromDirectory($unpacked, $badPackage)
-    Assert-Rejected { & (Join-Path $PSScriptRoot "Verify-NuGetPackage.ps1") -Package $badPackage -Rids $Rids } "checksum mismatch"
+    Assert-Rejected { & (Join-Path $PSScriptRoot "Verify-NuGetPackage.ps1") -Package $badPackage -Rids $Rids } "legal material hash mismatch"
+    $packageMaterial.sha256 = (Get-FileHash -LiteralPath $packageLicense -Algorithm SHA256).Hash.ToLowerInvariant()
+    ConvertTo-Json -InputObject @($packageInventory) -Depth 8 | Set-Content -LiteralPath (Join-Path $packageLegalRoot "licenses.json") -Encoding UTF8
+    Remove-Item -LiteralPath $badPackage -Force
+    [System.IO.Compression.ZipFile]::CreateFromDirectory($unpacked, $badPackage)
+    Assert-Rejected { & (Join-Path $PSScriptRoot "Verify-NuGetPackage.ps1") -Package $badPackage -Rids $Rids } "archive content mismatch"
+    $packageInventory[0].license_material = @($packageInventory[0].license_material | Where-Object { $_.source_path -ne $packageMaterial.source_path })
+    Remove-Item -LiteralPath $packageLicense -Force
+    ConvertTo-Json -InputObject @($packageInventory) -Depth 8 | Set-Content -LiteralPath (Join-Path $packageLegalRoot "licenses.json") -Encoding UTF8
+    Remove-Item -LiteralPath $badPackage -Force
+    [System.IO.Compression.ZipFile]::CreateFromDirectory($unpacked, $badPackage)
+    Assert-Rejected { & (Join-Path $PSScriptRoot "Verify-NuGetPackage.ps1") -Package $badPackage -Rids $Rids } "source coverage mismatch"
 }
 finally {
     $cleanupPath = [System.IO.Path]::GetFullPath($tempRoot)

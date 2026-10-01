@@ -19,6 +19,7 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+. (Join-Path $PSScriptRoot "CargoLegal.ps1")
 
 $repoRoot = Split-Path -Parent $PSScriptRoot
 $nativeDir = Join-Path $repoRoot "native"
@@ -140,32 +141,14 @@ $notices.Add("Generated from the Cargo.lock runtime dependency graph for target 
 $notices.Add("")
 foreach ($pkg in $targetPackages) {
     if ([string]::IsNullOrWhiteSpace([string]$pkg.license)) { throw "Missing declared license expression: $($pkg.name) $($pkg.version)" }
-    $manifestRoot = Split-Path -Parent $pkg.manifest_path
-    $legalFiles = @(Get-ChildItem -LiteralPath $manifestRoot -File -Recurse -ErrorAction Stop | Where-Object {
-        $_.Name -match '^(LICENSE|LICENCE|COPYING|NOTICE|COPYRIGHT)(\.|$|-)' -or
-        ($pkg.license_file -and $_.FullName -eq (Join-Path $manifestRoot $pkg.license_file))
-    } | Sort-Object FullName -Unique)
-    if ($legalFiles.Count -eq 0) { throw "No license/copyright/notice text found for $($pkg.name) $($pkg.version) ($($pkg.license))" }
-    $lockPattern = '(?ms)^\[\[package\]\]\r?\n(?:(?!\[\[package\]\]).)*?^name = "' + [regex]::Escape($pkg.name) + '"\r?\nversion = "' + [regex]::Escape($pkg.version) + '"(?:(?!\[\[package\]\]).)*?^checksum = "([0-9a-f]{64})"'
-    $lockMatch = [regex]::Match($lockText, $lockPattern)
-    if (-not $lockMatch.Success) { throw "Cargo.lock registry checksum missing for $($pkg.name) $($pkg.version)" }
-    $archiveName = "$($pkg.name)-$($pkg.version).crate"
-    $archive = Get-ChildItem -LiteralPath (Join-Path $HOME ".cargo/registry/cache") -Filter $archiveName -File -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
-    if ($null -eq $archive) { throw "Cached source archive missing for $($pkg.name) $($pkg.version)" }
-    $archiveHash = (Get-FileHash -LiteralPath $archive.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
-    if ($archiveHash -ne $lockMatch.Groups[1].Value) { throw "Registry archive checksum differs from Cargo.lock for $($pkg.name) $($pkg.version)" }
-    $slug = "$($pkg.name)-$($pkg.version)"
-    $packageLegal = Join-Path $legalDir "dependencies/$slug"
-    New-Item -ItemType Directory -Path $packageLegal -Force | Out-Null
+    $source = Get-CrateLegalMaterials $pkg $lockText
+    $archiveHash = $source.archive_sha256
     $materials = [System.Collections.Generic.List[object]]::new()
-    foreach ($file in $legalFiles) {
-        $destinationName = $file.Name
-        if (Test-Path -LiteralPath (Join-Path $packageLegal $destinationName)) {
-            $destinationName = (Get-FileHash $file.FullName -Algorithm SHA256).Hash.Substring(0, 8).ToLowerInvariant() + "-$destinationName"
-        }
-        $destination = Join-Path $packageLegal $destinationName
-        Copy-Item -LiteralPath $file.FullName -Destination $destination
-        $materials.Add([ordered]@{ path = "dependencies/$slug/$destinationName"; sha256 = (Get-FileHash $destination -Algorithm SHA256).Hash.ToLowerInvariant(); source_name = $file.Name })
+    foreach ($material in $source.materials) {
+        $destination = Join-Path $legalDir $material.path
+        New-Item -ItemType Directory -Path (Split-Path -Parent $destination) -Force | Out-Null
+        [IO.File]::WriteAllBytes($destination, $material.bytes)
+        $materials.Add([ordered]@{ path = $material.path; sha256 = $material.sha256; source_path = $material.source_path })
     }
     $inventory.Add([ordered]@{
         name = $pkg.name; version = $pkg.version; package_id = "$($pkg.name)@$($pkg.version)"
@@ -174,7 +157,7 @@ foreach ($pkg in $targetPackages) {
     })
     $notices.Add("## $($pkg.name) $($pkg.version)")
     $notices.Add("")
-    $notices.Add("Declared license: $($pkg.license). Registry archive SHA-256: $($lockMatch.Groups[1].Value).")
+    $notices.Add("Declared license: $($pkg.license). Registry archive SHA-256: $archiveHash.")
     foreach ($material in $materials) { $notices.Add("- $($material.path) (SHA-256 $($material.sha256))") }
     $notices.Add("")
 }

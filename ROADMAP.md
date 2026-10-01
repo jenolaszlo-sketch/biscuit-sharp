@@ -1,6 +1,7 @@
 # BiscuitSharp roadmap
 
-Updated 2026-10-02. The complete 19-job release matrix passed at
+Updated 2026-10-02. Second-audit fixes F09–F12 are implemented; a new complete
+matrix must qualify the changed candidate. The prior complete 19-job release matrix passed at
 5dd9e199b32ea18d1499a5e055cbe658c9e0b0a1
 ([CI run 36940126702](https://github.com/jenolaszlo-sketch/biscuit-sharp/actions/runs/36940126702)).
 This includes corrected legal inventories and the real 50-cycle Valgrind probe.
@@ -27,7 +28,7 @@ The checked preview API, budget probes and SourceLink checks are included in thi
 
 ## Preview publication and contract freeze
 
-- [x] Complete the full release matrix after adding the inventory/budget/SourceLink gates.
+- [ ] Qualify the second-audit fixes with a fresh complete release matrix.
 - [ ] Configure the protected release environment and NuGet trusted publishing.
 - [ ] Publish 0.1.0-preview.1 from the exact qualified CI artifact.
 - [ ] Restore from NuGet.org on all three platforms and both frameworks; compare

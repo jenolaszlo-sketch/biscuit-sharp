@@ -18,6 +18,7 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+. (Join-Path $PSScriptRoot "CargoLegal.ps1")
 
 $repoRoot = Split-Path -Parent $PSScriptRoot
 $nativeDir = Join-Path $repoRoot "native"
@@ -79,25 +80,15 @@ foreach ($r in $rids) {
     $inventory = @(Get-Content -LiteralPath (Join-Path $legalStage "licenses.json") -Raw | ConvertFrom-Json)
     $expectedIds = @($expectedPackages | ForEach-Object { "$($_.name)@$($_.version)" } | Sort-Object -Unique)
     $actualIds = @($inventory | ForEach-Object { $_.package_id } | Sort-Object -Unique)
-    if (($expectedIds -join "|") -ne ($actualIds -join "|")) { Fail "$r : dependency inventory coverage differs from Cargo target runtime graph" }
+    if ($inventory.Count -ne $actualIds.Count -or ($expectedIds -join "|") -ne ($actualIds -join "|")) { Fail "$r : dependency inventory coverage differs from Cargo target runtime graph" }
     $listedMaterials = @("THIRD_PARTY_NOTICES.md", "licenses.json")
     foreach ($entry in $inventory) {
         if ([string]::IsNullOrWhiteSpace([string]$entry.declared_license) -or [string]$entry.source -notmatch '^registry\+' -or [string]$entry.registry_archive_sha256 -notmatch '^[0-9a-f]{64}$') { Fail "$r : incomplete license/source metadata for $($entry.package_id)" }
         $resolved = $packagesById[[string]$entry.package_id]
         if ($null -eq $resolved -or $entry.source -ne $resolved.source -or $entry.declared_license -ne $resolved.license) { Fail "$r : source/license metadata differs from Cargo for $($entry.package_id)" }
-        $pattern = '(?ms)^\[\[package\]\]\r?\n(?:(?!\[\[package\]\]).)*?^name = "' + [regex]::Escape($entry.name) + '"\r?\nversion = "' + [regex]::Escape($entry.version) + '"(?:(?!\[\[package\]\]).)*?^checksum = "([0-9a-f]{64})"'
-        $match = [regex]::Match($lockText, $pattern)
-        if (-not $match.Success -or $match.Groups[1].Value -ne $entry.registry_archive_sha256) { Fail "$r : source checksum mismatch for $($entry.package_id)" }
-        $archiveName = "$($entry.name)-$($entry.version).crate"
-        $archive = Get-ChildItem -LiteralPath (Join-Path $HOME ".cargo/registry/cache") -Filter $archiveName -File -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
-        if ($null -eq $archive -or (Get-FileHash -LiteralPath $archive.FullName -Algorithm SHA256).Hash.ToLowerInvariant() -ne $entry.registry_archive_sha256) { Fail "$r : cached registry archive checksum mismatch for $($entry.package_id)" }
-        if (@($entry.license_material).Count -eq 0) { Fail "$r : no redistributed legal text for $($entry.package_id)" }
+        Test-CrateLegalMaterials $entry $resolved $lockText $legalStage
         foreach ($material in $entry.license_material) {
             $relative = [string]$material.path -replace '/', [System.IO.Path]::DirectorySeparatorChar
-            $path = Join-Path $legalStage $relative
-            if (-not (Test-Path -LiteralPath $path)) { Fail "$r : missing legal material $($material.path)" }
-            $hash = (Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash.ToLowerInvariant()
-            if ($hash -ne $material.sha256) { Fail "$r : legal material hash mismatch $($material.path)" }
             $listedMaterials += $relative
         }
     }

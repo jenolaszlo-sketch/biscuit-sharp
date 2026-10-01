@@ -6,6 +6,47 @@ Original reviewed HEAD: fb82be79737396da5cb4823072a94738eabd118b. Latest reviewe
 Original audit scope: managed public API and contract, native boundary, authorization semantics, provenance, packaging/CI, structure, and consumer usability. The follow-up below records implementation changes made after the review; publication remains pending.
 
 
+## Second-audit fix follow-up — 2026-10-02
+
+The four new P2 findings are fixed in implementation. This section supersedes
+the open-finding status and selected-candidate instructions in the second
+review below. The old 5dd9e19 artifact must be replaced after a fresh full matrix.
+
+| Finding | Change | Regression evidence |
+| --- | --- | --- |
+| F09 | Shared CargoLegal resolver reads legal bytes directly from checksum-verified crate archives. Full crate-relative paths replace ambiguous basenames. Staging and package verification independently require source coverage and compare shipped bytes with archive content. | Genuine Windows staging/smoke package pass. Altered text, text plus changed inventory hash, and removed file plus inventory entry are rejected in both paths. Three-RID qualification remains a new CI gate. |
+| F10 | BiscuitParam is a sealed immutable class with private construction and four factories; byte values remain snapshots. This deliberately removes the unpublished record inheritance/equality surface. | External consumer must fail derivation with CS0509 on both TFMs. All four factory values survive native issuance/parsing/authorization; mutation of the input byte array does not change the value. |
+| F11 | Inventory includes public operators and externally accessible protected/protected-internal members, accessor visibility and selected contract attributes. One renderer drives inventory and regression checks. | Removing an operator or protected constructor changes the rendered surface on both TFMs. Published-package binary compatibility remains a separate post-publication gate. |
+| F12 | Internal inspection parser checks object shape, managed count/size ranges and revocation/source/version array consistency. | Valid response passes; oversized counts/sizes, malformed base64, non-object roots and inconsistent arrays throw BiscuitBridgeException on both TFMs. |
+
+Luna handled the scoped API gate, external compile rejection and process-RID
+mapping work. Asset selection now uses ProcessArchitecture; mapping tests cover
+supported/unsupported combinations without expanding emulation qualification.
+
+Additional P3 improvements are implemented: the budget probe runs four hostile
+default-budget calls concurrently and samples working set every 20 ms; each
+call fails closed. Local win-x64 release observations were 252,477,440 bytes
+(net8, 12 periodic samples, 422 ms) and 274,534,400 bytes (net10, 11 samples,
+374 ms). These are sampled process peaks, not guaranteed native allocation
+peaks or caps; they do not establish universal Hufu settings.
+
+Clean package-reference NativeAOT publish/run passes on Windows with no staged
+native override and trim/AOT warnings treated as errors. Restored archive
+content matches the selected package; the native override is restored for the
+caller afterward. CI adds this execution to the existing three net10 consumers,
+retaining six consume jobs and 19 total jobs. Both-TFM ordinary managed consumers
+remain covered. The readable API inventory now has 201 entries.
+
+Safe ambient template overloads remain consumer-driven API work, export caching
+awaits profiling, and complete XML documentation remains a 1.0 requirement.
+These P3 opportunities were not declared preview blockers.
+
+
+Publication remains pending the protected-environment reviewer/self-review
+configuration, a new qualified artifact, public-feed verification and baseline
+restoration. No publication is part of this correction.
+
+
 ## Second solution review — 2026-10-02
 
 Reviewed HEAD: **cf4c56c1d96a3aa0a7fcb097e72e054ba7080a76**.

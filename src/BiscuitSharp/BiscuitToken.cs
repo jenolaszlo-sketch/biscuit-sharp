@@ -190,10 +190,19 @@ public sealed class BiscuitToken : IEquatable<BiscuitToken>
             BridgeJson.EncodeTokenRoot(_bytes, Root),
             BiscuitErrorMapping.MapTokenError);
         using JsonDocument doc = BridgeJson.Parse(response, "token_inspect");
-        JsonElement root = doc.RootElement;
-        const string operation = "token_inspect";
+        return ParseInspection(doc.RootElement);
+    }
 
-        int blockCount = checked((int)BridgeJson.RequiredUInt32(root, "block_count", operation));
+    internal static BiscuitInspection ParseInspection(JsonElement root)
+    {
+        const string operation = "token_inspect";
+        if (root.ValueKind != JsonValueKind.Object)
+            throw new BiscuitBridgeException("The native token_inspect response must be an object.");
+
+        uint countValue = BridgeJson.RequiredUInt32(root, "block_count", operation);
+        if (countValue > int.MaxValue)
+            throw new BiscuitBridgeException("The native token_inspect block_count exceeds the managed range.");
+        int blockCount = (int)countValue;
         bool isSealed = BridgeJson.RequiredBoolean(root, "is_sealed", operation);
         var signatureAlgorithm = BiscuitAlgorithms.FromWireName(
             BridgeJson.RequiredString(root, "signature_algorithm", operation), operation);
@@ -243,6 +252,9 @@ public sealed class BiscuitToken : IEquatable<BiscuitToken>
                 $"The native {operation} response is missing required array 'revocation_ids'.");
         }
 
+        if (revocationIds.Count != blockCount)
+            throw new BiscuitBridgeException("The native token_inspect revocation_ids length does not match block_count.");
+
         var sources = RequiredStringList(root, "block_sources", operation);
         if (sources.Count != blockCount)
         {
@@ -279,7 +291,10 @@ public sealed class BiscuitToken : IEquatable<BiscuitToken>
                 $"The native {operation} response is missing required array 'block_versions'.");
         }
 
-        long tokenSize = checked((long)BridgeJson.RequiredUInt64(root, "token_size", operation));
+        ulong sizeValue = BridgeJson.RequiredUInt64(root, "token_size", operation);
+        if (sizeValue > long.MaxValue)
+            throw new BiscuitBridgeException("The native token_inspect token_size exceeds the managed range.");
+        long tokenSize = (long)sizeValue;
 
         return new BiscuitInspection(
             blockCount,

@@ -19,6 +19,31 @@ Parallel.For(0, 4, _ =>
 });
 Console.WriteLine(JsonSerializer.Serialize(new { scenario = "ordinary-concurrent", workers = 4, calls = 40, elapsed_ms = watch.Elapsed.TotalMilliseconds }));
 Measure("cartesian-growth-default", 1, () => Growth(500).Authorize(), false);
+using (var sampler = new WorkingSetPeakSampler(TimeSpan.FromMilliseconds(20)))
+{
+    sampler.Start();
+    watch.Restart();
+    try
+    {
+        Parallel.For(0, 4, _ => RequireEvaluationFailure(Growth(500).Authorize()));
+    }
+    finally
+    {
+        sampler.Stop();
+    }
+    Console.WriteLine(JsonSerializer.Serialize(new
+    {
+        scenario = "growth-concurrent-default-budget",
+        workers = 4,
+        calls = 4,
+        elapsed_ms = watch.Elapsed.TotalMilliseconds,
+        working_set_sample_interval_ms = sampler.Interval.TotalMilliseconds,
+        periodic_working_set_sample_count = sampler.PeriodicSampleCount,
+        sampled_peak_working_set_bytes = sampler.PeakWorkingSetBytes,
+        memory_measurement = "periodic working-set sample; observed peak, not a hard memory cap",
+        sampled_peak_is_hard_cap = false
+    }));
+}
 Measure("cartesian-growth-explicit-small-budget", 4, () =>
     Growth(100).WithLimits(new(200, 100, TimeSpan.FromMilliseconds(50))).Authorize(), false);
 watch.Restart();
@@ -62,4 +87,80 @@ static void RequireEvaluationFailure(BiscuitAuthorizationResult result)
 {
     if (result.IsAuthorized || !result.Errors.Any(e => e.Code == "evaluation_failure"))
         throw new InvalidOperationException("Hostile growth must fail closed with evaluation_failure");
+}
+
+sealed class WorkingSetPeakSampler : IDisposable
+{
+    private readonly Process _process = Process.GetCurrentProcess();
+    private readonly CancellationTokenSource _stop = new();
+    private Task? _samplingTask;
+    private long _peakWorkingSetBytes;
+    private int _periodicSampleCount;
+    private int _stopped;
+
+    public WorkingSetPeakSampler(TimeSpan interval)
+    {
+        if (interval <= TimeSpan.Zero) throw new ArgumentOutOfRangeException(nameof(interval));
+        Interval = interval;
+    }
+
+    public TimeSpan Interval { get; }
+    public long PeakWorkingSetBytes => Interlocked.Read(ref _peakWorkingSetBytes);
+    public int PeriodicSampleCount => Volatile.Read(ref _periodicSampleCount);
+
+    public void Start()
+    {
+        if (_samplingTask is not null) throw new InvalidOperationException("Sampler already started.");
+        Capture();
+        _samplingTask = Task.Run(SampleLoopAsync);
+    }
+
+    public void Stop()
+    {
+        if (Interlocked.Exchange(ref _stopped, 1) != 0) return;
+        _stop.Cancel();
+        try
+        {
+            _samplingTask?.GetAwaiter().GetResult();
+        }
+        catch (OperationCanceledException) when (_stop.IsCancellationRequested) { }
+        Capture();
+    }
+
+    public void Dispose()
+    {
+        try { Stop(); }
+        finally
+        {
+            _process.Dispose();
+            _stop.Dispose();
+        }
+    }
+
+    private async Task SampleLoopAsync()
+    {
+        try
+        {
+            while (true)
+            {
+                await Task.Delay(Interval, _stop.Token).ConfigureAwait(false);
+                Capture();
+                Interlocked.Increment(ref _periodicSampleCount);
+            }
+        }
+        catch (OperationCanceledException) when (_stop.IsCancellationRequested) { }
+    }
+
+    private void Capture()
+    {
+        _process.Refresh();
+        long current = _process.WorkingSet64;
+        long seen;
+        do
+        {
+            seen = Interlocked.Read(ref _peakWorkingSetBytes);
+            if (current <= seen) return;
+        }
+        while (Interlocked.CompareExchange(ref _peakWorkingSetBytes, current, seen) != seen);
+    }
 }

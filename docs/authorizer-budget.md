@@ -27,3 +27,24 @@ for Hufu-specific policy/concurrency measurements. CI repeats the functional
 allow/fail-closed checks and prints timing observations without brittle latency
 thresholds. Native dev CI timings must not be compared directly with this release
 measurement.
+
+
+## Second-audit concurrency follow-up
+
+Four concurrent 500-seed Cartesian workloads now run under Default on both
+TFMs. Every call must return evaluation_failure. A 20 ms sampler records process
+working set and observation count, and is cancelled/joined before disposal.
+
+Local Windows x64, pinned release bridge:
+
+| TFM | Calls | Wall time | Sampled peak working set | Periodic samples |
+| --- | --- | --- | --- | --- |
+| net8.0 | 4 | 422 ms | 252,477,440 bytes (240.8 MiB) | 12 |
+| net10.0 | 4 | 374 ms | 274,534,400 bytes (261.8 MiB) | 11 |
+
+The sampled maximum may miss short peaks and includes all process memory.
+It is neither a native-allocation peak nor a hard cap. CI prints these
+observations and validates fail-closed behavior on both frameworks without
+latency/memory thresholds. Hufu must measure its own policy and concurrency
+requirements and choose explicit budgets; the synthetic evidence does not
+establish a universal request profile.

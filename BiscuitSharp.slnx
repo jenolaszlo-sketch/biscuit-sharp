@@ -5,6 +5,7 @@
   <Folder Name="/tests/">
     <Project Path="tests/BiscuitSharp.ApiSurface/BiscuitSharp.ApiSurface.csproj" />
     <Project Path="tests/BiscuitSharp.BudgetProbe/BiscuitSharp.BudgetProbe.csproj" />
+    <Project Path="tests/BiscuitSharp.RuntimeIdentifier.Tests/BiscuitSharp.RuntimeIdentifier.Tests.csproj" />
     <Project Path="tests/BiscuitSharp.Tests/BiscuitSharp.Tests.csproj" />
   </Folder>
   <Folder Name="/samples/">

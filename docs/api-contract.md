@@ -19,7 +19,9 @@ integration tests from the first preview onward.
 - `GetRevocationIds()` exposes per-block revocation identifiers; no implicit store.
 - `Inspect()` reports block count, sealed state, signature/root-key algorithms,
   revocation IDs, printed block source, token size, and format/spec version where
-  available. Never private signing material.
+  available. Never private signing material. Malformed inspection responses,
+  including managed numeric overflow and inconsistent block-related array
+  lengths, throw BiscuitBridgeException.
 - `BiscuitAuthorizationResult.IsAuthorized` is true only for Allow with zero
   errors. `RequireAuthorized()` throws `BiscuitAuthorizationException` (carrying
   the result) otherwise. An ordinary Deny is a result, not a bridge failure.
@@ -65,6 +67,9 @@ failures, and ordinary denial are never flattened into one error.
 
 ## Nullability, ownership, lifetime
 
+- BiscuitParam is a sealed immutable factory-created class. Str/Int/Bool/Bytes
+  are its only construction paths; Bytes snapshots its input. Parameters use
+  reference equality; no record inheritance or structural equality is promised.
 - All public inputs are non-null; null throws `ArgumentNullException`.
 - `BiscuitToken` is immutable and thread-safe. `BiscuitTokenBuilder` and
   `BiscuitAuthorizer` are mutable accumulators; do not mutate them concurrently.
@@ -114,16 +119,19 @@ failures, and ordinary denial are never flattened into one error.
   semantics, usable API.
 - Target frameworks: `net8.0`, `net10.0`. Qualified RIDs: win-x64, linux-x64,
   osx-arm64. Trimming and NativeAOT analyzers are clean; a NativeAOT sample is
-  published, executed, and verified per RID in CI (packaged asset, not just the
+  published and executed against staging per RID; CI also publishes/runs clean
+  package-reference NativeAOT consumers on net10 for each RID (not just the
   analyzer).
 - Package validation runs against the latest published preview baseline once M2
   ships the first preview.
 
 ## Checked surface inventory
 
-[public-api.txt](public-api.txt) records exported types, constructors, public
-members, nullable signatures, optional defaults, record init accessors, generic
+[public-api.txt](public-api.txt) records exported types, constructors, public and externally accessible protected
+members, operators, nullable signatures, optional defaults, record init accessors, generic
 constraints and trimming annotations. CI runs BiscuitSharp.ApiSurface on net8.0
 and net10.0 and fails on drift. Regenerate with --write only when the new surface
-has been reviewed. This is a pre-publication surface gate; package validation
+has been reviewed. The tool records selected contract attributes (Obsolete, RequiresUnreferencedCode
+and RequiresDynamicCode), not every CLR attribute. This readable inventory is a
+pre-publication surface gate; package validation
 against the first published preview remains the binary compatibility gate.

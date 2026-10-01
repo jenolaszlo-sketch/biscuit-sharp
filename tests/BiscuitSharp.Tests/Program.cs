@@ -765,6 +765,28 @@ try
         Check(Throws<BiscuitBridgeException>(() => BiscuitAuthorizer.ParseResult(invalid.RootElement)),
             "contradictory policy indices reject as bridge error");
     }
+    const string validInspection = """
+        {"block_count":1,"is_sealed":false,"signature_algorithm":"ed25519",
+         "root_key_algorithm":"ed25519","revocation_ids":["AQ=="],"block_sources":["f(1)"],
+         "block_versions":[6],"token_size":1,"root_key_id":null}
+        """;
+    using (JsonDocument valid = JsonDocument.Parse(validInspection))
+        Check(BiscuitToken.ParseInspection(valid.RootElement).BlockCount == 1,
+            "inspection parser accepts valid response");
+    foreach (string malformed in new[] {
+        "[]", "null",
+        validInspection.Replace("\"block_count\":1", "\"block_count\":4294967295"),
+        validInspection.Replace("\"token_size\":1", "\"token_size\":18446744073709551615"),
+        validInspection.Replace("[\"AQ==\"]", "[]"),
+        validInspection.Replace("[\"AQ==\"]", "[\"AQ==\",\"Ag==\"]"),
+        validInspection.Replace("[\"f(1)\"]", "[]"),
+        validInspection.Replace("[6]", "[]"),
+        validInspection.Replace("[\"AQ==\"]", "[\"!\"]") })
+    {
+        using JsonDocument invalid = JsonDocument.Parse(malformed);
+        Check(Throws<BiscuitBridgeException>(() => BiscuitToken.ParseInspection(invalid.RootElement)),
+            "malformed inspection response remains a bridge failure");
+    }
     Check(BiscuitErrorMapping.MapTokenError(1, "unknown", "failure") is BiscuitBridgeException,
         "unknown token error code remains a bridge failure");
     Check(BiscuitErrorMapping.MapKeyError(1, "unknown", "failure") is BiscuitBridgeException,
@@ -785,6 +807,20 @@ try
     Check(Throws<ArgumentException>(() => BiscuitTokenBuilder.Create().AddFact("f({x})",
         new[] { KeyValuePair.Create("x", BiscuitParam.Int(1)), KeyValuePair.Create("x", BiscuitParam.Int(2)) })),
         "duplicate typed parameters fail fast");
+
+    byte[] parameterInput = { 1, 255 };
+    BiscuitParam bytesParameter = BiscuitParam.Bytes(parameterInput);
+    parameterInput[0] = 42;
+    BiscuitToken allParameters = BiscuitTokenBuilder.Create()
+        .AddFact("typed({s}, {i}, {b}, {bytes})", new Dictionary<string, BiscuitParam>
+        {
+            ["s"] = BiscuitParam.Str("hello"), ["i"] = BiscuitParam.Int(-7),
+            ["b"] = BiscuitParam.Bool(true), ["bytes"] = bytesParameter
+        }).Build(edKey);
+    BiscuitToken parametersParsed = BiscuitToken.Parse(allParameters.ToBytes(), edKey.PublicKey);
+    Check(BiscuitAuthorizer.For(parametersParsed)
+        .AddPolicy("""allow if typed("hello", -7, true, hex:01ff);""").Authorize().IsAuthorized,
+        "all parameter factories round-trip and bytes snapshot input");
 
     // 39. Textual public-key encodings round-trip the validated key.
     string edHex = Convert.ToHexString(edKey.PublicKey.Encoded).ToLowerInvariant();

@@ -93,10 +93,19 @@ and .NET 10; see [verification](verification.md). No musl, osx-x64, win-arm64, o
 linux-arm64 assets are selected until built and exercised. Older OS and glibc
 baselines are not qualified.
 
+Asset selection uses the .NET process architecture, including under emulation.
+This does not qualify additional host/emulation combinations.
+
 Build with `cargo --locked` and explicit target triples. Each staged asset carries
 `biscuitsharp-native.json`: ABI/bridge/toolchain, biscuit-auth version, token/spec
 version, target/RID, binary SHA-256, source commit, lock/source hashes, features.
-Packages carry upstream and transitive dependency license notices. When a
+Packages carry upstream and transitive dependency license notices. Legal files
+are read directly from Cargo.lock-checksummed .crate archives; licenses.json
+records full crate-relative source paths. Staging and package validation share
+a resolver that independently requires every recognized legal archive entry and
+compares shipped bytes with that source, even if inventory hashes are changed.
+These filename/declared-file checks are evidence of material coverage, not a
+determination of every legal obligation. When a
 manifest sits next to the asset (staged and packaged layouts), the loader
 verifies it: the file hash must match, and the live version identity reported
 by the loaded binary (engine, bridge, ABI, commit, lockfile, target, RID, Rust,

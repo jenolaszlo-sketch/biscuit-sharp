@@ -5,6 +5,15 @@ Updated 2026-10-02. The complete 19-job release matrix at 412f25f passed:
 The original review and evidence are preserved in self-audit-handoff.md.
 This ledger describes current status.
 
+## Second-audit corrections
+
+F09–F12 are fixed in code and covered by regressions: source-bound legal
+material/coverage validation, sealed factory-only BiscuitParam, public operator
+and protected-member inventory coverage, and strict inspection ranges/arrays.
+Process-architecture selection is corrected. The new implementation requires
+a fresh complete matrix and a newly selected candidate artifact. Historical
+successful runs do not qualify the changed code.
+
 ## Resolved before preview
 
 - Loader synchronization, current-handle export binding, failed-load cleanup and

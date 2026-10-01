@@ -9,62 +9,47 @@ namespace BiscuitSharp;
 /// Values are substituted by upstream <c>code_with_params</c>; untrusted input is
 /// never interpolated into Datalog source.
 /// </summary>
-public abstract record BiscuitParam
+public sealed class BiscuitParam
 {
-    private BiscuitParam() { }
+    private readonly string _kind;
+    private readonly object _value;
+
+    private BiscuitParam(string kind, object value) => (_kind, _value) = (kind, value);
+
+    /// <summary>Creates an immutable string parameter.</summary>
     public static BiscuitParam Str(string value)
     {
         ArgumentNullException.ThrowIfNull(value);
-        return new StrParam(value);
+        return new("str", value);
     }
 
-    public static BiscuitParam Int(long value) => new IntParam(value);
+    /// <summary>Creates a signed 64-bit integer parameter.</summary>
+    public static BiscuitParam Int(long value) => new("int", value);
 
-    public static BiscuitParam Bool(bool value) => new BoolParam(value);
+    /// <summary>Creates a Boolean parameter.</summary>
+    public static BiscuitParam Bool(bool value) => new("bool", value);
 
+    /// <summary>Creates a byte parameter that owns a snapshot of the supplied array.</summary>
     public static BiscuitParam Bytes(byte[] value)
     {
         ArgumentNullException.ThrowIfNull(value);
-        return new BytesParam((byte[])value.Clone());
+        return new("bytes", (byte[])value.Clone());
     }
-
-    private sealed record StrParam(string Value) : BiscuitParam;
-
-    private sealed record IntParam(long Value) : BiscuitParam;
-
-    private sealed record BoolParam(bool Value) : BiscuitParam;
-
-    private sealed record BytesParam(byte[] Value) : BiscuitParam;
 
     internal void WriteTo(Utf8JsonWriter writer, string name)
     {
         writer.WriteStartObject(name);
-        switch (this)
+        writer.WriteString("type", _kind);
+        switch (_value)
         {
-            case StrParam s:
-                writer.WriteString("type", "str");
-                writer.WriteString("value", s.Value);
-                break;
-            case IntParam i:
-                writer.WriteString("type", "int");
-                writer.WriteNumber("value", i.Value);
-                break;
-            case BoolParam b:
-                writer.WriteString("type", "bool");
-                writer.WriteBoolean("value", b.Value);
-                break;
-            case BytesParam b:
-                writer.WriteString("type", "bytes");
-                writer.WriteBase64String("value", b.Value);
-                break;
-            default:
-                throw new ArgumentException($"Unsupported Biscuit parameter: {GetType()}.", nameof(name));
+            case string value: writer.WriteString("value", value); break;
+            case long value: writer.WriteNumber("value", value); break;
+            case bool value: writer.WriteBoolean("value", value); break;
+            case byte[] value: writer.WriteBase64String("value", value); break;
         }
-
         writer.WriteEndObject();
     }
 }
-
 /// <summary>Fluent builder for token creation. Prefer parameterized overloads over string interpolation of untrusted input.</summary>
 public sealed class BiscuitTokenBuilder
 {

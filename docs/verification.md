@@ -1,6 +1,24 @@
 # Verification
 
-## Current preview candidate qualification — 2026-10-02
+## Second-audit fixes — 2026-10-02
+
+F09–F12 have implementation/regression fixes. The old selected artifact below
+is superseded: it predates the closed parameter API, complete inventory and
+source-bound legal validation. Select a new artifact only after the complete
+19-job matrix passes at the new implementation SHA.
+
+Local Windows evidence: both managed TFMs pass, including all four parameter
+factory round-trips/byte ownership and malformed inspection decoding. Windows
+staging and a single-RID smoke package pass source-bound legal verification;
+both staging and package reject changed text, self-consistently rehashed text,
+and a removed source entry. Operator/protected-member inventory regressions,
+external-consumer subclass rejection and process-RID mapping run on both TFMs.
+The 201-entry API inventory matches both TFMs. Four concurrent hostile default
+workloads fail closed on both TFMs with sampled memory observations. Clean
+Windows package-reference NativeAOT publish/run passes without a native override.
+Cross-platform qualification of these changes remains a CI step.
+
+## Superseded preview candidate qualification — 2026-10-02
 
 The complete 19-job matrix passed at release SHA
 5dd9e199b32ea18d1499a5e055cbe658c9e0b0a1
@@ -33,8 +51,8 @@ choice. Automatic approval review rejected creating it with self-approval
 enabled without explicit authorization; no environment was created by that
 attempt.
 
-Publication must dispatch publish.yml with run ID 36940126702 and the full SHA
-above. It must use that immutable artifact. After publication, dispatch
+Historical publication instructions used run ID 36940126702 and the full SHA
+above. Do not publish that superseded artifact. After a new qualified publication, dispatch
 verify-published.yml with the same inputs for six clean NuGet.org consumers and
 archive content comparisons, then restore the published API compatibility
 baseline and validate the next candidate. No preview or stable package was

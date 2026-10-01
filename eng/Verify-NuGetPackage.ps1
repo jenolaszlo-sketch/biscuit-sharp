@@ -26,18 +26,6 @@ $files = @{
     "linux-x64" = "libbiscuitsharp_native.so"
     "osx-arm64" = "libbiscuitsharp_native.dylib"
 }
-$triples = @{
-    "win-x64"   = "x86_64-pc-windows-msvc"
-    "linux-x64" = "x86_64-unknown-linux-gnu"
-    "osx-arm64" = "aarch64-apple-darwin"
-}
-$repoRoot = Split-Path -Parent $PSScriptRoot
-$nativeDir = Join-Path $repoRoot "native"
-$cargo = Join-Path $HOME ".cargo/bin/cargo"
-if (-not (Test-Path -LiteralPath $cargo)) { $cargo = Join-Path $HOME ".cargo/bin/cargo.exe" }
-if (-not (Test-Path -LiteralPath $cargo)) { $cargo = "cargo" }
-$lockText = Get-Content -LiteralPath (Join-Path $nativeDir "Cargo.lock") -Raw
-
 $work = Join-Path ([System.IO.Path]::GetTempPath()) ("biscuit-nupkg-" + [System.Guid]::NewGuid().ToString("N"))
 New-Item -ItemType Directory -Path $work | Out-Null
 try {
@@ -58,10 +46,6 @@ try {
 
     foreach ($r in $Rids) {
         if (-not $files.ContainsKey($r)) { Fail "unknown RID '$r'" }
-        $expectedPackages = @(& (Join-Path $PSScriptRoot "Get-CargoRedistributedPackages.ps1") -Cargo $cargo -ManifestPath (Join-Path $nativeDir "Cargo.toml") -Target $triples[$r])
-        if ($LASTEXITCODE -ne 0) { Fail "$r : cargo runtime dependency resolution failed" }
-        $packagesById = @{}
-        foreach ($pkg in $expectedPackages) { $packagesById["$($pkg.name)@$($pkg.version)"] = $pkg }
         $dll = Join-Path $root "runtimes/$r/native/$($files[$r])"
         $manifest = Join-Path $root "runtimes/$r/native/biscuitsharp-native.json"
         if (-not (Test-Path -LiteralPath $dll)) { Fail "missing runtimes/$r/native/$($files[$r])" }
@@ -79,38 +63,6 @@ try {
         if (-not (Test-Path -LiteralPath $thirdPartyLegal) -or -not (Test-Path -LiteralPath $inventoryPath)) {
             Fail "$r : full third-party license inventory is missing"
         }
-        $notices = Get-Content -LiteralPath $thirdPartyLegal -Raw
-        $inventory = @(Get-Content -LiteralPath $inventoryPath -Raw | ConvertFrom-Json)
-        $ids = @($inventory | ForEach-Object { $_.package_id } | Sort-Object -Unique)
-        if ($ids.Count -ne $inventory.Count -or $ids.Count -eq 0) { Fail "$r : duplicate or empty dependency inventory" }
-        $expectedIds = @($expectedPackages | ForEach-Object { "$($_.name)@$($_.version)" } | Sort-Object -Unique)
-        if (($ids -join "|") -ne ($expectedIds -join "|")) { Fail "$r : packaged dependency coverage differs from target runtime graph" }
-        if (-not ($ids -contains "biscuit-auth@6.0.0")) { Fail "$r : inventory omits biscuit-auth 6.0.0" }
-        $expectedLegal = @("THIRD_PARTY_NOTICES.md", "licenses.json")
-        foreach ($entry in $inventory) {
-            if ([string]::IsNullOrWhiteSpace([string]$entry.declared_license) -or [string]$entry.source -notmatch '^registry\+' -or [string]$entry.registry_archive_sha256 -notmatch '^[0-9a-f]{64}$' -or @($entry.license_material).Count -eq 0) {
-                Fail "$r : incomplete legal inventory entry $($entry.package_id)"
-            }
-            $resolved = $packagesById[[string]$entry.package_id]
-            if ($null -eq $resolved -or $entry.source -ne $resolved.source -or $entry.declared_license -ne $resolved.license) { Fail "$r : source/license metadata differs from Cargo for $($entry.package_id)" }
-            $lockPattern = '(?ms)^\[\[package\]\]\r?\n(?:(?!\[\[package\]\]).)*?^name = "' + [regex]::Escape($entry.name) + '"\r?\nversion = "' + [regex]::Escape($entry.version) + '"(?:(?!\[\[package\]\]).)*?^checksum = "([0-9a-f]{64})"'
-            $lockMatch = [regex]::Match($lockText, $lockPattern)
-            if (-not $lockMatch.Success -or $lockMatch.Groups[1].Value -ne $entry.registry_archive_sha256) { Fail "$r : source checksum mismatch for $($entry.package_id)" }
-            $archiveName = "$($entry.name)-$($entry.version).crate"
-            $archive = Get-ChildItem -LiteralPath (Join-Path $HOME ".cargo/registry/cache") -Filter $archiveName -File -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
-            if ($null -eq $archive -or (Get-FileHash -LiteralPath $archive.FullName -Algorithm SHA256).Hash.ToLowerInvariant() -ne $entry.registry_archive_sha256) { Fail "$r : cached registry archive checksum mismatch for $($entry.package_id)" }
-            foreach ($material in $entry.license_material) {
-                $relative = [string]$material.path -replace '/', [System.IO.Path]::DirectorySeparatorChar
-                $path = Join-Path $thirdPartyRoot $relative
-                if (-not (Test-Path -LiteralPath $path)) { Fail "$r : package omits $($material.path)" }
-                $materialHash = (Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash.ToLowerInvariant()
-                if ($materialHash -ne $material.sha256) { Fail "$r : checksum mismatch for $($material.path)" }
-                $expectedLegal += $relative
-            }
-        }
-        $actualLegal = @(Get-ChildItem -LiteralPath $thirdPartyRoot -File -Recurse | ForEach-Object { $_.FullName.Substring($thirdPartyRoot.Length + 1) })
-        if ((($actualLegal | Sort-Object -Unique) -join "|") -ne (($expectedLegal | Sort-Object -Unique) -join "|")) { Fail "$r : package legal files differ from checksummed inventory" }
-        if ($notices -notmatch "biscuit-auth 6\.0\.0") { Fail "$r : third-party notices do not pin biscuit-auth 6.0.0" }
         $ridStage = Join-Path $verificationStage $r
         New-Item -ItemType Directory -Path (Join-Path $ridStage "native") -Force | Out-Null
         New-Item -ItemType Directory -Path (Join-Path $ridStage "legal") -Force | Out-Null
