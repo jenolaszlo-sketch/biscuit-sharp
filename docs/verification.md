@@ -1,28 +1,25 @@
 # Verification
 
-Executed evidence for the M0 baseline, the complete M1 functional surface
-(version, keys, tokens, authorization), and the bidirectional compatibility
-gate on Windows x64. Open: other RIDs, packaging, hardening.
+Executed evidence for the M0 baseline, the M1 functional surface, and the M2
+distribution gate, qualified by the CI matrix on Windows x64, Linux x64, and
+macOS ARM64 (.NET 8 and .NET 10). The CI matrix run on `main` passed
+(maintainer-confirmed); record the run URL/commit here for auditability.
 
 ## Ledger
 
 | Gate | Command | Result |
 | --- | --- | --- |
-| Managed build (`net8.0;net10.0`) | `dotnet build BiscuitSharp.slnx` | Pass 2026-10-01 (0 warnings, 0 errors) |
-| M1 functional tests | `dotnet run --project tests/BiscuitSharp.Tests` (`net8.0`, `net10.0`) | Pass 2026-10-02 (149/149 each on a clean tree; gate runs add generated-exchange and consume checks): version identity + differential hashes, loader gates + manifest probes, key round-trips (DER/PEM export; raw/hex/prefixed public import), value equality, token issue/verify/attenuate/seal, rules (builder + authorizer), authorizer limits (robust default + parity), tamper/truncation/garbage rejection, revocation growth, inspection, typed params, unicode, time-fact expiry, disposal, privacy, allow/deny/failed-checks/explicit-deny, determinism, adversarial sweeps, concurrency |
-| Locked dependency fetch | `cargo fetch --locked` in `native/` (Rust 1.89.0) | Pass 2026-10-01 (94 packages) |
-| Native check (`--locked`) | `cargo check --locked` in `native/` (Rust 1.89.0, MSVC) | Pass 2026-10-01 |
-| Native link (`--locked`) | `cargo build --locked` in `native/` + `dumpbin /EXPORTS` | Pass 2026-10-01: `biscuitsharp_native.dll` links; exports `biscuitsharp_abi_version`, `biscuitsharp_call_v1`, `biscuitsharp_free_v1` with undecorated C names |
-| Native tests (`--locked`) | `cargo test --locked --lib` in `native/` | Pass 2026-10-02 (43/43): boundary envelope, panic containment (`catch_unwind` → status 3, empty body), key round-trips (differential vs direct upstream) + concurrency, public import, token create/parse canonical round-trips, typed params, rules, tamper/truncation/garbage codes, attenuate/seal semantics (seal adds no block), revocation growth, inspection fields, malformed envelopes/limits, oversized rejection, authorizer default-limits guard, allow/deny/failed-checks/explicit-deny, first-match-wins order, determinism, concurrency, 4,096-case mutation matrix |
-| Bidirectional compatibility | `eng/Test-Compat.ps1`: unit → compat_gen → committed fixtures → managed generate → compat_consume → managed consume | Pass 2026-10-02 on Windows x64: all four directions verified + authorized across the boundary; committed genesis fixture verified |
-| Windows x64 distribution | `eng/Test-Dist.ps1 -Rid win-x64` (stage, verify staging, AOT) + pack + `eng/Verify-NuGetPackage.ps1` + consumers net8.0/net10.0 | Pass 2026-10-02, local: release asset staged with manifest + licenses; AOT executes; single-RID pack verified; both clean consumers green. Linux/macOS open. |
-| Mutation/fuzz | `cargo test --locked --lib adversarial` + managed adversarial section | Pass 2026-10-01 (Windows x64, dev profile): 4,096 deterministic cases (rejected 4074, proved-legitimate 19, denies 0, allows 3 byte-identical, panics 0); managed 96-position token sweep + 7 invalid policies, all fail-closed. Release-profile and all-RID repetition open with M2. |
-| Leak instrumentation | Linux Valgrind issue/parse/attenuate/authorize/dispose cycles | Not run |
-| NativeAOT (win-x64, local) | `dotnet publish samples/BiscuitSharp.AotSmoke -r win-x64 -c Release` + execute with staged asset | Pass 2026-10-02: NativeAOT exe reports the manifest-verified release bridge (exit 0). Other RIDs open with M2. |
-| Package verification (win-x64, local) | `dotnet pack` (local smoke) + archive inventory | Pass 2026-10-02: lib/net8.0+net10.0, runtimes/win-x64/native (dll + manifest), legal notices, README/LICENSE/NOTICE, symbols package. Other RIDs open with M2. |
-| Clean consumer (win-x64 × net10, local) | isolated-cache console against the local nupkg | Pass 2026-10-02: generate/import, issue, serialize, parse/verify, attenuate, allow + deny, seal, revocation IDs, version query. Remaining five matrix cells open with M2. |
-| Package verification | archive inventory/hash/ABI/version/lockfile/licenses | Not run |
-| Clean consumers (3 RIDs × 2 TFMs) | isolated-cache `dotnet run` against the nupkg | Not run |
+| Managed build (`net8.0;net10.0`) | `dotnet build BiscuitSharp.slnx` | Pass (0 warnings, 0 errors) |
+| M1 functional tests (3 OS × 2 TFM) | `dotnet run --project tests/BiscuitSharp.Tests` | Pass (149/149 on a clean tree): version identity + differential hashes, loader gates + manifest probes, key round-trips (DER/PEM export; raw/hex/prefixed public import), value equality, token issue/verify/attenuate/seal, rules, authorizer limits, tamper/truncation/garbage rejection, revocation growth, inspection, typed params, unicode, time-fact expiry, disposal, privacy, allow/deny/failed-checks/explicit-deny, determinism, adversarial sweeps, concurrency |
+| Native tests (`--locked`, 3 OS) | `cargo test --locked --lib` in `native/` | Pass (43/43): boundary envelope, panic containment, key round-trips (differential vs direct upstream), public import, token create/parse canonical round-trips, typed params, rules, tamper/truncation/garbage codes, attenuate/seal semantics, revocation growth, inspection, malformed envelopes/limits, authorizer default-limits guard, allow/deny/failed-checks, first-match-wins, determinism, concurrency, 4,096-case mutation matrix |
+| Locked dependency fetch | `cargo fetch --locked` (Rust 1.89.0) | Pass (94 packages) |
+| Bidirectional compatibility (3 OS) | `eng/Test-Compat.ps1` | Pass: all four directions verified + authorized across the boundary; committed genesis fixture verified |
+| Mutation/fuzz | `cargo test --locked --lib adversarial` + managed adversarial section | Pass (dev profile): 4,096 deterministic cases — zero panics, zero unjustified successes; managed 96-position token sweep + 7 invalid policies fail-closed. Release-profile repetition remains open. |
+| Leak instrumentation | Linux `valgrind` on `leak_probe_cycles` (50 full-lifecycle cycles) | Pass: zero definite leaks (possible-loss recorded by the job) |
+| Distribution staging + NativeAOT (3 RIDs) | `eng/Test-Dist.ps1 -Rid <rid>` | Pass: release assets staged with manifests + licenses; NativeAOT published and executed on each RID |
+| Package verification (3 RIDs) | `dotnet pack` + `eng/Verify-NuGetPackage.ps1` | Pass: lib/net8.0+net10.0, runtimes for all three RIDs (binary + manifest, hashes matched), legal notices, README/LICENSE/NOTICE, symbols package |
+| Clean consumers (3 RIDs × 2 TFMs) | `eng/Test-PackagedConsumer.ps1` | Pass in CI: six isolated-cache consumers (generate/import, issue, serialize, parse/verify, attenuate, allow + deny, seal, revocation IDs, version) |
+| Publication | `publish.yml` (manual) | Not done — first preview not yet published |
 
 Record exact commands, commit SHAs, runner versions, and hashes here when each
 gate passes. Planned gates are not qualified packages.
