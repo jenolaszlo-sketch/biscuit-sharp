@@ -55,8 +55,11 @@
 - Review fixes part 3: hex/prefixed public-key display forms
   (`ParseHex`/`ParsePrefixed`/`ToPrefixedString`, managed-side over the
   validated raw path — no ABI change); explicit `BiscuitAuthorizerLimits` /
-  `WithLimits` wired to upstream `set_limits` (documented 1 ms default, breach
-  denies with `evaluation_failure`); `eng/Verify-NativeStaging.ps1`,
+  `WithLimits` wired to upstream `set_limits`. Finding: upstream's default
+  `max_time` is 1 ms, which made the default path deny with
+  `evaluation_failure` under scheduler load (surfaced in CI); BiscuitSharp now
+  applies a robust default (100k facts / 100k iterations / 5 s) and exposes
+  `UpstreamDefault` for strict parity. `eng/Verify-NativeStaging.ps1`,
   `eng/Verify-NuGetPackage.ps1`, `eng/Test-PackagedConsumer.ps1`, and
   `eng/Test-Dist.ps1` (per-RID orchestrator) implemented with CI
   `dist`/`pack`/`consume`/`valgrind` jobs.

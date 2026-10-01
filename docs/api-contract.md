@@ -21,10 +21,14 @@ integration tests from the first preview onward.
   the result) otherwise. An ordinary Deny is a result, not a bridge failure.
 - `BiscuitTokenBuilder` supports facts, rules, and checks (each textual, plus
   parameterized facts); the authorizer supports facts, rules, checks, policies,
-  explicit time facts, and explicit execution limits (`WithLimits`, defaulting
-  to upstream: 1,000 facts, 100 iterations, 1 ms — a breached limit denies with
-  `evaluation_failure`). Malformed Datalog throws `BiscuitDatalogException`
-  before any evaluation; completed evaluations always return a result.
+  explicit time facts, and explicit execution limits (`WithLimits`). The
+  default budget is a robust 100,000 facts / 100,000 iterations / 5 s,
+  deliberately larger than upstream's `RunLimits::default()` (1 ms), which is
+  too small to be reliable under load; pass
+  `BiscuitAuthorizerLimits.UpstreamDefault` for strict parity. A breached limit
+  denies with `evaluation_failure`. Malformed Datalog throws
+  `BiscuitDatalogException` before any evaluation; completed evaluations always
+  return a result.
 - Policies apply first-match-wins in the order supplied: place `deny` policies
   before the `allow` policies they must override. The result reports matched
   policy indices and structured errors (`failed_check` with block/check/rule,

@@ -47,14 +47,11 @@ fn decode_sources(
 }
 
 /// Optional `"limits": {"max_facts", "max_iterations", "max_time_ms"}` override.
-/// Absent limits keep the builder (upstream) defaults; all three fields are
-/// required when present. Failures here are request-shape problems, so a limit
-/// breach at evaluation time surfaces later as `evaluation_failure`, never as
-/// an allow.
-fn apply_limits(
-    builder: AuthorizerBuilder,
-    value: &serde_json::Value,
-) -> Result<AuthorizerBuilder, String> {
+/// All three fields are required when present. When absent, [`default_limits`]
+/// applies instead of upstream's 1 ms default (see there). Failures here are
+/// request-shape problems, so a limit breach at evaluation time surfaces later
+/// as `evaluation_failure`, never as an allow.
+fn parse_limits(value: &serde_json::Value) -> Result<AuthorizerLimits, String> {
     let object = value
         .as_object()
         .ok_or_else(|| "field 'limits' must be an object".to_owned())?;
@@ -64,11 +61,24 @@ fn apply_limits(
             .and_then(|v| v.as_u64())
             .ok_or_else(|| format!("field 'limits.{field}' must be a non-negative integer"))
     };
-    Ok(builder.set_limits(AuthorizerLimits {
+    Ok(AuthorizerLimits {
         max_facts: number("max_facts")?,
         max_iterations: number("max_iterations")?,
         max_time: Duration::from_millis(number("max_time_ms")?),
-    }))
+    })
+}
+
+/// Robust default execution limits, replacing upstream's `RunLimits::default()`
+/// (`1 ms`, 1,000 facts, 100 iterations). Upstream's 1 ms wall-clock budget is
+/// too small to be reliable: a trivial evaluation under scheduler load can
+/// exceed it and deny with `evaluation_failure`. The budget stays bounded
+/// (resource protection), and callers can override it per request.
+fn default_limits() -> AuthorizerLimits {
+    AuthorizerLimits {
+        max_facts: 100_000,
+        max_iterations: 100_000,
+        max_time: Duration::from_secs(5),
+    }
 }
 
 fn failed_check_entry(check: &biscuit_auth::error::FailedCheck) -> serde_json::Value {
@@ -241,13 +251,14 @@ pub fn op_token_authorize(input: &[u8], output: *mut BiscuitSharpBuffer) -> u32 
         Ok(items) => items,
         Err(status) => return status,
     };
-    let mut builder = AuthorizerBuilder::new();
-    if let Some(limits) = req.get("limits") {
-        builder = match apply_limits(builder, limits) {
-            Ok(b) => b,
+    let limits = match req.get("limits") {
+        Some(value) => match parse_limits(value) {
+            Ok(l) => l,
             Err(e) => return invalid(output, e),
-        };
-    }
+        },
+        None => default_limits(),
+    };
+    let mut builder = AuthorizerBuilder::new().set_limits(limits);
     for source in facts
         .iter()
         .chain(rules.iter())
@@ -531,6 +542,16 @@ mod tests {
         assert_eq!(status, STATUS_OK);
         assert_eq!(v["decision"], "allow");
         let _ = handle;
+    }
+
+    #[test]
+    fn default_limits_are_robust() {
+        // Regression guard: upstream's 1 ms budget made the default path deny
+        // under scheduler load (observed in CI).
+        let limits = default_limits();
+        assert_eq!(limits.max_facts, 100_000);
+        assert_eq!(limits.max_iterations, 100_000);
+        assert_eq!(limits.max_time, Duration::from_secs(5));
     }
 
     #[test]

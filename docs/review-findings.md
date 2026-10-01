@@ -33,9 +33,12 @@ inherent, documented), **Deferred** (planned, spec §13/14/M2),
    job (`--leak-check=full --errors-for-leaks=yes`, definite leaks fail).
    No results yet — first green run pending.
 6. **Fixed 2026-10-02 — execution limits.** `BiscuitAuthorizerLimits` plus
-   `WithLimits`, wired to upstream `set_limits`/`authorize_with_limits`
-   (documented 1 ms default); breaches deny with `evaluation_failure`.
-   Cancellation of a running call remains unavailable (synchronous FFI).
+   `WithLimits`, wired to upstream `set_limits`/`authorize_with_limits`.
+   Finding: upstream's `RunLimits::default()` is `max_time: 1 ms`, which made
+   the default path deny with `evaluation_failure` under CI load; BiscuitSharp
+   now applies a robust default (100k facts / 100k iterations / 5 s) and
+   exposes `UpstreamDefault` for strict parity. Cancellation of a running call
+   remains unavailable (synchronous FFI).
 7. **Gap — loader failure tests not written** for tampered/wrong-ABI/wrong-version
    assets (some depend on the M2 manifest). Current coverage: missing asset and
    relative override only.
@@ -121,10 +124,12 @@ inherent, documented), **Deferred** (planned, spec §13/14/M2),
 
 ## Suggested order of follow-on work (updated 2026-10-02)
 
-1. ~~Public-key import/parse~~ done; textual public-key encodings remain.
+1. ~~Public-key import/parse~~ done (raw/hex/prefixed); DER/PEM public-key
+   encodings remain.
 2. ~~`AddRule`~~ done.
 3. M2 Linux/macOS: release builds, staging, CI matrix, remaining five clean
    consumers, `Verify-NativeStaging` / `Verify-NuGetPackage` /
    `Test-PackagedConsumer` automation, publication.
 4. Linux/macOS native test jobs (Gap 8/28) and Valgrind (Gap 5).
-5. Cancellation/limits (Gap 6); then clippy/rustfmt in CI (27).
+5. Cancellation of a running authorization call remains unavailable
+   (synchronous FFI).

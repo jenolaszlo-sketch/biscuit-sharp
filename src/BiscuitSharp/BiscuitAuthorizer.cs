@@ -57,8 +57,23 @@ public sealed record BiscuitAuthorizationResult(
 /// <param name="MaxTime">Maximum execution time.</param>
 public sealed record BiscuitAuthorizerLimits(ulong MaxFacts, ulong MaxIterations, TimeSpan MaxTime)
 {
-    /// <summary>Upstream defaults: 1,000 facts, 100 iterations, 1 millisecond.</summary>
+    /// <summary>
+    /// Robust default applied when the caller sets no limits: 100,000 facts,
+    /// 100,000 iterations, 5 seconds. Deliberately larger than upstream's
+    /// <see cref="UpstreamDefault"/> (1 ms), which is too small to be reliable
+    /// under scheduler load and can deny a trivial request with
+    /// <c>evaluation_failure</c>. The budget stays bounded for resource
+    /// protection.
+    /// </summary>
     public static BiscuitAuthorizerLimits Default { get; } =
+        new(100_000, 100_000, TimeSpan.FromSeconds(5));
+
+    /// <summary>
+    /// Upstream <c>RunLimits::default()</c>: 1,000 facts, 100 iterations,
+    /// 1 millisecond. Restore strict parity (and its flakiness risk) with
+    /// <see cref="BiscuitAuthorizer.WithLimits"/>.
+    /// </summary>
+    public static BiscuitAuthorizerLimits UpstreamDefault { get; } =
         new(1000, 100, TimeSpan.FromMilliseconds(1));
 }
 
@@ -138,9 +153,10 @@ public sealed class BiscuitAuthorizer
     }
 
     /// <summary>
-    /// Overrides the upstream default execution limits for this authorizer.
-    /// Absent limits keep upstream defaults (1,000 facts, 100 iterations,
-    /// 1 millisecond).
+    /// Overrides the execution limits for this authorizer. Absent limits use
+    /// <see cref="BiscuitAuthorizerLimits.Default"/> (a robust budget), not
+    /// upstream's 1 ms default; pass
+    /// <see cref="BiscuitAuthorizerLimits.UpstreamDefault"/> for strict parity.
     /// </summary>
     public BiscuitAuthorizer WithLimits(BiscuitAuthorizerLimits limits)
     {
@@ -156,6 +172,7 @@ public sealed class BiscuitAuthorizer
 
     public BiscuitAuthorizationResult Authorize()
     {
+        BiscuitAuthorizerLimits limits = _limits ?? BiscuitAuthorizerLimits.Default;
         byte[] request = BridgeJson.EncodeObject(w =>
         {
             w.WriteBase64String("token", _token.ToBytes());
@@ -164,15 +181,12 @@ public sealed class BiscuitAuthorizer
             WriteSources(w, "rules", _rules);
             WriteSources(w, "checks", _checks);
             WriteSources(w, "policies", _policies);
-            if (_limits is not null)
-            {
-                w.WriteStartObject("limits");
-                w.WriteNumber("max_facts", _limits.MaxFacts);
-                w.WriteNumber("max_iterations", _limits.MaxIterations);
-                // TimeSpan.MaxValue fits in ulong milliseconds; checked for safety.
-                w.WriteNumber("max_time_ms", checked((ulong)_limits.MaxTime.TotalMilliseconds));
-                w.WriteEndObject();
-            }
+            w.WriteStartObject("limits");
+            w.WriteNumber("max_facts", limits.MaxFacts);
+            w.WriteNumber("max_iterations", limits.MaxIterations);
+            // TimeSpan values fit in ulong milliseconds; checked for safety.
+            w.WriteNumber("max_time_ms", checked((ulong)limits.MaxTime.TotalMilliseconds));
+            w.WriteEndObject();
         });
         byte[] response = NativeBridge.Call(
             NativeBridge.OpTokenAuthorize,

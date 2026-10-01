@@ -705,9 +705,27 @@ try
         .WithLimits(new BiscuitAuthorizerLimits(100000, 10000, TimeSpan.FromMinutes(1)))
         .Authorize();
     Check(roomy.IsAuthorized, "generous limits agree with defaults");
-    Check(BiscuitAuthorizerLimits.Default.MaxFacts == 1000 && BiscuitAuthorizerLimits.Default.MaxIterations == 100 && BiscuitAuthorizerLimits.Default.MaxTime == TimeSpan.FromMilliseconds(1), "defaults mirror upstream");
+    Check(BiscuitAuthorizerLimits.Default.MaxFacts == 100_000 && BiscuitAuthorizerLimits.Default.MaxIterations == 100_000 && BiscuitAuthorizerLimits.Default.MaxTime == TimeSpan.FromSeconds(5), "robust default replaces upstream's 1 ms");
+    Check(BiscuitAuthorizerLimits.UpstreamDefault.MaxFacts == 1000 && BiscuitAuthorizerLimits.UpstreamDefault.MaxIterations == 100 && BiscuitAuthorizerLimits.UpstreamDefault.MaxTime == TimeSpan.FromMilliseconds(1), "upstream default is preserved for parity");
     Check(Throws<ArgumentOutOfRangeException>(() => BiscuitAuthorizer.For(token).WithLimits(new BiscuitAuthorizerLimits(1, 1, TimeSpan.FromMilliseconds(-1)))), "negative budget fails fast");
     Check(Throws<ArgumentNullException>(() => BiscuitAuthorizer.For(token).WithLimits(null!)), "null limits fail fast");
+
+    // The robust default must not spuriously deny under repeated load (the
+    // failure that surfaced in CI with upstream's 1 ms budget).
+    int spurious = 0;
+    Parallel.For(0, 128, _ =>
+    {
+        BiscuitAuthorizationResult r = BiscuitAuthorizer
+            .For(token)
+            .AddFact("""operation("read")""")
+            .AddPolicy("""allow if right("workspace.main", "read");""")
+            .Authorize();
+        if (!r.IsAuthorized)
+        {
+            Interlocked.Increment(ref spurious);
+        }
+    });
+    Check(spurious == 0, "default limits never spuriously deny under load");
 }
 finally
 {
