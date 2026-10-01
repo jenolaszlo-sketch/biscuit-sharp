@@ -57,3 +57,11 @@ The corrected Linux leak gate, Linux/macOS distribution and consumers, and manua
 - win-x64 native SHA-256: c560b5a00163f0f355c95540b2ca05d06ae236301e60f9ce01c615c764278250.
 
 Manual publishing setup is documented in [publishing.md](publishing.md). No remote release configuration or publication was performed.
+
+## Valgrind failure follow-up — 2026-10-02
+
+[Diagnostic CI run 36933754724](https://github.com/jenolaszlo-sketch/biscuit-sharp/actions/runs/36933754724), SHA 44cea75ca20a69ee0157d52541a51de4ae322f92, executed all 50 cycles under Valgrind 3.22.0. It reported zero definite/indirect losses, 1,028 bytes possibly lost and 456 bytes reachable. Full stacks identify 48 bytes in Rust libtest's thread/event-channel context, 980 bytes in the bridge key-store HashMap allocation, and the reachable allocation in Rust's stack-overflow runtime.
+
+The follow-up releases map capacity when the last handle is destroyed. CI now instruments a standalone example using the same shared 50-cycle public-ABI workload as the unit test, avoiding libtest's event-channel allocation. Memory errors and possible leaks still fail; no suppressions or leak-policy relaxation were added. Start, completion and success markers prevent an empty workload from passing.
+
+Windows checks on the follow-up tree: all 45 native unit tests pass, the standalone example prints all three 50-cycle markers and exits successfully, and cargo fmt/all-target clippy with -D warnings pass. Linux Valgrind verification of this follow-up is pending.

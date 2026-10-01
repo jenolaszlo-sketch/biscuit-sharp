@@ -269,6 +269,11 @@ pub fn op_key_destroy(input: &[u8], output: *mut BiscuitSharpBuffer) -> u32 {
     };
     match store.remove(&handle) {
         Some(_) => {
+            // Release the backing allocation when the last handle is destroyed.
+            // Static stores do not run destructors at process exit.
+            if store.is_empty() {
+                store.shrink_to_fit();
+            }
             drop(store);
             emit_owned(output, b"{}".to_vec())
         }

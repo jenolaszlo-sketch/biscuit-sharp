@@ -179,7 +179,7 @@ jobs:
           ./eng/Test-PackagedConsumer.ps1 -Package $pkg -TargetFramework ${{ matrix.tfm }}
 
   # Native-memory instrumentation (Linux): leak-probe cycles under Valgrind.
-  # Definite leaks fail the job; record possible-loss output honestly.
+  # Memory errors and definite/possible leaks fail; display every allocation kind.
   valgrind:
     runs-on: ubuntu-latest
     steps:
@@ -189,22 +189,22 @@ jobs:
           toolchain: 1.89.0
       - run: sudo apt-get update && sudo apt-get install -y valgrind
       - run: |
-          bin=$(cargo test --locked --lib --no-run --manifest-path native/Cargo.toml 2>&1 | grep -o 'native/target/debug/deps/biscuitsharp_native-[^ )]*' | head -n 1)
-          test -n "$bin" || { echo "leak-probe test binary not found"; exit 1; }
+          cargo build --locked --example leak_probe --manifest-path native/Cargo.toml
+          bin=native/target/debug/examples/leak_probe
+          test -x "$bin" || { echo "leak-probe executable not found"; exit 1; }
           # --errors-for-leaks was removed in newer Valgrind; probe for it and
           # always assert the leak summary directly (version-independent).
           leak_opt=""
           if valgrind --help 2>&1 | grep -q -- "--errors-for-leaks"; then leak_opt="--errors-for-leaks=yes"; fi
           log=$(mktemp)
           set +e
-          valgrind --leak-check=full --show-leak-kinds=all $leak_opt --error-exitcode=99 -s "$bin" adversarial::leak_probe_cycles --exact --nocapture > "$log" 2>&1
+          valgrind --leak-check=full --show-leak-kinds=all $leak_opt --error-exitcode=99 -s "$bin" > "$log" 2>&1
           code=$?
           set -e
           cat "$log"
           test $code -eq 0 || { echo "valgrind reported errors (exit $code)"; exit 1; }
           grep -q '^LEAK_PROBE_WORKLOAD_STARTED cycles=50$' "$log" || { echo "leak workload start marker missing"; exit 1; }
           grep -q '^LEAK_PROBE_WORKLOAD_COMPLETED cycles=50$' "$log" || { echo "leak workload completion marker missing"; exit 1; }
-          grep -Eq '^test adversarial::leak_probe_cycles \.\.\. ok$' "$log" || { echo "expected named leak workload did not pass"; exit 1; }
-          grep -Eq '^test result: ok\. 1 passed; 0 failed; 0 ignored; 0 measured; [0-9]+ filtered out(; finished in [0-9.]+s)?$' "$log" || { echo "expected exactly one test execution"; exit 1; }
+          grep -q '^LEAK_PROBE_PASSED cycles=50$' "$log" || { echo "leak probe did not finish successfully"; exit 1; }
           grep -q "definitely lost: 0 bytes in 0 blocks" "$log" || { echo "no zero-leak summary found"; exit 1; }
           rm -f "$log"

@@ -8,13 +8,13 @@ Original audit scope: managed public API and contract, native boundary, authoriz
 
 ## Fix follow-up — 2026-10-01
 
-The findings below describe the reviewed original commit. Implementation fixes are now in the working tree; release qualification remains separate.
+The findings below describe the reviewed original commit. The initial fixes were committed and pushed as d8e24b49c84ef5da70fc1f103c6f6dea86e0e465; release qualification remains separate.
 
 | Finding | Current implementation status | Verification / remaining qualification |
 | --- | --- | --- |
 | F01 loader synchronization | Fixed: every entry acquires the reentrant load lock; exports resolve against the current handle, avoiding stale cached addresses after a rejected load; hash/handle/path cleanup stays inside the failure boundary. | Deterministic child-process barriers pass for success, bad hash, and live-identity mismatch. Both callers wait or fail; failed loads can retry safely. |
 | F02 byte identity | Fixed: public array properties return copies; equality/hash and internal marshalling use owned storage. | Input/output mutation, dictionary revocation lookup, and token-root stability regressions pass. |
-| F03 empty leak gate | Fixed: exact adversarial::leak_probe_cycles selection, 50-cycle start/completion markers, one-test assertion, and native leak checks. | Exact workload executes and completes locally. Actual Linux Valgrind instrumentation must rerun; historical zero-test green evidence is invalid. |
+| F03 empty leak gate | Shared 50-cycle ABI workload runs both as a unit test and a standalone Valgrind example. The standalone gate checks start/completion/success markers and preserves fatal memory errors and possible leaks. Last-handle destruction releases empty key-store capacity. | Diagnostic Linux run 36933754724 identified 48 bytes from libtest and 980 bytes from retained key-store capacity. Windows: 45 tests, standalone probe and all-target clippy pass. Final Linux instrumentation rerun pending; historical zero-test green evidence is invalid. |
 | F04 legal material | Fixed in tooling: target-aware runtime dependency graph, checksummed source identity, full LICENSE/COPYING/COPYRIGHT/NOTICE material, coverage/inventory validation; packaged legal files consolidated under third-party. | Windows staging/package checks and rejection checks recorded below. Linux/macOS final packages still require CI. |
 | F05 response taxonomy | Fixed: JSON object roots and error fields validated; malformed/unknown envelopes remain bridge failures; policy indices checked for consistency. | Scalar/array/null roots, malformed JSON/error fields, unknown codes and contradictory result regressions pass. Existing native output free remains in finally. |
 | F06 collection ownership | Fixed: constructor and record with-expression collection setters make owned read-only snapshots and reject null collections/elements. | Source-list mutation and returned-list mutation checks pass. Collection equality remains explicitly reference-based. |
@@ -33,7 +33,7 @@ Local execution against the modified tree:
 - cargo fmt --check and clippy --locked --offline --all-targets -- -D warnings: passed.
 - Exact leak workload: 1 passed, 50 cycles started and completed; this Windows execution is not Valgrind instrumentation.
 
-No push, remote publication, NuGet baseline restoration, or claim of a newly qualified three-RID release is made. Restore the API package baseline only after the preview exists publicly; re-freeze only after final release evidence and semantic acceptance.
+The initial fixes and Valgrind diagnostic commit were pushed to main. NuGet publication and baseline restoration remain pending; no newly qualified three-RID release is claimed here. Restore the API package baseline only after the preview exists publicly; re-freeze only after final release evidence and semantic acceptance.
 
 
 ## Original audit recommendation
