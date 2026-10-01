@@ -23,8 +23,10 @@ RIDs win-x64, linux-x64, osx-arm64. Initial consumer: Penghou.Hufu
    green on Rust 1.89.0 (94 packages); tag `biscuit-auth-6.0.0` verified equal to
    the pinned commit; crate checksum and schema versions recorded in
    `docs/native-boundary.md`. The published crate declares no `rust-version`, so
-   1.89.0 is the bridge's own frozen choice. `cargo check --locked` is blocked
-   only by the missing MSVC linker on this machine (see verification ledger).
+   1.89.0 is the bridge's own frozen choice. Status 2026-10-01 (evening):
+   `cargo check --locked` and `cargo build --locked` green on MSVC after the
+   VS C++ workload install; `dumpbin` confirms the three ABI exports
+   (see verification ledger).
 3. Confirm the toolchain against upstream MSRV/CI; record crate checksums and the
    staged feature set (PEM/DER, P-256 per 6.0.0). Toolchain confirmed working
    (rustup auto-installs 1.89.0 from `rust-toolchain.toml`); full checksum +
