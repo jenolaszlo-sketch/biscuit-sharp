@@ -29,15 +29,18 @@ foreach ($candidate in @((Join-Path $HOME ".cargo/bin/cargo"), (Join-Path $HOME 
     if (Test-Path -LiteralPath $candidate) { $cargo = $candidate; break }
 }
 
+Write-Output "=== compat: cargo unit tests ==="
 & $cargo test --locked --lib --manifest-path (Join-Path $repoRoot "native/Cargo.toml")
 if ($LASTEXITCODE -ne 0) { throw "cargo unit tests failed" }
-
+Write-Output "=== compat: fixture generation ==="
 & $cargo test --locked --test compat_gen --manifest-path (Join-Path $repoRoot "native/Cargo.toml")
 if ($LASTEXITCODE -ne 0) { throw "compat_gen failed" }
 
+Write-Output "=== compat: committed fixtures ==="
 & $cargo test --locked --test committed_fixtures --manifest-path (Join-Path $repoRoot "native/Cargo.toml")
 if ($LASTEXITCODE -ne 0) { throw "committed fixtures failed" }
 
+Write-Output "=== compat: managed tests (net8.0) ==="
 Push-Location -LiteralPath $repoRoot
 try {
   dotnet run --project tests/BiscuitSharp.Tests --framework net8.0
@@ -45,9 +48,11 @@ try {
 }
 finally { Pop-Location }
 
+Write-Output "=== compat: Rust consume ==="
 & $cargo test --locked --test compat_consume --manifest-path (Join-Path $repoRoot "native/Cargo.toml")
 if ($LASTEXITCODE -ne 0) { throw "compat_consume failed" }
 
+Write-Output "=== compat: managed consume (net8.0) + net10.0 ==="
 Push-Location -LiteralPath $repoRoot
 try {
   $env:BISCUITSHARP_COMPAT_CONSUME = "1"

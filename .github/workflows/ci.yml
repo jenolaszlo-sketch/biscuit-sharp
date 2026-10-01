@@ -25,7 +25,9 @@ jobs:
           dotnet-version: |
             8.0.x
             10.0.x
-      - uses: dtolnay/rust-toolchain@1.89.0
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.89.0
       - run: cargo build --locked --manifest-path native/Cargo.toml
       - run: dotnet build BiscuitSharp.slnx
       - run: dotnet run --project tests/BiscuitSharp.Tests --framework net8.0
@@ -53,7 +55,9 @@ jobs:
           dotnet-version: |
             8.0.x
             10.0.x
-      - uses: dtolnay/rust-toolchain@1.89.0
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.89.0
       - run: ./eng/Test-Compat.ps1
 
   # Native lints (one OS is enough: toolchain-pinned, deterministic).
@@ -61,8 +65,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@1.89.0
+      - uses: dtolnay/rust-toolchain@master
         with:
+          toolchain: 1.89.0
           components: rustfmt, clippy
       - run: cargo fmt --manifest-path native/Cargo.toml -- --check
       - run: cargo clippy --locked --all-targets --manifest-path native/Cargo.toml -- -D warnings
@@ -89,7 +94,9 @@ jobs:
           dotnet-version: |
             8.0.x
             10.0.x
-      - uses: dtolnay/rust-toolchain@1.89.0
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.89.0
       - run: ./eng/Test-Dist.ps1 -Rid ${{ matrix.rid }}
       - uses: actions/upload-artifact@v4
         with:
@@ -111,7 +118,9 @@ jobs:
           dotnet-version: |
             8.0.x
             10.0.x
-      - uses: dtolnay/rust-toolchain@1.89.0
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.89.0
       - uses: actions/download-artifact@v4
         with:
           name: staging-win-x64
@@ -166,9 +175,23 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@1.89.0
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.89.0
       - run: sudo apt-get update && sudo apt-get install -y valgrind
       - run: |
           bin=$(cargo test --locked --lib --no-run --manifest-path native/Cargo.toml 2>&1 | grep -o 'native/target/debug/deps/biscuitsharp_native-[^ )]*' | head -n 1)
           test -n "$bin" || { echo "leak-probe test binary not found"; exit 1; }
-          valgrind --leak-check=full --show-leak-kinds=definite --errors-for-leaks=yes --error-exitcode=99 "$bin" leak_probe --exact --nocapture
+          # --errors-for-leaks was removed in newer Valgrind; probe for it and
+          # always assert the leak summary directly (version-independent).
+          leak_opt=""
+          if valgrind --help 2>&1 | grep -q -- "--errors-for-leaks"; then leak_opt="--errors-for-leaks=yes"; fi
+          log=$(mktemp)
+          set +e
+          valgrind --leak-check=full --show-leak-kinds=definite $leak_opt --error-exitcode=99 "$bin" leak_probe --exact --nocapture 2> "$log"
+          code=$?
+          set -e
+          tail -n 12 "$log"
+          test $code -eq 0 || { echo "valgrind reported errors (exit $code)"; exit 1; }
+          grep -q "definitely lost: 0 bytes in 0 blocks" "$log" || { echo "no zero-leak summary found"; exit 1; }
+          rm -f "$log"
