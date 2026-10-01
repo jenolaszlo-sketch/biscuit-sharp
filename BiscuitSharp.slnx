@@ -1,0 +1,11 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/BiscuitSharp/BiscuitSharp.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/BiscuitSharp.Tests/BiscuitSharp.Tests.csproj" />
+  </Folder>
+  <Folder Name="/samples/">
+    <Project Path="samples/BiscuitSharp.Smoke/BiscuitSharp.Smoke.csproj" />
+  </Folder>
+</Solution>

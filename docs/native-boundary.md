@@ -1,0 +1,90 @@
+# Native ABI and distribution contract
+
+Baseline (M0 target, confirm during pinning): biscuit-auth 6.0.0, bridge 0.1.0,
+ABI 1, Rust 1.89.0 (confirm MSRV against upstream CI before freezing).
+Upstream source commit: `0f0b4e0e6fe07220c1ba6b51bff21d450d94a975`.
+`Cargo.lock` is committed. Do not follow floating Cargo versions.
+Record the Biscuit token/spec version in the native manifest.
+
+## ABI 1
+
+```c
+typedef struct { uint8_t *data; size_t len; } BiscuitSharpBuffer;
+uint32_t biscuitsharp_abi_version(void);
+uint32_t biscuitsharp_call_v1(uint32_t operation, const uint8_t *input,
+                              size_t input_len, BiscuitSharpBuffer *output);
+void biscuitsharp_free_v1(BiscuitSharpBuffer buffer);
+```
+
+C calling convention; pointer-sized lengths; sequential two-field output layout.
+The caller owns readable input for the call and a writable output struct. Null
+input is valid only for length zero. UTF-8 must be valid where text applies.
+Input limit 16 MiB, output limit 64 MiB. The limits bound bridge messages, not
+intermediate allocations or evaluation time.
+
+The bridge initializes output before processing. Nonempty output is one owned
+Rust boxed byte slice with no terminator; the caller frees it exactly once using
+the originating library and the unmodified pointer/length. A null/zero buffer
+is safe to free. Foreign pointers, double-free, unreadable input, and invalid
+output addresses violate the C contract and are not recoverable validation errors.
+
+| Operation | Concept |
+| --- | --- |
+| 0 | version / loaded-asset identity |
+| 1 | key_generate |
+| 2 | key_import |
+| 3 | key_export_public |
+| 4 | key_export_private |
+| 5 | token_create |
+| 6 | token_parse_verify |
+| 7 | token_serialize |
+| 8 | token_attenuate |
+| 9 | token_seal |
+| 10 | token_authorize |
+| 11 | token_revocation_ids |
+| 12 | token_inspect |
+
+The exact ABI may consolidate operations, but managed callers must not depend on
+Rust ABI details. No Rust-owned pointers reach the public .NET API. Recoverable
+Rust unwinding is caught; abort, OOM abort, stack overflow, and memory faults are
+not promised recoverable.
+
+Status 0 means a complete Biscuit answer, including a Deny; denial is not a
+boundary failure. Status 1 is invalid boundary input, 2 unsupported operation,
+3 caught panic, 4 oversized output. Managed calls copy the output and free it in
+`finally`, including response-decoding failure. A lazy singleton verifies and
+retains the native library for process lifetime so concurrent calls cannot race
+unloading. Public APIs expose no raw pointers.
+
+## Asset identity and distribution
+
+| RID | Target | Native CI |
+| --- | --- | --- |
+| win-x64 | x86_64-pc-windows-msvc | Windows x64 |
+| linux-x64 | x86_64-unknown-linux-gnu | Linux x64/glibc |
+| osx-arm64 | aarch64-apple-darwin | macOS ARM64 |
+
+Qualified environments are the CI runner environments for those RIDs with .NET 8
+and .NET 10; see [verification](verification.md). No musl, osx-x64, win-arm64, or
+linux-arm64 assets are selected until built and exercised. Older OS and glibc
+baselines are not qualified.
+
+Build with `cargo --locked` and explicit target triples. Each staged asset carries
+`biscuitsharp-native.json`: ABI/bridge/toolchain, biscuit-auth version, token/spec
+version, target/RID, binary SHA-256, source commit, lock/source hashes, features.
+Packages carry upstream and transitive dependency license notices. The loader checks
+hash and expected identity, then queries live versions/features. It resolves the
+asset under `AppContext.BaseDirectory` (package-adjacent or its
+`runtimes/<rid>/native/` directory). `BISCUITSHARP_NATIVE_PATH` selects a
+self-built or vendored asset; relative paths are normalized against the current
+directory before the adjacent manifest is located, and the asset is still
+hash- and identity-verified. There is no automatic download or global search.
+
+Packaging is disabled by default (`BiscuitSharpEnablePack`). The normal opt-in
+build requires all three RID manifests; CI additionally verifies actual package
+content and clean consumers on all three platforms and .NET 8/10. A manifest alone
+does not constitute qualification. Publication requires those gates and a separate
+release action.
+
+Re-run diagnostics, native safety, concurrency, package, and platform gates on
+upgrades. Record old identity so consumers can audit historical decisions.

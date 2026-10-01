@@ -1,0 +1,26 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  managed:
+    strategy:
+      matrix:
+        os: [windows-latest, ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            8.0.x
+            10.0.x
+      - run: dotnet build BiscuitSharp.slnx
+      - run: dotnet run --project tests/BiscuitSharp.Tests --framework net8.0
+      - run: dotnet run --project tests/BiscuitSharp.Tests --framework net10.0
+  # M1/M2 add: native --locked builds + tests per RID, differential and
+  # bidirectional compatibility, mutation/fuzz, Valgrind, NativeAOT per RID,
+  # package verification, and six clean consumers. See docs/implementation-plan.md.

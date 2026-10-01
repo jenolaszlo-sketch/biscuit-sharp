@@ -1,0 +1,15 @@
+BiscuitSharp
+Copyright (c) 2026 BiscuitSharp contributors
+
+BiscuitSharp is an independent, unofficial .NET integration for Biscuit.
+The Biscuit token format, Datalog language, and engine are developed by the
+Eclipse Biscuit project and its contributors. BiscuitSharp does not claim
+ownership of the Biscuit engine or name.
+
+Native builds use biscuit-auth 6.0.0, licensed Apache-2.0.
+Upstream: https://github.com/eclipse-biscuit/biscuit-rust
+Source commit: 0f0b4e0e6fe07220c1ba6b51bff21d450d94a975
+
+Native build staging and packages include the licenses and notices of the
+resolved Cargo dependencies alongside each native runtime. Preserve those files
+when redistributing the native assets. No third-party .NET wrapper code is used.

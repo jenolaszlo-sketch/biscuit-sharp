@@ -1,0 +1,10 @@
+name: publish
+
+on:
+  workflow_dispatch:
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "Manual trusted-publishing workflow; implemented at the M2 distribution gate. See docs/implementation-plan.md."

@@ -1,0 +1,45 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFrameworks>net8.0;net10.0</TargetFrameworks>
+    <LangVersion>12.0</LangVersion>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <IsAotCompatible>true</IsAotCompatible>
+    <IsTrimmable>true</IsTrimmable>
+    <PackageId>BiscuitSharp</PackageId>
+    <Version>0.1.0-preview.1</Version>
+    <Title>BiscuitSharp</Title>
+    <Description>Unofficial .NET wrapper around the Biscuit authorization token engine (biscuit-auth), preserving token, attenuation, and authorizer semantics. Trim- and NativeAOT-compatible.</Description>
+    <PackageProjectUrl>https://github.com/jenolaszlo-sketch/biscuit-sharp</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/jenolaszlo-sketch/biscuit-sharp.git</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageTags>biscuit;authorization;capability;attenuation;native;aot;trimming</PackageTags>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    <EnablePackageValidation>true</EnablePackageValidation>
+    <PackageValidationBaselineVersion>0.1.0-preview.1</PackageValidationBaselineVersion>
+    <!-- Packaging stays opt-in: pass -p:BiscuitSharpEnablePack=true. Without it the project is not packable by design. -->
+    <IsPackable Condition="'$(BiscuitSharpEnablePack)' != 'true'">false</IsPackable>
+    <IsPackable Condition="'$(BiscuitSharpEnablePack)' == 'true'">true</IsPackable>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.SourceLink.GitHub" Version="10.0.401" PrivateAssets="All" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="../../README.md" Pack="true" PackagePath="/" />
+    <None Include="../../LICENSE" Pack="true" PackagePath="/" />
+    <None Include="../../NOTICE" Pack="true" PackagePath="/" />
+    <None Include="../../native/staging/**/*" Exclude="../../native/staging/**/licenses/**/*;../../native/staging/**/THIRD_PARTY_NOTICES.md;../../native/staging/**/licenses.json"
+          Pack="true" PackagePath="runtimes/"
+          Link="runtimes/%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../../native/staging/**/*" Exclude="../../native/staging/**/*.dll;../../native/staging/**/*.so;../../native/staging/**/*.dylib;../../native/staging/**/biscuitsharp-native.json"
+          Pack="true" PackagePath="third-party/" />
+  </ItemGroup>
+  <Target Name="RequireNativeAssetsForPack" BeforeTargets="GenerateNuspec" Condition="'$(BiscuitSharpEnablePack)' == 'true' And '$(BiscuitSharpLocalSmokePack)' != 'true'">
+    <Error Condition="!Exists('../../native/staging/win-x64/native/biscuitsharp-native.json') Or !Exists('../../native/staging/linux-x64/native/biscuitsharp-native.json') Or !Exists('../../native/staging/osx-arm64/native/biscuitsharp-native.json')"
+           Text="All three native RID manifests must be staged before packing. Run the native CI and package verification gates." />
+  </Target>
+</Project>
