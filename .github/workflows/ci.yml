@@ -14,6 +14,11 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
+      - name: Test automatic release selection
+        if: matrix.os == 'ubuntu-latest'
+        uses: actions/github-script@v9
+        with:
+          script: await require('./eng/Test-ReleaseSelection.cjs');
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: |

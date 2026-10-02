@@ -1,11 +1,22 @@
 # Preview package publishing
 
-The manual workflow accepts a successful `ci.yml` run ID and the exact full
-commit SHA tested by that run. It checks that the run belongs to
-`.github/workflows/ci.yml`, was a successful `push` to `main`, and that every
-job in the full 19-job matrix succeeded. It downloads the immutable `nupkg`
-artifact from that run, checks the package and symbol archive against the
-checked-out SHA, then publishes from a protected GitHub environment.
+For a normal release, wait for the full CI run on the current main commit to
+succeed, then open Actions → publish → Run workflow, select main, leave both
+optional fields blank, and click Run workflow. The workflow pins the dispatch
+commit, finds successful ci.yml coverage for that exact SHA and prints the
+validated SHA/run link in its summary. It never falls back to an older commit
+if the dispatched commit has no successful CI.
+
+For an older reviewed candidate, supply only ci_run_id; the workflow derives
+the SHA from that run. release_sha is an optional additional identity assertion.
+Supplying only release_sha discovers successful CI for that exact commit.
+
+All paths retain the release checks: the run must belong to the exact
+.github/workflows/ci.yml, be a successful push to main, and contain all 19
+successful full-matrix jobs. The publisher downloads that validated run's
+immutable nupkg artifact, checks the package and symbol archive against the
+checked-out SHA, and publishes from the protected GitHub environment.
+
 
 Before dispatching `publish.yml`, configure these repository settings:
 
@@ -16,7 +27,7 @@ Before dispatching `publish.yml`, configure these repository settings:
 3. In NuGet.org Trusted Publishing, register this repository owner and repo,
    workflow file `publish.yml`, and environment `nuget-production`. The policy
    must permit publishing the BiscuitSharp package.
-4. Dispatch with the successful full CI run ID and its 40-character SHA. The
+4. Dispatch on main with both optional fields blank after its CI passes. The
    workflow publishes the `.nupkg`; `dotnet nuget push` also uploads its
    matching `.snupkg` when present.
 
@@ -28,7 +39,9 @@ secret, or NuGet.org policy and does not publish a package.
 
 ## After publication
 
-Dispatch verify-published.yml with the same qualified CI run ID and full SHA.
+The separate verify-published.yml workflow still takes the qualified CI run ID
+and full SHA; copy them from the publisher summary when running public-feed
+verification. This change automates publisher selection, not that separate step.
 Its six jobs restore from NuGet.org with isolated caches, run the packaged smoke
 on every supported RID/TFM and compare all archive content with the qualified
 artifact (excluding the NuGet repository signature). Once these pass, add

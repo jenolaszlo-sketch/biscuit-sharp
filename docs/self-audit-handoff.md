@@ -6,6 +6,22 @@ Original reviewed HEAD: fb82be79737396da5cb4823072a94738eabd118b. Latest correct
 Original audit scope: managed public API and contract, native boundary, authorization semantics, provenance, packaging/CI, structure, and consumer usability. The follow-up below records implementation changes made after the review; publication remains pending.
 
 
+## Publisher usability follow-up — 2026-10-02
+
+Normal publish dispatches now leave both inputs blank: selection pins the
+dispatched commit and discovers successful CI for that exact SHA. Missing CI
+fails closed; it does not select a previous commit. Historical candidates need
+only the optional CI run ID; the SHA is derived and any supplied SHA is checked.
+The full 19-job/workflow/main-push/protected-environment/artifact checks remain
+in place. The validated identity is printed in the workflow summary and used
+for artifact download.
+
+Selection regressions cover exact-commit discovery, newer ineligible runs,
+missing/failed CI, historical overrides, mismatches and malformed inputs.
+The existing Linux managed CI job runs these tests. No package was published
+to test this change. Public-feed verification remains a separate manual step.
+
+
 ## Second-audit fix follow-up — 2026-10-02
 
 The four new P2 findings are fixed in implementation. This section supersedes

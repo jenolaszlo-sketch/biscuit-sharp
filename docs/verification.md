@@ -18,8 +18,10 @@ NativeAOT on each RID, compatibility and strict Valgrind passed.
 These artifacts were downloaded and fingerprinted locally; both portable PDB
 SourceLink mappings were reverified against the full selected SHA. The old
 5dd9e19 artifact below is superseded. After protected-environment configuration,
-publish.yml and verify-published.yml must use run 36943970067 and the full SHA
-above. Public-feed qualification and baseline restoration remain pending.
+For this recorded candidate, set the optional publish ci_run_id to 36943970067;
+its SHA is derived. verify-published.yml still takes that run ID and the full SHA
+above. Normal future publishes can leave both publisher inputs blank after the
+dispatch commit passes its full CI. Public-feed qualification and baseline restoration remain pending.
 
 
 Local Windows evidence: both managed TFMs pass, including all four parameter

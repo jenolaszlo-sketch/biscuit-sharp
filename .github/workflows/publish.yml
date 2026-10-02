@@ -4,12 +4,12 @@ on:
   workflow_dispatch:
     inputs:
       ci_run_id:
-        description: Successful full CI run ID for the reviewed release commit
-        required: true
+        description: Optional CI run override; blank selects CI for the dispatched commit
+        required: false
         type: string
       release_sha:
-        description: Full 40-character commit SHA covered by that CI run
-        required: true
+        description: Optional SHA override; blank derives it from the dispatch or selected run
+        required: false
         type: string
 
 permissions:
@@ -30,11 +30,44 @@ jobs:
       actions: read
       id-token: write
     steps:
+      - name: Resolve release identity
+        id: selection
+        uses: actions/github-script@v9
+        env:
+          REQUESTED_RUN_ID: ${{ inputs.ci_run_id }}
+          REQUESTED_SHA: ${{ inputs.release_sha }}
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            let runId = (process.env.REQUESTED_RUN_ID || '').trim();
+            let sha = (process.env.REQUESTED_SHA || '').trim();
+            if (runId && (!/^[0-9]+$/.test(runId) || !Number.isSafeInteger(Number(runId)) || Number(runId) < 1))
+              throw new Error('ci_run_id must be a positive numeric run ID');
+            if (!runId) {
+              sha ||= context.sha;
+              if (!/^[0-9a-f]{40}$/.test(sha)) throw new Error('release_sha must be a full lowercase commit SHA');
+              const runs = await github.paginate(github.rest.actions.listWorkflowRunsForWorkflow, {
+                owner, repo, workflow_id: 'ci.yml', head_sha: sha,
+                branch: 'main', event: 'push', status: 'success', per_page: 100
+              });
+              const eligible = runs.filter(run => run.head_sha === sha && run.head_branch === 'main'
+                && run.event === 'push' && run.status === 'completed' && run.conclusion === 'success');
+              eligible.sort((left, right) => right.run_number - left.run_number || right.id - left.id);
+              if (!eligible.length)
+                throw new Error('No successful CI run for commit ' + sha + '. Wait for its full CI run; older commits are never selected automatically.');
+              runId = String(eligible[0].id);
+            }
+            const { data: run } = await github.rest.actions.getWorkflowRun({ owner, repo, run_id: Number(runId) });
+            sha ||= run.head_sha;
+            if (!/^[0-9a-f]{40}$/.test(sha) || run.head_sha !== sha)
+              throw new Error('CI run SHA differs from the requested release SHA');
+            core.setOutput('ci_run_id', runId);
+            core.setOutput('release_sha', sha);
       - name: Validate requested release run
         env:
           GH_TOKEN: ${{ github.token }}
-          RUN_ID: ${{ inputs.ci_run_id }}
-          RELEASE_SHA: ${{ inputs.release_sha }}
+          RUN_ID: ${{ steps.selection.outputs.ci_run_id }}
+          RELEASE_SHA: ${{ steps.selection.outputs.release_sha }}
         shell: bash
         run: |
           [[ "$RELEASE_SHA" =~ ^[0-9a-f]{40}$ ]] || { echo "release_sha must be a full lowercase commit SHA"; exit 1; }
@@ -61,6 +94,13 @@ jobs:
             test "$found" -eq "$expected" || { echo "CI job matrix mismatch for $prefix: expected $expected, found $found"; exit 1; }
           done
           echo "release_sha=$RELEASE_SHA" >> "$GITHUB_OUTPUT"
+          echo "ci_run_id=$RUN_ID" >> "$GITHUB_OUTPUT"
+          {
+            echo "## Validated release identity"
+            echo "- Commit: $RELEASE_SHA"
+            echo "- CI run: https://github.com/$GITHUB_REPOSITORY/actions/runs/$RUN_ID"
+            echo "- All 19 full-matrix jobs passed."
+          } >> "$GITHUB_STEP_SUMMARY"
         id: release
 
       - uses: actions/checkout@v4
@@ -82,7 +122,7 @@ jobs:
       - name: Download immutable package artifact from validated CI run
         env:
           GH_TOKEN: ${{ github.token }}
-          RUN_ID: ${{ inputs.ci_run_id }}
+          RUN_ID: ${{ steps.release.outputs.ci_run_id }}
         run: gh run download "$RUN_ID" --repo "$GITHUB_REPOSITORY" --name nupkg --dir artifacts/packages
 
       - name: Verify package and symbols
