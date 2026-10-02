@@ -69,3 +69,8 @@ finally {
         Remove-Item -LiteralPath $resolvedWork -Recurse -Force
     }
 }
+
+# The compiler failure above is the expected successful outcome. GitHub's
+# PowerShell wrapper exits with LASTEXITCODE; do not leak the negative probe's
+# compiler status after its diagnostic has been verified.
+$global:LASTEXITCODE = 0
