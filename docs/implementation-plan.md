@@ -5,8 +5,10 @@ from 7892458 / CI 36946889887 and all six public-feed consumers passed.
 The 201-entry contract is re-frozen against that published baseline.
 Development 0.1.0-preview.2 passed the full 19-job matrix at a67b29a /
 CI 36968484267; it has not been published. Detailed milestones below retain
-their implementation history. Current evidence and stable-release requirements
-are in ROADMAP.md and verification.md. For scope see
+their implementation history. M3.1 integration specification/handoff is complete;
+M3.2 wrapper prerequisites and M3.3/M3.4 adapter qualification remain pending.
+Current evidence and stable-release requirements are in ROADMAP.md and
+verification.md. For scope see
 
 [architecture](architecture.md), [native boundary](native-boundary.md),
 [API contract](api-contract.md), and [security](security.md).
@@ -190,16 +192,87 @@ Exit: preview published; `verification.md` holds the exact evidence.
 
 ## M3: consumers and later
 
-Integrate separately into `Penghou.Hufu.Biscuit` (Hufu maps envelopes/grants
-into Biscuit facts/checks and owns revocation/Cedar policy/revisions/deltas/
-re-admission/approval). Later, only on concrete need: third-party blocks
-(request/signature/append/trusted-key), snapshots, performance caching,
-additional RIDs.
+Status 2026-10-02: the optional Hufu integration design is finalized at 69ff07a;
+the adapter is not implemented. Use the [specification](hufu-integration-spec.md),
+[source-reviewed handoff](hufu-integration-handoff.md) and
+[ADR 0003](decisions/0003-hufu-integration-profile.md). This selects an online,
+registered-token design, not a production Hufu host or a dependency of Hufu core.
+
+### M3.1: integration contract and handoff — complete
+
+- [x] Preserve the supplied proposal and define exact predicates, authenticated
+  context, key selection/rotation/lifetime, registered canonical bytes,
+  same-context attenuation, revocation ordering and structured failure mapping.
+- [x] Check the design against published BiscuitSharp and the current experimental
+  Hufu source; record missing host contracts and wrapper limitations.
+- [x] Exercise the exact fixed policy through the real win-x64 bridge on net8/net10:
+  11 cases pass on each, including authority/request/scope fact pollution and
+  read-only attenuation. This evidence does not qualify the complete adapter.
+
+### M3.2: generic wrapper prerequisites — pending
+
+- [ ] Add additive machine-readable reasons for fact, iteration and time limit
+  exhaustion; distinguish other evaluation failures and keep every failure closed.
+- [ ] Preserve existing public constructors/members, the 201-entry reviewed
+  surface unless deliberately amended, and binary compatibility with preview.1.
+- [ ] Run meaningful native/managed reason-mapping regressions, published-baseline
+  validation and the full release matrix for any wrapper behavior change.
+
+Gate: the adapter can produce AuthorizationBudgetExceeded from typed evidence.
+Until then evaluation_failure maps to AuthorizationFailure. Typed request/
+attenuation substitution is a separately reviewed wrapper option; a qualified
+centralized adapter literal writer is also permitted by the specification.
+
+### M3.3: Hufu adapter and authoritative host composition — pending
+
+- [ ] Define trusted workflow/activity/realm/audience bindings, grant-version/
+  layer selection, exact effect identity and provider-object bindings.
+- [ ] Supply Ed25519 signing-key leases and realm-scoped verification lookup;
+  implement bounded envelopes, protected credential custody and authenticated
+  issuance/derivation registration.
+- [ ] Implement only the closed profile's fixed facts/policy and structured
+  same-context restrictions. Reject unknown logic, profile or lineage.
+- [ ] Compose current authority, every revocation ID, scope/exclusions, time,
+  Biscuit and complete Hufu/Cedar layer checks with mandatory durable evidence.
+- [ ] Set host-owned evaluation limits using real policy/concurrency measurements.
+- [ ] Order credential revocation and key retirement with final Hufu operation
+  start, current versions/fences/policy and exact resource/effect checks.
+- [ ] Retain AlreadyStarted as historical/idempotent evidence, without redispatch.
+
+Owner: Penghou.Hufu.Biscuit and trusted Hufu host/store/enforcement composition.
+Keep workflow policy, grants, approval, resource canonicalization, evidence
+persistence and broker execution outside BiscuitSharp. Hufu's immediate governed
+Luban start/outcome work remains its own prerequisite; this optional transport
+does not replace or postpone it.
+
+### M3.4: consumer qualification and adapter freeze — pending
+
+- [ ] Begin with Hufu's supported Windows read profile, including concrete
+  metadata/traversal/release checks and required evidence.
+- [ ] Run the proposal and handoff conformance cases: no amplification or layer
+  override, workload binding, key/registration/budget failures, ancestor/child
+  revocation, exact start races and no replayed dispatch.
+- [ ] Exercise actual provider/object/link races and start/evidence failures;
+  mock-only tests do not establish confinement or ordered revocation.
+- [ ] Record exact consumer source, native/package/profile identities, platforms,
+  configured budgets and tested limits; freeze/publish the adapter separately.
+
+Gate: a real Hufu consumer passes complete integration conformance. Wrapper
+cross-platform CI does not qualify Hufu providers on other platforms. Mutation
+support requires its own qualified governed host and outcome-recovery protocol.
+
+Later, only on concrete need: cross-context or offline delegation profiles,
+third-party blocks, snapshots, performance caching, non-exportable signing and
+additional RIDs. Unsupported mappings remain explicitly rejected.
 
 ## Stable-release acceptance gate
 
-1.0.0 ships only when: the exact NuGet native assets were built and exercised on
-every advertised RID; every target passed a clean packaged consumer; NativeAOT
-executed per RID; token semantics were compared against direct upstream Rust
-bidirectionally; malformed/tampered inputs hardened; the public API contract
-frozen with package/native identity independently verifiable.
+Public XML documentation remains an open requirement before 1.0. Stable release
+qualification and publication are also pending.
+
+Before publishing 1.0.0, complete that documentation and qualify the exact stable
+candidate through the existing release gates: native assets built and exercised
+on every advertised RID; clean packaged consumers on both frameworks; per-RID
+NativeAOT execution; bidirectional direct-upstream compatibility; malformed-input
+and native-memory hardening; reviewed API contract and published-baseline checks;
+independently verifiable package/native identity.

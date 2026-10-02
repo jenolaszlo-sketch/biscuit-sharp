@@ -41,14 +41,42 @@ See docs/verification.md for exact artifacts, hashes and historical evidence.
 - [x] Qualify the three-RID 0.1.0-preview.2 development candidate with the
   restored published baseline in full CI (19/19 at a67b29a / 36968484267).
 
-## Stable release and consumers
+## Stable release
 
-- [ ] Require complete public XML documentation before 1.0 and validate the
-  stable candidate through the same release gates.
-- [x] Finalize the optional Hufu integration specification and source-reviewed
-  handoff; preserve the original proposal and explicit design amendments.
-- [ ] Integrate separately into Penghou.Hufu.Biscuit; measure its real policies
-  and choose explicit budgets. Integration is not a wrapper correctness gate.
+- [ ] Complete public XML documentation before 1.0.
+- [ ] Qualify and publish the stable candidate through the same API-baseline,
+  distribution, NativeAOT, packaged-consumer and native-safety gates.
+
+## M3: optional Hufu integration
+
+Design activity completed on 2026-10-02 in commit 69ff07a. See the
+[specification](docs/hufu-integration-spec.md), [handoff](docs/hufu-integration-handoff.md)
+and [ADR 0003](docs/decisions/0003-hufu-integration-profile.md).
+The [implementation plan](docs/implementation-plan.md#m3-consumers-and-later)
+defines the delivery gates. The adapter remains unimplemented.
+
+- [x] Finalize the source-reviewed specification and handoff; archive the original
+  proposal and document security-sensitive amendments.
+- [x] Exercise the fixed Datalog policy through the real Windows native bridge:
+  11 cases pass on each managed framework, including attenuation fact pollution.
+- [ ] Add machine-readable fact/iteration/time budget-exhaustion reasons while
+  preserving the published API baseline. Unclassified evaluation failures deny.
+- [ ] Define Hufu's trusted workflow/activity/realm/audience bindings, immutable
+  grant versions and exact request/provider identities.
+- [ ] Implement signing-key leases, bounded immutable envelopes, authenticated
+  issuance/derivation registration and realm-scoped revocation storage.
+- [ ] Qualify safe request/attenuation Datalog construction and explicit budgets;
+  preserve Hufu's complete authority-layer/Cedar/evidence composition.
+- [ ] Order per-block revocation and key retirement with exact durable operation
+  start; prove receipt replay never redispatches.
+- [ ] Qualify one real Hufu Windows read consumer and the integration conformance
+  suite before freezing or publishing the adapter separately.
+
+Hufu owns adapter and host/provider delivery. BiscuitSharp owns only generic
+wrapper enhancements needed by that consumer. This optional integration does
+not block wrapper preview qualification or replace Hufu's immediate governed
+Luban operation-start gate. Hufu policy/concurrency budget measurements remain
+a consumer requirement.
 
 Third-party blocks, snapshots, caching and additional RIDs remain deferred until
 a concrete consumer requires them. Publication of a preview does not claim 1.0
