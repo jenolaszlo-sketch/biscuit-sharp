@@ -1,5 +1,16 @@
 # BiscuitSharp roadmap
 
+## Current Hufu consumer slice — 2026-10-03
+
+The public keyring, async verification and corrected Local/Luban/Hufu.IO read
+authorization components pass 93 Biscuit, 99 existing Hufu and 19 IO cases per
+framework on Windows. Fixed-policy/host budgets are measured; full preflight
+remains sequential per shared database in this qualified local composition.
+The [handoff](docs/hufu-integration-handoff.md) records the findings and exact
+limits. Actual atomic read/mutation starts, production authentication/custody,
+published IO adoption, complete consumer/API freeze and adapter release remain
+open. The wrapper runtime and qualified preview.2 artifact are unchanged.
+
 Updated 2026-10-02. BiscuitSharp 0.1.0-preview.1 is published on NuGet.org from
 78924586b70f4188db6cfc47983f8171c78725f8 / CI 36946889887.
 All six public-feed consumers and content comparisons passed in
@@ -56,7 +67,7 @@ Design activity completed on 2026-10-02 in commit 69ff07a. See the
 [specification](docs/hufu-integration-spec.md), [handoff](docs/hufu-integration-handoff.md)
 and [ADR 0003](docs/decisions/0003-hufu-integration-profile.md).
 The [implementation plan](docs/implementation-plan.md#m3-consumers-and-later)
-defines the delivery gates. The optional adapter and SQLite start prototype are implemented locally; real provider qualification remains open.
+defines the delivery gates. The optional adapter and SQLite start prototype are implemented locally; complete host/start and published-provider qualification remain open.
 
 - [x] Finalize the source-reviewed specification and handoff; archive the original
   proposal and document security-sensitive amendments.
@@ -76,21 +87,23 @@ defines the delivery gates. The optional adapter and SQLite start prototype are 
 - [ ] Measure actual host policy/concurrency budgets and qualify key custody.
 - [x] Order per-block revocation and key retirement with exact durable operation
   start; prove receipt replay never redispatches.
-- [ ] Qualify one real Hufu Windows read consumer and the integration conformance
-  suite before freezing or publishing the adapter separately.
+- [x] Qualify the Windows Local/Luban/Hufu.IO read authorization components and
+  measure their fixed-policy/local-host budgets.
+- [ ] Complete exact start integration, supported consumer/API conformance, actual
+  published IO adoption and host custody/authentication before adapter freeze.
 
-The local Windows adapter suite passes 63 cases per TFM using the exact reviewed
-CI package, real Cedar and disk SQLite; the 95 existing Hufu cases also pass per
+The local Windows Biscuit suite passes 93 cases per TFM using the exact reviewed
+CI package, real Cedar and disk SQLite; the 99 existing Hufu and 19 IO cases also pass per
 TFM. The runtime start participant is a SQL fixture. See the
-[handoff](docs/hufu-integration-handoff.md#m33-local-implementation-and-next-handoff)
+[handoff](docs/hufu-integration-handoff.md#implemented-adapter-and-current-qualification)
 for the remaining real-provider, authentication/custody and release gates.
 Hufu source remains an uncommitted prototype; no adapter package was published.
 
 Hufu owns adapter and host/provider delivery. BiscuitSharp owns only generic
 wrapper enhancements needed by that consumer. This optional integration does
 not block wrapper preview qualification or replace Hufu's immediate governed
-Luban operation-start gate. Hufu policy/concurrency budget measurements remain
-a consumer requirement.
+Luban operation-start gate. Production host policy/concurrency and capacity sizing remain
+a consumer requirement beyond the measured local read profile.
 
 Third-party blocks, snapshots, caching and additional RIDs remain deferred until
 a concrete consumer requires them. Publication of a preview does not claim 1.0

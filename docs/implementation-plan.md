@@ -241,16 +241,19 @@ a qualified centralized adapter literal writer is also permitted by the specific
   same-context restrictions. Reject unknown logic, profile or lineage.
 - [x] Compose current authority, every revocation ID, scope/exclusions, time,
   Biscuit and complete Hufu/Cedar layer checks with mandatory durable evidence.
-- [ ] Set host-owned evaluation limits using real policy/concurrency measurements.
+- [x] Measure the fixed policy/local host and retain explicit local read limits
+  of 2000 facts, 50 iterations and 100 ms, with sequential full preflights per DB.
+- [ ] Qualify production workload/concurrency/deadline/capacity limits.
 - [x] Order credential revocation/key retirement with co-located SQLite start,
   current authority and exact host-provided start/evidence bindings.
 - [ ] Qualify the actual provider-object/effect binding and dispatch boundary.
 - [x] Retain AlreadyStarted as historical/idempotent evidence, without redispatch.
 
-Local evidence: 63 adapter tests and 95 existing Hufu tests pass per TFM on
+Local evidence: 93 Biscuit tests, 99 existing Hufu tests and 19 IO tests pass per TFM on
 Windows x64 against real Biscuit/Cedar/disk SQLite. Start uses a SQL runtime
-fixture; actual provider qualification and measured host budgets are open.
-See the [updated handoff](hufu-integration-handoff.md#m33-local-implementation-and-next-handoff).
+fixture; the read components and local budgets are qualified; complete host/start and
+published-provider qualification remain open.
+See the [updated handoff](hufu-integration-handoff.md#implemented-adapter-and-current-qualification).
 
 Owner: Penghou.Hufu.Biscuit and trusted Hufu host/store/enforcement composition.
 Keep workflow policy, grants, approval, resource canonicalization, evidence
@@ -260,8 +263,8 @@ does not replace or postpone it.
 
 ### M3.4: consumer qualification and adapter freeze — pending
 
-- [ ] Begin with Hufu's supported Windows read profile, including concrete
-  metadata/traversal/release checks and required evidence.
+- [x] Qualify the Windows read authorization components, including concrete
+  metadata/traversal/release checks, exclusions, revocation and required evidence.
 - [ ] Run the proposal and handoff conformance cases: no amplification or layer
   override, workload binding, key/registration/budget failures, ancestor/child
   revocation, exact start races and no replayed dispatch.

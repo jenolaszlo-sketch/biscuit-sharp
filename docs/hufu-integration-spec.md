@@ -1,8 +1,9 @@
 # Hufu ↔ BiscuitSharp integration specification
 
-Status: finalized design and implementation handoff, 2026-10-02. The adapter is
-not implemented or qualified. This specifies an optional Penghou.Hufu.Biscuit
-integration, without making Biscuit a dependency of Hufu core. It does not make
+Status: experimental adapter and Windows read components locally qualified,
+2026-10-03; complete host/start/release qualification remains open. This specifies
+the optional Penghou.Hufu.Biscuit integration, without making Biscuit a dependency
+of Hufu core. It does not make
 Hufu's experimental prototype a production authorization host.
 
 The [original 43-section proposal](archive/hufu-biscuit-integration-proposal-2026-10-02.md)
@@ -102,8 +103,13 @@ Capability mapping is closed and versioned:
 | ReadMetadata | fs.metadata |
 | PatchFile | fs.patch |
 | Release | data.release |
+| WriteFile | fs.write |
 
-fs.write is not an alias for PatchFile. Unknown actions fail closed.
+WriteFile is the separately selected conditional byte-write authority from the
+resource correction; fs.write is not an alias for PatchFile. Unknown actions fail closed.
+The mapping identity binds the profile, registered-grant mapping revision, fixed
+policy and complete action-to-capability table (hufu-biscuit-mapping-v2). A policy
+text hash alone cannot identify a changed action mapping.
 Representing PatchFile does not qualify a mutation provider or grant permission
 to dispatch it. Concrete metadata, traversal, content and release operations
 retain the distinct checks required by Hufu's Luban profile.

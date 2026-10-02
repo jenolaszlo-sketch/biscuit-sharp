@@ -23,7 +23,7 @@ layers and deny unless every applicable component permits.
 | --- | --- |
 | 2–3, 23–25, 34–36 | VerifyAsync authorizes/preflights; it does not execute the effect. The broker orders current checks with durable start. AlreadyStarted cannot redispatch. Required start evidence precedes dispatch. |
 | 4–8, 10, 31 | Bind tenant, realm, run, fence, audience, grant version and layer as well as the original fields. Revisions use exact strings to match Hufu; absent host workflow/activity bindings reject use. A single token represents one grant version, not a cross-product of multiple grants. |
-| 5–8 | Use the closed five-action Hufu mapping; PatchFile maps to fs.patch, not generic fs.write. Capability sets may repeat only within the same grant. Existing layered authority is not translated into a flat union. |
+| 5–8 | Use the closed Hufu mapping; the resource correction adds distinct WriteFile -> fs.write, while PatchFile remains fs.patch. Capability sets may repeat only within the same grant. Existing layered authority is not translated into a flat union. |
 | 6–8 | Pin authorizer policy to authority-origin/authorizer facts and separate their namespaces. Predicate names are not proof of origin. Authorizer policies never trust previous blocks. |
 | 7 | Reuse the existing workspace-relative resource pair and trusted provider identity. The illustrative file:/ URI is not a new canonicalization algorithm. scope_contains receives scope, workspace and path. |
 | 9–11, 23 | A subject/workflow/activity-bound credential cannot change those identities through attenuation. Same-context restriction is supported; cross-context delegation needs a separate authorized issuance/lineage profile. Biscuit proves signed bearer authority, not presenter authentication. |
