@@ -49,8 +49,9 @@ REST routes and real github-script v9 SDK coverage (19 successful jobs at
 6b011e83a53aa4cd2aa90d32c0ecedbb3898de9e / CI 36967314470).
 
 The published baseline is restored and the 201-entry API inventory remains
-frozen. Development version 0.1.0-preview.2 packs successfully against it
-locally; complete CI qualification of that baseline change is next.
+frozen. Development version 0.1.0-preview.2 passed all 19 jobs with the
+restored baseline at a67b29a8d6db24b1c7144ce8cbb83b5035a5ddb4 / CI 36968484267.
+Preview graduation is complete; this development version is not published.
 Complete public XML documentation remains a 1.0 requirement (CS1591 is
 suppressed for the preview).
 

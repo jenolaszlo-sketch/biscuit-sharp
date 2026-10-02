@@ -4,7 +4,9 @@ Updated 2026-10-02. BiscuitSharp 0.1.0-preview.1 is published on NuGet.org from
 78924586b70f4188db6cfc47983f8171c78725f8 / CI 36946889887.
 All six public-feed consumers and content comparisons passed in
 [verification 36968162532](https://github.com/jenolaszlo-sketch/biscuit-sharp/actions/runs/36968162532).
-The API baseline is restored; development continues at 0.1.0-preview.2.
+The API baseline is restored and the preview contract is re-frozen. All 19 jobs
+passed for development 0.1.0-preview.2 at a67b29a / CI 36968484267.
+Preview graduation is complete; 0.1.0-preview.2 has not been published.
 See docs/verification.md for exact artifacts, hashes and historical evidence.
 
 ## Implemented and qualified
@@ -29,14 +31,15 @@ See docs/verification.md for exact artifacts, hashes and historical evidence.
 ## Preview publication and contract freeze
 
 - [x] Qualify the second-audit fixes with a fresh complete release matrix.
-- [x] Configure the release environment and NuGet trusted publishing; successful protected-environment publication verifies that this setup is operational.
+- [x] Configure the release environment and NuGet trusted publishing;
+  successful publication verifies that this setup is operational.
 - [x] Publish 0.1.0-preview.1 from the exact qualified CI artifact.
 - [x] Restore from NuGet.org on all three platforms and both frameworks; compare
   published content against the qualified artifact.
 - [x] Restore PackageValidationBaselineVersion to 0.1.0-preview.1 and keep the
   201-entry preview contract frozen; local development pack passes.
-- [ ] Qualify the three-RID 0.1.0-preview.2 development candidate with the
-  restored published baseline in full CI.
+- [x] Qualify the three-RID 0.1.0-preview.2 development candidate with the
+  restored published baseline in full CI (19/19 at a67b29a / 36968484267).
 
 ## Stable release and consumers
 

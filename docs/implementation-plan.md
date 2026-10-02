@@ -1,12 +1,12 @@
 # Implementation plan
 
-Status 2026-10-02: M0/M1 are implemented and the full 19-job distribution and
-hardening matrix passed at 412f25f (run 36934972104), including the corrected
-legal bundles and real Valgrind workload. Preview graduation adds API inventory,
-budget probes and post-publication consumers. Publication, public-feed
-qualification and the published compatibility baseline remain sequential steps.
-Detailed milestones below retain their implementation history; current evidence
-and remaining gates are in ROADMAP.md and verification.md. For scope see
+Status 2026-10-02: preview graduation is complete. 0.1.0-preview.1 is published
+from 7892458 / CI 36946889887 and all six public-feed consumers passed.
+The 201-entry contract is re-frozen against that published baseline.
+Development 0.1.0-preview.2 passed the full 19-job matrix at a67b29a /
+CI 36968484267; it has not been published. Detailed milestones below retain
+their implementation history. Current evidence and stable-release requirements
+are in ROADMAP.md and verification.md. For scope see
 
 [architecture](architecture.md), [native boundary](native-boundary.md),
 [API contract](api-contract.md), and [security](security.md).

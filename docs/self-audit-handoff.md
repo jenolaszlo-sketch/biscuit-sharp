@@ -31,11 +31,22 @@ execution is covered by the original qualified CI artifact.
 | BiscuitSharp.0.1.0-preview.1.snupkg | 07d845c40ad83919a3f854dcc4e803a69b520b1cb7f39624da28f21f10b87c6c |
 
 PackageValidationBaselineVersion is restored to 0.1.0-preview.1. The development
-version is 0.1.0-preview.2; it has not been published. A local Windows single-RID
-pack passed against the published binary baseline with zero warnings/errors,
-and both framework inventories still match all 201 entries. The next complete
-CI run will validate the three-RID development package with this baseline.
-The contract, API inventory, upstream pin, lockfile and ABI remain frozen.
+version is 0.1.0-preview.2; it has not been published. All 19 jobs passed at
+a67b29a8d6db24b1c7144ce8cbb83b5035a5ddb4 in
+[CI 36968484267](https://github.com/jenolaszlo-sketch/biscuit-sharp/actions/runs/36968484267).
+This validates the three-RID development package against the published binary
+baseline, including six packaged consumers and net10 NativeAOT on each platform.
+A local Windows single-RID pack independently passed with zero warnings/errors;
+the SDK diagnostic confirms the preview.1 archive was the baseline input.
+Both framework inventories still match all 201 entries. The contract, API
+inventory, upstream pin, lockfile and ABI remain frozen. Preview graduation is
+complete. This final release-record update changes documentation only.
+
+| Qualified development artifact (not published) | SHA-256 |
+| --- | --- |
+| BiscuitSharp.0.1.0-preview.2.nupkg | c86a425b72496abe4d7dfb63b24514c172c9b92d5d3419fc06520eda887ab6d1 |
+| BiscuitSharp.0.1.0-preview.2.snupkg | 86b619891c26af862bfa6b0889d124b4bdfcef5f3e9deac12bbe8126f33d1ebe |
+
 Stable 1.0 still requires complete public XML documentation; Hufu integration
 and its workload budgets remain separate consumer work.
 

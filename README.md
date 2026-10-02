@@ -17,7 +17,11 @@ It is useful when authority must travel with the request: delegated access, offl
 
 ## Try it
 
-Install the published preview with dotnet add package BiscuitSharp --version 0.1.0-preview.1.
+Install the published preview:
+
+```sh
+dotnet add package BiscuitSharp --version 0.1.0-preview.1
+```
 
 ```csharp
 using BiscuitSharp;
