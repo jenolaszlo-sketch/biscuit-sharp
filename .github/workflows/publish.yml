@@ -46,7 +46,7 @@ jobs:
             if (!runId) {
               sha ||= context.sha;
               if (!/^[0-9a-f]{40}$/.test(sha)) throw new Error('release_sha must be a full lowercase commit SHA');
-              const runs = await github.paginate(github.rest.actions.listWorkflowRunsForWorkflow, {
+              const runs = await github.paginate('GET /repos/{owner}/{repo}/actions/workflows/{workflow_id}/runs', {
                 owner, repo, workflow_id: 'ci.yml', head_sha: sha,
                 branch: 'main', event: 'push', status: 'success', per_page: 100
               });
@@ -57,7 +57,7 @@ jobs:
                 throw new Error('No successful CI run for commit ' + sha + '. Wait for its full CI run; older commits are never selected automatically.');
               runId = String(eligible[0].id);
             }
-            const { data: run } = await github.rest.actions.getWorkflowRun({ owner, repo, run_id: Number(runId) });
+            const { data: run } = await github.request('GET /repos/{owner}/{repo}/actions/runs/{run_id}', { owner, repo, run_id: Number(runId) });
             sha ||= run.head_sha;
             if (!/^[0-9a-f]{40}$/.test(sha) || run.head_sha !== sha)
               throw new Error('CI run SHA differs from the requested release SHA');

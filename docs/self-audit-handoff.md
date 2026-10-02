@@ -6,6 +6,23 @@ Original reviewed HEAD: fb82be79737396da5cb4823072a94738eabd118b. Latest correct
 Original audit scope: managed public API and contract, native boundary, authorization semantics, provenance, packaging/CI, structure, and consumer usability. The follow-up below records implementation changes made after the review; publication remains pending.
 
 
+## Publisher discovery correction — 2026-10-02
+
+The blank-input publisher failed after CI 36946889887 had already succeeded at
+78924586b70f4188db6cfc47983f8171c78725f8. github-script v9 renamed
+listWorkflowRunsForWorkflow to listWorkflowRuns. The obsolete method was
+undefined; passing it to paginate made a GET request to the API root and
+returned no eligible runs. The original fixture supplied that obsolete method
+and therefore missed the SDK integration defect.
+
+The resolver now uses explicit REST route strings for both discovery and run
+lookup. Its mocks reject missing/wrong routes, and CI adds a real action-SDK
+check that discovers its own workflow run. The actual v9 distribution reproduced
+the root request locally; the corrected resolver with that SDK and the live
+public API selected run 36946889887 and the exact original SHA. Full-matrix,
+main-push, SHA, artifact and environment gates are preserved.
+
+
 ## Publisher usability follow-up — 2026-10-02
 
 Normal publish dispatches now leave both inputs blank: selection pins the

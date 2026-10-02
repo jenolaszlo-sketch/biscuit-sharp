@@ -18,7 +18,10 @@ jobs:
         if: matrix.os == 'ubuntu-latest'
         uses: actions/github-script@v9
         with:
-          script: await require('./eng/Test-ReleaseSelection.cjs');
+          script: |
+            const checks = require('./eng/Test-ReleaseSelection.cjs');
+            await checks;
+            await checks.checkSdk(github, context);
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: |

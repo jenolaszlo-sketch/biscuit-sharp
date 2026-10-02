@@ -19,16 +19,19 @@ async function select({ id = '', sha = '', runs = [], lookup = runs, dispatch = 
     const outputs = {};
     const calls = [];
     const github = {
-        rest: { actions: {
-            listWorkflowRunsForWorkflow: {},
-            getWorkflowRun: async request => {
-                calls.push({ get: request });
-                const found = lookup.find(item => item.id === request.run_id);
-                if (!found) throw new Error('Run not found');
-                return { data: found };
-            }
-        }},
-        paginate: async (_method, request) => { calls.push({ list: request }); return runs; }
+        request: async (route, request) => {
+            assert.equal(route, 'GET /repos/{owner}/{repo}/actions/runs/{run_id}');
+            calls.push({ get: request });
+            const found = lookup.find(item => item.id === request.run_id);
+            if (!found) throw new Error('Run not found');
+            return { data: found };
+        },
+        paginate: async (route, request) => {
+            // Passing an undefined SDK method otherwise queries the API root.
+            assert.equal(route, 'GET /repos/{owner}/{repo}/actions/workflows/{workflow_id}/runs');
+            calls.push({ list: request });
+            return runs;
+        }
     };
     await resolve(github, { repo: { owner: 'owner', repo: 'repo' }, sha: dispatch },
         { setOutput: (name, value) => { outputs[name] = value; } },
@@ -70,3 +73,17 @@ module.exports = (async () => {
     assert.equal((workflow.match(/required: false/g) || []).length, 2);
     console.log('Release selection passed: exact-commit discovery, historical overrides, fail-closed rejection, validated artifact binding.');
 })();
+
+// Exercise the routes actually used by the resolver with the action's real SDK.
+// Query this CI run's own SHA, so no historical run or artifact is required.
+module.exports.checkSdk = async (github, context) => {
+    const getRoute = body.match(/github\.request\('([^']+)'/)[1];
+    const listRoute = body.match(/github\.paginate\('([^']+)'/)[1];
+    const { owner, repo } = context.repo;
+    const { data: thisRun } = await github.request(getRoute, { owner, repo, run_id: context.runId });
+    const runs = await github.paginate(listRoute, {
+        owner, repo, workflow_id: thisRun.workflow_id, head_sha: thisRun.head_sha, per_page: 100
+    });
+    assert(runs.some(item => item.id === context.runId), 'Real SDK discovery did not return this CI run');
+    console.log('Real github-script SDK routes found this CI run: ' + context.runId);
+};
