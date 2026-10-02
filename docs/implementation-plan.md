@@ -209,7 +209,7 @@ registered-token design, not a production Hufu host or a dependency of Hufu core
   11 cases pass on each, including authority/request/scope fact pollution and
   read-only attenuation. This evidence does not qualify the complete adapter.
 
-### M3.2: generic wrapper prerequisites — implemented, qualification in progress
+### M3.2: generic wrapper prerequisites — complete
 
 - [x] Add machine-readable reasons for fact, iteration and time limit exhaustion;
   distinguish expression/query/other evaluation failures and keep failures closed.
@@ -217,13 +217,15 @@ registered-token design, not a production Hufu host or a dependency of Hufu core
   The maintainer has explicitly deprioritized additional compatibility work
   during early adoption; the existing package gate remains in place.
 - [x] Run native and both-TFM managed reason-mapping regressions on Windows.
-- [ ] Complete isolated package/NativeAOT consumer and full release-matrix checks;
-  record exact evidence in verification.md before qualifying this candidate.
+- [x] Complete isolated package/NativeAOT consumer and full release-matrix checks:
+  19/19 passed at f892857 / CI 36979786333. The exact CI package also passed
+  13 Windows Hufu fixed-policy checks per TFM; evidence is in verification.md.
 
-Gate: the adapter can produce AuthorizationBudgetExceeded from typed evidence.
-Until then evaluation_failure maps to AuthorizationFailure. Typed request/
-attenuation substitution is a separately reviewed wrapper option; a qualified
-centralized adapter literal writer is also permitted by the specification.
+Gate met: the adapter can map the three typed limit reasons to
+AuthorizationBudgetExceeded when it consumes this qualified candidate.
+Other/null reasons and preview.1 evaluation_failure map to AuthorizationFailure.
+Typed request/attenuation substitution is a separately reviewed wrapper option;
+a qualified centralized adapter literal writer is also permitted by the specification.
 
 ### M3.3: Hufu adapter and authoritative host composition — pending
 

@@ -15,9 +15,14 @@ and net10 consumers, and package-reference net10 NativeAOT execution. The
 packaged consumer now checks all three budget reasons, expression failure,
 ordinary denial and a roomy Allow; CI reuses it on all supported platforms.
 
-The current candidate still needs its own complete CI run. Previous release
-artifacts/runs below do not qualify these changed bits. Preview.2 remains
-unpublished. Publication is separate from this implementation.
+The candidate is qualified at f89285702ebade4b7fe92e4bfb2f72080c8d72ab by
+[CI 36979786333](https://github.com/jenolaszlo-sketch/biscuit-sharp/actions/runs/36979786333):
+all 19 jobs pass, including six typed package consumers, NativeAOT on all three
+RIDs and strict Valgrind. The exact CI package also passed 13 fixed Hufu policy
+checks per TFM on Windows with an isolated cache and no native override.
+M3.2 is complete. Preview.2 remains unpublished; publication is separate.
+The exact current artifact hashes are in verification.md. Older artifacts below
+do not cover this enhancement.
 
 The Hufu spec/handoff now selects only FactLimitExceeded,
 IterationLimitExceeded and TimeLimitExceeded as AuthorizationBudgetExceeded.

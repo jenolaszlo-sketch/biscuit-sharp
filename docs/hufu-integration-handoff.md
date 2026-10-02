@@ -10,8 +10,10 @@ proposal is preserved [verbatim](archive/hufu-biscuit-integration-proposal-2026-
 BiscuitSharp 0.1.0-preview.1 is published and qualified on win-x64, linux-x64 and
 osx-arm64 with .NET 8/10. The earlier development 0.1.0-preview.2 passed the full
 19-job matrix at a67b29a / CI 36968484267. The current candidate adds typed runtime
-reasons and has passed native/managed/packaged-consumer/NativeAOT Windows checks;
-its complete cross-platform CI is pending. It is not published.
+reasons and passed all 19 cross-platform jobs at f892857 / CI 36979786333,
+including six typed packaged consumers and NativeAOT on all three RIDs.
+The exact CI package also passed 13 fixed-policy checks per TFM on Windows.
+It is not published.
 See [wrapper verification](verification.md) for exact candidate evidence.
 
 The latest release-record commit inspected before this documentation work was
@@ -144,6 +146,13 @@ passed per framework: exact-context read, explicit parent capability set,
 missing capability, subject/revision mismatch, missing trusted scope, attenuation
 authority/request/scope pollution, read-only child Allow and child patch Deny.
 The scratch probe lives in ignored artifacts/hufu-spec-policy-probe.
+
+The wrapper follow-up exercised the same 11 cases plus zero-time Deny and typed
+TimeLimitExceeded against the exact three-RID CI 36979786333 package on Windows:
+13 passed on net8.0 and 13 on net10.0. The isolated restored nupkg hash equals the
+selected artifact; no native override or project reference was used. The scratch
+package consumer lives in ignored artifacts/hufu-package-policy-probe.
+This adds package-consumption evidence, not adapter/store/start qualification.
 
 This verifies policy parsing and representative upstream origin/attenuation
 behavior. It does not qualify a general literal writer, key/registration/store

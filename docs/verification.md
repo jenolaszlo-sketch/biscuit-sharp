@@ -1,10 +1,34 @@
 # Verification
 
-## M3.2 local typed-failure verification — 2026-10-02
+## M3.2 typed-failure qualification — 2026-10-02
 
-Implemented against the working tree based on f057b1c. This section supersedes
-the older 201-entry surface for current development preview.2. The published
-preview.1 and its evidence are unchanged.
+Implementation f89285702ebade4b7fe92e4bfb2f72080c8d72ab passed all 19 jobs in
+[CI 36979786333](https://github.com/jenolaszlo-sketch/biscuit-sharp/actions/runs/36979786333).
+This qualifies the 210-entry development preview.2 candidate on win-x64,
+linux-x64 and osx-arm64, including both managed TFMs, native release/lints,
+distribution, legal/source/tamper gates, exact-SHA SourceLink, six typed packaged
+consumers, package-reference net10 NativeAOT on every RID and strict Linux
+Valgrind. Preview.2 is not published.
+
+Downloaded exact CI artifacts (before any NuGet repository signing):
+
+| Artifact | SHA-256 |
+| --- | --- |
+| BiscuitSharp.0.1.0-preview.2.nupkg | c5f0c94aa14cf82b68239ed49314a3cf468780337432cdff89975beed6ead3b1 |
+| BiscuitSharp.0.1.0-preview.2.snupkg | 01fed20b3984e139f745006e5135e4fcb2601844ccd5e4b77251cfdd5986b256 |
+
+The exact three-RID nupkg additionally passed 13 Hufu fixed-policy checks on each
+of net8.0/net10.0 on Windows, including origin-scoped attenuation pollution and
+typed zero-time denial. Restore used only the selected artifact feed and a new
+isolated cache, with no project reference or native override; the restored
+archive SHA-256 matched the table. Probe output is
+PACKAGED_SPEC_POLICY_PROBE_PASSED cases=13; scratch source is ignored under
+artifacts/hufu-package-policy-probe. This verifies a policy package consumer,
+not a complete Hufu adapter or host enforcement.
+
+The local implementation checks below were executed against the working tree
+based on f057b1c. Older 201-entry records are historical; published preview.1
+and its evidence are unchanged.
 
 | Windows x64 check | Result |
 | --- | --- |
@@ -21,7 +45,7 @@ preview.1 and its evidence are unchanged.
 Local package output: artifacts/hufu-budget-reasons. It contains only win-x64;
 it is not the three-RID release artifact. The enum/property are generic wrapper
 diagnostics; this is not Hufu adapter implementation or Hufu workload qualification.
-Current full cross-platform CI evidence is pending. No new package was published.
+Full cross-platform CI is qualified in the exact run above. No new package was published.
 
 ## Published preview and restored baseline — 2026-10-02
 

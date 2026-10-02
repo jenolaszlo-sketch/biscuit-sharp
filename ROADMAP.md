@@ -7,7 +7,8 @@ All six public-feed consumers and content comparisons passed in
 The API baseline is restored. All 19 jobs passed for the earlier development
 0.1.0-preview.2 at a67b29a / CI 36968484267. The current development candidate
 adds typed evaluation reasons; its reviewed API inventory has 210 entries.
-That earlier run does not qualify the new implementation.
+The new implementation is qualified at f892857 by all 19 jobs in
+[CI 36979786333](https://github.com/jenolaszlo-sketch/biscuit-sharp/actions/runs/36979786333).
 Preview graduation is complete; 0.1.0-preview.2 has not been published.
 See docs/verification.md for exact artifacts, hashes and historical evidence.
 
@@ -62,9 +63,10 @@ defines the delivery gates. The adapter remains unimplemented.
 - [x] Exercise the fixed Datalog policy through the real Windows native bridge:
   11 cases pass on each managed framework, including attenuation fact pollution.
 - [x] Implement machine-readable fact/iteration/time budget-exhaustion reasons;
-  expression/query/other failures stay distinct. Native and both-TFM Windows
-  regressions pass; package-consumer and full-matrix qualification are recorded
-  in docs/verification.md. Development preview.2 remains unpublished.
+  expression/query/other failures stay distinct. Full CI passed 19/19 at
+  f892857 / 36979786333, including typed packaged-consumer/NativeAOT checks.
+  The exact CI package passed 13 Hufu fixed-policy checks per TFM on Windows.
+  Development preview.2 remains unpublished.
 - [ ] Define Hufu's trusted workflow/activity/realm/audience bindings, immutable
   grant versions and exact request/provider identities.
 - [ ] Implement signing-key leases, bounded immutable envelopes, authenticated
