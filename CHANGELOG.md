@@ -1,6 +1,11 @@
 # Changelog
 
-## 0.1.0-preview.1 — qualified release candidate
+## Unreleased — 0.1.0-preview.2
+
+- Restore package compatibility validation against published 0.1.0-preview.1.
+- Fix automatic CI discovery for github-script v9 and verify the real SDK route.
+
+## 0.1.0-preview.1 — 2026-10-02
 
 - Qualified three native RIDs with full legal inventories, NativeAOT, six clean
   consumers and the corrected strict Valgrind workload.
@@ -8,7 +13,10 @@
   malformed response taxonomy and key-store allocation cleanup.
 - Freeze the reviewed preview API inventory and documented wrapper semantics.
 - Add budget probes, SourceLink identity checks and public-feed verification.
-- Publication and published-baseline restoration are pending.
+- Published package and symbols through NuGet trusted publishing. All six public-feed
+  consumers passed and restored content matches the qualified release artifact.
+- Complete source-bound legal verification, seal BiscuitParam construction,
+  cover operators/protected members in the API inventory and validate inspection responses.
 
 ## Implementation history
 

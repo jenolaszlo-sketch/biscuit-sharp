@@ -6,7 +6,7 @@
     <IsAotCompatible>true</IsAotCompatible>
     <IsTrimmable>true</IsTrimmable>
     <PackageId>BiscuitSharp</PackageId>
-    <Version>0.1.0-preview.1</Version>
+    <Version>0.1.0-preview.2</Version>
     <Title>BiscuitSharp</Title>
     <Description>Unofficial .NET wrapper around the Biscuit authorization token engine (biscuit-auth), preserving token, attenuation, and authorizer semantics. Trim- and NativeAOT-compatible.</Description>
     <PackageProjectUrl>https://github.com/jenolaszlo-sketch/biscuit-sharp</PackageProjectUrl>
@@ -20,9 +20,7 @@
     <IncludeSymbols>true</IncludeSymbols>
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
     <EnablePackageValidation>true</EnablePackageValidation>
-    <!-- No API-compatibility baseline until the first preview is published; a
-         baseline version that is not on NuGet makes `dotnet pack` fail. Add
-         PackageValidationBaselineVersion once 0.1.0-preview.1 is public. -->
+    <PackageValidationBaselineVersion>0.1.0-preview.1</PackageValidationBaselineVersion>
     <!-- Packaging stays opt-in: pass -p:BiscuitSharpEnablePack=true. Without it the project is not packable by design. -->
     <IsPackable Condition="'$(BiscuitSharpEnablePack)' != 'true'">false</IsPackable>
     <IsPackable Condition="'$(BiscuitSharpEnablePack)' == 'true'">true</IsPackable>

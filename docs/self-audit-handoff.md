@@ -2,9 +2,42 @@
 
 Audit date: 2026-10-01 (Asia/Manila).
 Repository: C:\Users\Laszlos\source\repos\biscuit-sharp
-Original reviewed HEAD: fb82be79737396da5cb4823072a94738eabd118b. Latest corrected implementation: 112bdffaaa933da594588ba256ea0db6efbb211f (qualified fix follow-up below).
-Original audit scope: managed public API and contract, native boundary, authorization semantics, provenance, packaging/CI, structure, and consumer usability. The follow-up below records implementation changes made after the review; publication remains pending.
+Original reviewed HEAD: fb82be79737396da5cb4823072a94738eabd118b. Published release SHA: 78924586b70f4188db6cfc47983f8171c78725f8. Publisher correction: 6b011e83a53aa4cd2aa90d32c0ecedbb3898de9e.
+Original audit scope: managed public API and contract, native boundary, authorization semantics, provenance, packaging/CI, structure, and consumer usability. The release record below supersedes historical pending steps and candidate selections.
 
+
+## Published preview and restored baseline — 2026-10-02
+
+BiscuitSharp 0.1.0-preview.1 is [available on NuGet.org](https://www.nuget.org/packages/BiscuitSharp/0.1.0-preview.1).
+This record supersedes the historical candidate selections and pending release
+steps below. The published candidate is
+78924586b70f4188db6cfc47983f8171c78725f8, qualified by all 19 jobs in
+[CI 36946889887](https://github.com/jenolaszlo-sketch/biscuit-sharp/actions/runs/36946889887).
+The corrected publisher at 6b011e83a53aa4cd2aa90d32c0ecedbb3898de9e also passed
+all 19 jobs in [CI 36967314470](https://github.com/jenolaszlo-sketch/biscuit-sharp/actions/runs/36967314470).
+
+[Publication 36967314658](https://github.com/jenolaszlo-sketch/biscuit-sharp/actions/runs/36967314658)
+succeeded using NuGet trusted login. NuGet accepted the package at 05:07:39 UTC
+and symbols at 05:09:44 UTC. All six isolated NuGet.org consumers passed in
+[verification 36968162532](https://github.com/jenolaszlo-sketch/biscuit-sharp/actions/runs/36968162532):
+.NET 8/10 on Windows x64, Linux x64 and macOS arm64. Each compared every restored
+archive entry with the selected CI artifact, excluding the NuGet repository
+signature. Public-feed restore and ordinary execution are verified; NativeAOT
+execution is covered by the original qualified CI artifact.
+
+| Uploaded artifact | SHA-256 before NuGet repository signing |
+| --- | --- |
+| BiscuitSharp.0.1.0-preview.1.nupkg | 7c240882c8b63b91f9fe122ff39529ceb08f1090200e60c15b443d7e91e7323e |
+| BiscuitSharp.0.1.0-preview.1.snupkg | 07d845c40ad83919a3f854dcc4e803a69b520b1cb7f39624da28f21f10b87c6c |
+
+PackageValidationBaselineVersion is restored to 0.1.0-preview.1. The development
+version is 0.1.0-preview.2; it has not been published. A local Windows single-RID
+pack passed against the published binary baseline with zero warnings/errors,
+and both framework inventories still match all 201 entries. The next complete
+CI run will validate the three-RID development package with this baseline.
+The contract, API inventory, upstream pin, lockfile and ABI remain frozen.
+Stable 1.0 still requires complete public XML documentation; Hufu integration
+and its workload budgets remain separate consumer work.
 
 ## Publisher discovery correction — 2026-10-02
 

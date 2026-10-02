@@ -1,13 +1,11 @@
 # BiscuitSharp roadmap
 
-Updated 2026-10-02. All 19 jobs passed for the second-audit fixes at
-112bdffaaa933da594588ba256ea0db6efbb211f
-([CI run 36943970067](https://github.com/jenolaszlo-sketch/biscuit-sharp/actions/runs/36943970067)).
-This includes source-bound legal material, closed parameters, the expanded API
-inventory, strict inspection decoding, process-RID selection, concurrent
-default-budget evidence and package-reference NativeAOT on all three RIDs.
-Publication awaits protected environment approval configuration.
-
+Updated 2026-10-02. BiscuitSharp 0.1.0-preview.1 is published on NuGet.org from
+78924586b70f4188db6cfc47983f8171c78725f8 / CI 36946889887.
+All six public-feed consumers and content comparisons passed in
+[verification 36968162532](https://github.com/jenolaszlo-sketch/biscuit-sharp/actions/runs/36968162532).
+The API baseline is restored; development continues at 0.1.0-preview.2.
+See docs/verification.md for exact artifacts, hashes and historical evidence.
 
 ## Implemented and qualified
 
@@ -31,12 +29,14 @@ Publication awaits protected environment approval configuration.
 ## Preview publication and contract freeze
 
 - [x] Qualify the second-audit fixes with a fresh complete release matrix.
-- [ ] Configure the protected release environment and NuGet trusted publishing.
-- [ ] Publish 0.1.0-preview.1 from the exact qualified CI artifact.
-- [ ] Restore from NuGet.org on all three platforms and both frameworks; compare
+- [x] Configure the release environment and NuGet trusted publishing; successful protected-environment publication verifies that this setup is operational.
+- [x] Publish 0.1.0-preview.1 from the exact qualified CI artifact.
+- [x] Restore from NuGet.org on all three platforms and both frameworks; compare
   published content against the qualified artifact.
-- [ ] Restore PackageValidationBaselineVersion to 0.1.0-preview.1 after it is
-  publicly available, validate the next candidate against it and re-freeze.
+- [x] Restore PackageValidationBaselineVersion to 0.1.0-preview.1 and keep the
+  201-entry preview contract frozen; local development pack passes.
+- [ ] Qualify the three-RID 0.1.0-preview.2 development candidate with the
+  restored published baseline in full CI.
 
 ## Stable release and consumers
 

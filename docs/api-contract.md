@@ -122,8 +122,8 @@ failures, and ordinary denial are never flattened into one error.
   published and executed against staging per RID; CI also publishes/runs clean
   package-reference NativeAOT consumers on net10 for each RID (not just the
   analyzer).
-- Package validation runs against the latest published preview baseline once M2
-  ships the first preview.
+- Package validation checks development packages against the published
+  0.1.0-preview.1 binary baseline on both target frameworks.
 
 ## Checked surface inventory
 
@@ -133,5 +133,5 @@ constraints and trimming annotations. CI runs BiscuitSharp.ApiSurface on net8.0
 and net10.0 and fails on drift. Regenerate with --write only when the new surface
 has been reviewed. The tool records selected contract attributes (Obsolete, RequiresUnreferencedCode
 and RequiresDynamicCode), not every CLR attribute. This readable inventory is a
-pre-publication surface gate; package validation
-against the first published preview remains the binary compatibility gate.
+readable surface gate; package validation
+against published 0.1.0-preview.1 is the binary compatibility gate.

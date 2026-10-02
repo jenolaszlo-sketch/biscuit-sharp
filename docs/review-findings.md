@@ -39,14 +39,20 @@ successful runs do not qualify the changed code.
   keys. Synthetic ordinary/concurrent/hostile-growth evidence is recorded in
   authorizer-budget.md. Hufu-specific policy budgeting stays external.
 
-## Release steps still open
+## Preview graduation
 
-- Public-feed qualification after publication; the implementation matrix is green.
-- Protected release environment, trusted publishing and preview publication.
-- Public-feed consumers/content identity on all supported RID/TFM combinations.
-- Published preview compatibility baseline and final contract re-freeze.
-- Complete public XML documentation before 1.0 (CS1591 remains suppressed for
-  the preview).
+Published 0.1.0-preview.1 from 78924586b70f4188db6cfc47983f8171c78725f8 /
+CI 36946889887 through NuGet trusted publishing in run 36967314658.
+All six public-feed consumers and archive identity comparisons passed in
+verification 36968162532. The publisher discovery defect is fixed with explicit
+REST routes and real github-script v9 SDK coverage (19 successful jobs at
+6b011e83a53aa4cd2aa90d32c0ecedbb3898de9e / CI 36967314470).
+
+The published baseline is restored and the 201-entry API inventory remains
+frozen. Development version 0.1.0-preview.2 packs successfully against it
+locally; complete CI qualification of that baseline change is next.
+Complete public XML documentation remains a 1.0 requirement (CS1591 is
+suppressed for the preview).
 
 ## Documented limits and deferred capabilities
 

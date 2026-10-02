@@ -7,14 +7,17 @@
 
 It is useful when authority must travel with the request: delegated access, offline attenuation, and capability-style checks that remain verifiable without a central policy call. BiscuitSharp preserves Biscuit semantics and keeps valid-token, authorized-request, and failure states distinct so the application can enforce explicitly.
 
-> Status: the complete 19-job release matrix passed on win-x64, linux-x64 and
-> osx-arm64, including .NET 8/10 packaged consumers, NativeAOT, full legal
-> inventories and the 50-cycle Valgrind probe. Preview publication and the
-> published-package compatibility baseline are being prepared.
+> Status: [0.1.0-preview.1 is published](https://www.nuget.org/packages/BiscuitSharp/0.1.0-preview.1).
+> The complete 19-job release matrix and six NuGet.org consumers passed on
+> win-x64, linux-x64 and osx-arm64 (.NET 8/10), including package identity checks.
+> NativeAOT, full legal inventories and the 50-cycle Valgrind probe are qualified.
+> The published API baseline is restored; development is at 0.1.0-preview.2.
 > See [verification](docs/verification.md), [roadmap](ROADMAP.md) and the
 > checked [public API inventory](docs/public-api.txt).
 
 ## Try it
+
+Install the published preview with dotnet add package BiscuitSharp --version 0.1.0-preview.1.
 
 ```csharp
 using BiscuitSharp;

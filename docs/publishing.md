@@ -34,8 +34,9 @@ Before dispatching `publish.yml`, configure these repository settings:
 The workflow uses [NuGet/login](https://github.com/NuGet/login) to exchange the
 GitHub Actions OIDC token for a short-lived NuGet API key. See Microsoft's
 [NuGet Trusted Publishing guide](https://learn.microsoft.com/en-us/nuget/nuget-org/trusted-publishing)
-for policy setup. This repository change does not create the environment,
-secret, or NuGet.org policy and does not publish a package.
+for policy setup. These settings are configured through GitHub and NuGet.org.
+The first preview was published successfully on 2026-10-02; exact release
+identity and public-feed results are recorded in verification.md.
 
 ## After publication
 
@@ -44,9 +45,10 @@ and full SHA; copy them from the publisher summary when running public-feed
 verification. This change automates publisher selection, not that separate step.
 Its six jobs restore from NuGet.org with isolated caches, run the packaged smoke
 on every supported RID/TFM and compare all archive content with the qualified
-artifact (excluding the NuGet repository signature). Once these pass, add
-PackageValidationBaselineVersion=0.1.0-preview.1 and validate the next candidate
-version against the published baseline before re-freezing the contract.
+artifact (excluding the NuGet repository signature). These checks passed for
+0.1.0-preview.1. The project now uses PackageValidationBaselineVersion=0.1.0-preview.1
+and development version 0.1.0-preview.2. For each later publication, validate the
+next candidate against the latest published baseline before re-freezing the contract.
 
 The API inventory check is independent of NuGet availability. The pack gate also
 checks portable PDB SourceLink mappings against the exact release SHA.
