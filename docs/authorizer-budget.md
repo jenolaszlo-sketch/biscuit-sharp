@@ -1,5 +1,16 @@
 # Authorization budget measurements
 
+## Typed failure follow-up — development preview.2
+
+The wrapper now exposes typed fact/iteration/time exhaustion, expression errors,
+unexpected query cardinality and other failures. Hufu should consume
+EvaluationFailureReason, never parse display text. Only the three limit-exceeded
+values map to AuthorizationBudgetExceeded.
+
+The reason reports which upstream limit ended evaluation, not a per-budget
+usage counter, cancellation guarantee or hard memory cap. Existing measurements
+below are historical and are not a Hufu policy workload qualification.
+
 Measured 2026-10-02 on Windows x64, .NET 8, Release managed build and the pinned
 Rust 1.89.0 release bridge. Command: dotnet run -c Release --project
 tests/BiscuitSharp.BudgetProbe --framework net8.0, with BISCUITSHARP_NATIVE_PATH

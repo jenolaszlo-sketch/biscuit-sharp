@@ -4,8 +4,10 @@ Updated 2026-10-02. BiscuitSharp 0.1.0-preview.1 is published on NuGet.org from
 78924586b70f4188db6cfc47983f8171c78725f8 / CI 36946889887.
 All six public-feed consumers and content comparisons passed in
 [verification 36968162532](https://github.com/jenolaszlo-sketch/biscuit-sharp/actions/runs/36968162532).
-The API baseline is restored and the preview contract is re-frozen. All 19 jobs
-passed for development 0.1.0-preview.2 at a67b29a / CI 36968484267.
+The API baseline is restored. All 19 jobs passed for the earlier development
+0.1.0-preview.2 at a67b29a / CI 36968484267. The current development candidate
+adds typed evaluation reasons; its reviewed API inventory has 210 entries.
+That earlier run does not qualify the new implementation.
 Preview graduation is complete; 0.1.0-preview.2 has not been published.
 See docs/verification.md for exact artifacts, hashes and historical evidence.
 
@@ -59,8 +61,10 @@ defines the delivery gates. The adapter remains unimplemented.
   proposal and document security-sensitive amendments.
 - [x] Exercise the fixed Datalog policy through the real Windows native bridge:
   11 cases pass on each managed framework, including attenuation fact pollution.
-- [ ] Add machine-readable fact/iteration/time budget-exhaustion reasons while
-  preserving the published API baseline. Unclassified evaluation failures deny.
+- [x] Implement machine-readable fact/iteration/time budget-exhaustion reasons;
+  expression/query/other failures stay distinct. Native and both-TFM Windows
+  regressions pass; package-consumer and full-matrix qualification are recorded
+  in docs/verification.md. Development preview.2 remains unpublished.
 - [ ] Define Hufu's trusted workflow/activity/realm/audience bindings, immutable
   grant versions and exact request/provider identities.
 - [ ] Implement signing-key leases, bounded immutable envelopes, authenticated

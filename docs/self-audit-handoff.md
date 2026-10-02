@@ -1,5 +1,35 @@
 # Independent self-audit and release handoff
 
+## M3.2 typed runtime reasons — 2026-10-02
+
+Development preview.2 now exposes
+BiscuitAuthorizationError.EvaluationFailureReason. Native errors map directly
+to fact/iteration/time exhaustion, expression failure, unexpected query result
+or Other. Other is enum value zero, so a default enum value cannot assert a
+budget breach. Ordinary denied checks/policies have a null reason.
+
+Real Windows native tests pass all 49 cases (16 authorizer tests), both managed
+TFMs pass and the 210-entry API inventory is verified on both frameworks.
+A Windows single-RID package passed archive/source/legal checks, isolated net8
+and net10 consumers, and package-reference net10 NativeAOT execution. The
+packaged consumer now checks all three budget reasons, expression failure,
+ordinary denial and a roomy Allow; CI reuses it on all supported platforms.
+
+The current candidate still needs its own complete CI run. Previous release
+artifacts/runs below do not qualify these changed bits. Preview.2 remains
+unpublished. Publication is separate from this implementation.
+
+The Hufu spec/handoff now selects only FactLimitExceeded,
+IterationLimitExceeded and TimeLimitExceeded as AuthorizationBudgetExceeded.
+ExpressionError, UnexpectedQueryResult, Other and missing reasons map to
+AuthorizationFailure. Host measurements and the complete Hufu adapter/start/
+store/provider acceptance suite remain pending. Hufu source is unchanged.
+
+The maintainer explicitly deprioritized extra compatibility work during early
+adoption. This feature uses a nullable property and enum; no separate legacy
+consumer compatibility exercise was added. The existing package validation gate
+remains enabled.
+
 Audit date: 2026-10-01 (Asia/Manila).
 Repository: C:\Users\Laszlos\source\repos\biscuit-sharp
 Original reviewed HEAD: fb82be79737396da5cb4823072a94738eabd118b. Published release SHA: 78924586b70f4188db6cfc47983f8171c78725f8. Publisher correction: 6b011e83a53aa4cd2aa90d32c0ecedbb3898de9e.

@@ -6,7 +6,8 @@
   Creates an isolated console project outside the repo with an isolated NuGet
   cache, restores and verifies the selected BiscuitSharp package, then exercises:
   generate/import key, issue, serialize, parse/verify, attenuate, authorize
-  (allow + deny), seal, revocation IDs, and version identity. Asserts exit code
+  (allow, ordinary deny, and typed evaluation failures), seal, revocation IDs,
+  and version identity. Asserts exit code
   0 and the expected stdout markers. With -Aot, it also publishes and runs the
   consumer for the selected RID. NuGet source mapping keeps BiscuitSharp local
   while allowing the NativeAOT compiler packages to restore from nuget.org.
@@ -136,7 +137,8 @@ $sourceMapping
         }
         $program = @'
 // Clean packaged-consumer exercise: key, issue, serialize, parse/verify,
-// attenuate, authorize (allow + deny), seal, revocation IDs, version.
+// attenuate, authorize (allow, ordinary deny, typed evaluation failures),
+// seal, revocation IDs, version.
 using BiscuitSharp;
 
 using var root = BiscuitPrivateKey.Generate(BiscuitKeyAlgorithm.Ed25519);
@@ -151,25 +153,82 @@ BiscuitAuthorizationResult allow = BiscuitAuthorizer
     .For(child)
     .AddFact("""operation("read")""")
     .AddPolicy("""allow if right("workspace.main", "read");""")
+    .WithLimits(new BiscuitAuthorizerLimits(1000, 100, TimeSpan.FromMinutes(1)))
     .Authorize();
 BiscuitAuthorizationResult deny = BiscuitAuthorizer
     .For(child)
     .AddFact("""operation("write")""")
     .AddPolicy("""allow if right("workspace.main", "read");""")
     .Authorize();
+BiscuitAuthorizationResult factLimited = BiscuitAuthorizer
+    .For(parsed)
+    .AddFact("""seed(0)""")
+    .AddRule("""derived($x) <- seed($x);""")
+    .AddPolicy("""allow if derived(0);""")
+    .WithLimits(new BiscuitAuthorizerLimits(2, 100, TimeSpan.FromMinutes(1)))
+    .Authorize();
+BiscuitAuthorizationResult iterationLimited = BiscuitAuthorizer
+    .For(parsed)
+    .AddFact("""tick0(true)""")
+    .AddRule("""tick1(true) <- tick0(true);""")
+    .AddRule("""tick2(true) <- tick1(true);""")
+    .AddRule("""tick3(true) <- tick2(true);""")
+    .AddPolicy("""allow if tick3(true);""")
+    .WithLimits(new BiscuitAuthorizerLimits(1000, 1, TimeSpan.FromMinutes(1)))
+    .Authorize();
+BiscuitAuthorizationResult timeLimited = BiscuitAuthorizer
+    .For(parsed)
+    .AddPolicy("""allow if right("workspace.main", "read");""")
+    .WithLimits(new BiscuitAuthorizerLimits(1000, 100, TimeSpan.Zero))
+    .Authorize();
+BiscuitAuthorizationResult expressionFailed = BiscuitAuthorizer
+    .For(parsed)
+    .AddFact("""seed(4)""")
+    .AddRule("""broken(true) <- seed(4), 1 / 0 == 1;""")
+    .AddPolicy("""allow if broken(true);""")
+    .WithLimits(new BiscuitAuthorizerLimits(1000, 100, TimeSpan.FromMinutes(1)))
+    .Authorize();
+BiscuitEvaluationFailureReason? factReason = FailureReason(factLimited);
+BiscuitEvaluationFailureReason? iterationReason = FailureReason(iterationLimited);
+BiscuitEvaluationFailureReason? timeReason = FailureReason(timeLimited);
+BiscuitEvaluationFailureReason? expressionReason = FailureReason(expressionFailed);
+bool ordinaryDenyHasNoReason = deny.Errors.All(error => error.EvaluationFailureReason is null);
+bool evaluationOutcomesDeny = !factLimited.IsAuthorized
+    && !iterationLimited.IsAuthorized
+    && !timeLimited.IsAuthorized
+    && !expressionFailed.IsAuthorized;
 BiscuitToken sealedToken = child.Seal();
 Console.WriteLine(
-    $"allow={allow.IsAuthorized} deny={deny.IsAuthorized} " +
+    $"allow={allow.IsAuthorized} roomyAllow={allow.IsAuthorized} deny={deny.IsAuthorized} " +
+    $"factReason={factReason} iterationReason={iterationReason} " +
+    $"timeReason={timeReason} expressionReason={expressionReason} " +
+    $"ordinaryDenyHasNoReason={ordinaryDenyHasNoReason} " +
+    $"evaluationOutcomesDeny={evaluationOutcomesDeny} " +
     $"sealed={sealedToken.Inspect().IsSealed} " +
     $"revocation={sealedToken.GetRevocationIds().Count} " +
     $"version={BiscuitEngine.GetVersion().BiscuitAuthVersion}");
-return (allow.IsAuthorized && !deny.IsAuthorized && sealedToken.Inspect().IsSealed) ? 0 : 1;
+return (allow.IsAuthorized && !deny.IsAuthorized && ordinaryDenyHasNoReason
+    && evaluationOutcomesDeny
+    && factReason == BiscuitEvaluationFailureReason.FactLimitExceeded
+    && iterationReason == BiscuitEvaluationFailureReason.IterationLimitExceeded
+    && timeReason == BiscuitEvaluationFailureReason.TimeLimitExceeded
+    && expressionReason == BiscuitEvaluationFailureReason.ExpressionError
+    && sealedToken.Inspect().IsSealed) ? 0 : 1;
+
+static BiscuitEvaluationFailureReason? FailureReason(BiscuitAuthorizationResult result) =>
+    result.Errors.Single(error => error.Code == "evaluation_failure").EvaluationFailureReason;
 '@
         Set-Content -LiteralPath (Join-Path $work "Program.cs") -Value $program -Encoding Ascii
 
         $out = dotnet run --framework $TargetFramework 2>&1
         if ($LASTEXITCODE -ne 0) { Fail "consumer exited $LASTEXITCODE :: $out" }
-        foreach ($marker in @("allow=True", "deny=False", "sealed=True", "revocation=2", "version=6.0.0")) {
+        foreach ($marker in @(
+            "allow=True", "roomyAllow=True", "deny=False",
+            "factReason=FactLimitExceeded", "iterationReason=IterationLimitExceeded",
+            "timeReason=TimeLimitExceeded", "expressionReason=ExpressionError",
+            "ordinaryDenyHasNoReason=True", "evaluationOutcomesDeny=True",
+            "sealed=True", "revocation=2", "version=6.0.0"
+        )) {
             if (($out -join "`n") -notmatch [regex]::Escape($marker)) {
                 Fail "missing stdout marker '$marker' :: $out"
             }
@@ -200,7 +259,13 @@ return (allow.IsAuthorized && !deny.IsAuthorized && sealedToken.Inspect().IsSeal
 
             $aotOutput = & $publishedConsumer 2>&1
             if ($LASTEXITCODE -ne 0) { Fail "NativeAOT consumer exited $LASTEXITCODE :: $($aotOutput -join ' ')" }
-            foreach ($marker in @("allow=True", "deny=False", "sealed=True", "revocation=2", "version=6.0.0")) {
+            foreach ($marker in @(
+                "allow=True", "roomyAllow=True", "deny=False",
+                "factReason=FactLimitExceeded", "iterationReason=IterationLimitExceeded",
+                "timeReason=TimeLimitExceeded", "expressionReason=ExpressionError",
+                "ordinaryDenyHasNoReason=True", "evaluationOutcomesDeny=True",
+                "sealed=True", "revocation=2", "version=6.0.0"
+            )) {
                 if (($aotOutput -join "`n") -notmatch [regex]::Escape($marker)) {
                     Fail "NativeAOT consumer missing stdout marker '$marker' :: $aotOutput"
                 }

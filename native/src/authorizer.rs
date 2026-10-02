@@ -10,9 +10,9 @@
 //!
 //! No ambient time fact is injected: time-dependent policies need an explicit
 //! `time(...)` fact from the caller, keeping evaluation deterministic.
-//! Upstream default execution limits apply.
+//! Bridge default execution limits apply unless the caller supplies limits.
 
-use biscuit_auth::error::{Logic as LogicError, Token as TokenError};
+use biscuit_auth::error::{Logic as LogicError, RunLimit, Token as TokenError};
 use biscuit_auth::{AuthorizerBuilder, AuthorizerLimits, Biscuit};
 use std::time::Duration;
 
@@ -124,6 +124,31 @@ fn emit_answer(
     )
 }
 
+/// Stable machine-readable category for failures that prevent evaluation from
+/// producing a policy result. In particular, only the three execution budgets
+/// are budget reasons; unexpected query shapes and expression errors are not.
+fn evaluation_failure_reason(error: &TokenError) -> &'static str {
+    match error {
+        TokenError::RunLimit(RunLimit::TooManyFacts) => "fact_limit_exceeded",
+        TokenError::RunLimit(RunLimit::TooManyIterations) => "iteration_limit_exceeded",
+        TokenError::RunLimit(RunLimit::Timeout) => "time_limit_exceeded",
+        TokenError::RunLimit(RunLimit::UnexpectedQueryResult(_, _)) => "unexpected_query_result",
+        TokenError::Execution(_) => "expression_error",
+        _ => "other",
+    }
+}
+
+fn evaluation_failure_entry(message: String, reason: &'static str) -> serde_json::Value {
+    serde_json::json!({
+        "code": "evaluation_failure",
+        "message": message,
+        "evaluation_failure_reason": reason,
+        "block_id": null,
+        "check_id": null,
+        "rule": null,
+    })
+}
+
 /// Maps an evaluation outcome to the `allow`/`deny` answer contract.
 /// `Ok(index)` is a clean allow. Every `FailedLogic` shape is a deny with
 /// structured errors; anything else that escapes evaluation is a deny with an
@@ -193,13 +218,10 @@ fn emit_authorization(output: *mut BiscuitSharpBuffer, outcome: Result<usize, To
                 "deny",
                 None,
                 None,
-                vec![serde_json::json!({
-                    "code": "evaluation_failure",
-                    "message": format!("authorization evaluation failed: {logic}"),
-                    "block_id": null,
-                    "check_id": null,
-                    "rule": null,
-                })],
+                vec![evaluation_failure_entry(
+                    format!("authorization evaluation failed: {logic}"),
+                    "other",
+                )],
             ),
         },
         Err(e) => emit_answer(
@@ -207,13 +229,10 @@ fn emit_authorization(output: *mut BiscuitSharpBuffer, outcome: Result<usize, To
             "deny",
             None,
             None,
-            vec![serde_json::json!({
-                "code": "evaluation_failure",
-                "message": format!("authorization evaluation failed: {e}"),
-                "block_id": null,
-                "check_id": null,
-                "rule": null,
-            })],
+            vec![evaluation_failure_entry(
+                format!("authorization evaluation failed: {e}"),
+                evaluation_failure_reason(&e),
+            )],
         ),
     }
 }
@@ -399,6 +418,9 @@ mod tests {
         assert!(v["allow_policy_index"].is_null());
         let errors = v["errors"].as_array().expect("errors");
         assert!(errors.iter().any(|e| e["code"] == "no_matching_policy"));
+        assert!(errors
+            .iter()
+            .all(|e| e.get("evaluation_failure_reason").is_none()));
         let _ = handle;
     }
 
@@ -435,6 +457,9 @@ mod tests {
             .filter(|e| e["code"] == "failed_check")
             .collect();
         assert!(!failed.is_empty(), "failed checks reported: {v}");
+        assert!(errors
+            .iter()
+            .all(|e| e.get("evaluation_failure_reason").is_none()));
         assert!(failed
             .iter()
             .any(|e| e["rule"].as_str().expect("rule").contains("operation")));
@@ -473,6 +498,9 @@ mod tests {
         assert!(v["allow_policy_index"].is_null());
         let errors = v["errors"].as_array().expect("errors");
         assert!(errors.iter().any(|e| e["code"] == "deny_policy_matched"));
+        assert!(errors
+            .iter()
+            .all(|e| e.get("evaluation_failure_reason").is_none()));
         let _ = handle;
     }
 
@@ -522,6 +550,28 @@ mod tests {
         )
     }
 
+    fn authorize_datalog_with_limits(
+        token: &[u8],
+        root: &serde_json::Value,
+        facts: &[&str],
+        rules: &[&str],
+        policies: &[&str],
+        limits: serde_json::Value,
+    ) -> (u32, serde_json::Value) {
+        call(
+            OP_TOKEN_AUTHORIZE,
+            serde_json::json!({
+                "token": base64::encode(token),
+                "root": root,
+                "facts": facts,
+                "rules": rules,
+                "checks": [],
+                "policies": policies,
+                "limits": limits,
+            }),
+        )
+    }
+
     #[test]
     fn exhausted_limits_deny_without_allowing() {
         let (handle, root) = generate_root("ed25519");
@@ -535,7 +585,12 @@ mod tests {
         assert_eq!(status, STATUS_OK);
         assert_eq!(v["decision"], "deny");
         let errors = v["errors"].as_array().expect("errors");
-        assert!(errors.iter().any(|e| e["code"] == "evaluation_failure"));
+        let failure = errors
+            .iter()
+            .find(|e| e["code"] == "evaluation_failure")
+            .expect("zero time budget must fail evaluation");
+        assert_eq!(failure["evaluation_failure_reason"], "time_limit_exceeded");
+        assert!(v["allow_policy_index"].is_null());
         // Generous limits agree with the default path.
         let (status, v) = authorize_with_limits_value(
             &token,
@@ -545,6 +600,118 @@ mod tests {
         assert_eq!(status, STATUS_OK);
         assert_eq!(v["decision"], "allow");
         let _ = handle;
+    }
+
+    #[test]
+    fn fact_limit_exhaustion_has_typed_reason_and_denies() {
+        let (handle, root) = generate_root("ed25519");
+        let token = create(handle, vec!["right(\"a\", \"read\")"]);
+        let (status, v) = authorize_datalog_with_limits(
+            &token,
+            &root,
+            &["seed(0)"],
+            &["derived($x) <- seed($x);"],
+            &["allow if derived(0);"],
+            serde_json::json!({
+                "max_facts": 2,
+                "max_iterations": 100,
+                "max_time_ms": 60000,
+            }),
+        );
+        assert_eq!(status, STATUS_OK, "{v}");
+        assert_eq!(v["decision"], "deny");
+        assert!(v["allow_policy_index"].is_null());
+        let failure = v["errors"]
+            .as_array()
+            .expect("errors")
+            .iter()
+            .find(|e| e["code"] == "evaluation_failure")
+            .expect("fact exhaustion must fail evaluation");
+        assert_eq!(failure["evaluation_failure_reason"], "fact_limit_exceeded");
+        let _ = handle;
+    }
+
+    #[test]
+    fn iteration_limit_exhaustion_has_typed_reason_and_denies() {
+        let (handle, root) = generate_root("ed25519");
+        let token = create(handle, vec!["right(\"a\", \"read\")"]);
+        let (status, v) = authorize_datalog_with_limits(
+            &token,
+            &root,
+            &["tick0(true)"],
+            &[
+                "tick1(true) <- tick0(true);",
+                "tick2(true) <- tick1(true);",
+                "tick3(true) <- tick2(true);",
+            ],
+            &["allow if tick3(true);"],
+            serde_json::json!({
+                "max_facts": 1000,
+                "max_iterations": 1,
+                "max_time_ms": 60000,
+            }),
+        );
+        assert_eq!(status, STATUS_OK, "{v}");
+        assert_eq!(v["decision"], "deny");
+        assert!(v["allow_policy_index"].is_null());
+        let failure = v["errors"]
+            .as_array()
+            .expect("errors")
+            .iter()
+            .find(|e| e["code"] == "evaluation_failure")
+            .expect("iteration exhaustion must fail evaluation");
+        assert_eq!(
+            failure["evaluation_failure_reason"],
+            "iteration_limit_exceeded"
+        );
+        let _ = handle;
+    }
+
+    #[test]
+    fn expression_failure_is_typed_and_is_not_a_budget() {
+        let (handle, root) = generate_root("ed25519");
+        let token = create(handle, vec!["right(\"a\", \"read\")"]);
+        let (status, v) = authorize_datalog_with_limits(
+            &token,
+            &root,
+            &["seed(4)"],
+            &["broken(true) <- seed(4), 1 / 0 == 1;"],
+            &["allow if broken(true);"],
+            serde_json::json!({
+                "max_facts": 1000,
+                "max_iterations": 100,
+                "max_time_ms": 60000,
+            }),
+        );
+        assert_eq!(status, STATUS_OK, "{v}");
+        assert_eq!(v["decision"], "deny");
+        assert!(v["allow_policy_index"].is_null());
+        let failure = v["errors"]
+            .as_array()
+            .expect("errors")
+            .iter()
+            .find(|e| e["code"] == "evaluation_failure")
+            .expect("expression failure must fail evaluation");
+        assert_eq!(failure["evaluation_failure_reason"], "expression_error");
+        let _ = handle;
+    }
+
+    #[test]
+    fn evaluation_failure_reasons_distinguish_non_budget_shapes() {
+        use biscuit_auth::error::Expression;
+
+        assert_eq!(
+            evaluation_failure_reason(&TokenError::RunLimit(RunLimit::UnexpectedQueryResult(1, 2))),
+            "unexpected_query_result"
+        );
+        assert_eq!(
+            evaluation_failure_reason(&TokenError::Execution(Expression::DivideByZero)),
+            "expression_error"
+        );
+        assert_eq!(
+            evaluation_failure_reason(&TokenError::InternalError),
+            "other"
+        );
     }
 
     #[test]

@@ -64,6 +64,11 @@ token does not mean a request is authorized. `IsAuthorized` is true only for an
 error-free Allow; use `RequireAuthorized()` to enforce. Policies apply
 first-match-wins in the order supplied, so place `deny` policies first.
 
+Development preview.2 adds typed evaluation failure reasons on authorization
+findings: fact, iteration and time exhaustion are distinct from expression,
+query and other errors. See the [API contract](docs/api-contract.md#typed-evaluation-failures--development-preview2)
+for classification; published preview.1 has generic evaluation_failure only.
+
 A verifier holding only the root public key needs no private material:
 
 ```csharp

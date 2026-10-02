@@ -46,9 +46,11 @@ ordered Hufu enforcement. Its scope is narrower than arbitrary offline bearer
 delegation. Unknown mappings fail closed; no adapter implementation may silently
 relax a documented constraint.
 
-The published wrapper supports the core operations. Precise typed budget reasons,
-Hufu host execution bindings, registration/revocation persistence, safe Datalog
-construction and start-gate integration remain implementation prerequisites.
+The published preview.1 wrapper supports the core operations. Development
+preview.2 now implements precise typed budget reasons; its qualification is
+tracked in verification.md. Hufu host execution bindings, registration/revocation
+persistence, safe Datalog construction and start-gate integration remain
+implementation prerequisites.
 The [handoff](../hufu-integration-handoff.md) separates those tasks from wrapper
 preview graduation. No production integration or non-exportable signing support
 is claimed by this documentation decision.

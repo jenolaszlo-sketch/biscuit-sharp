@@ -1,5 +1,24 @@
 # Native ABI and distribution contract
 
+## Authorization failure reason wire field
+
+ABI 1 token_authorize evaluation_failure entries include
+evaluation_failure_reason, mapped directly from the pinned upstream error:
+
+| Upstream error | JSON reason |
+| --- | --- |
+| RunLimit::TooManyFacts | fact_limit_exceeded |
+| RunLimit::TooManyIterations | iteration_limit_exceeded |
+| RunLimit::Timeout | time_limit_exceeded |
+| RunLimit::UnexpectedQueryResult | unexpected_query_result |
+| Token::Execution | expression_error |
+| Other evaluation failure | other |
+
+Other finding codes omit the field. The managed decoder validates its string
+shape and evaluation_failure association; unknown reasons remain non-budget
+Other failures. The field enriches status-0 Deny results; it does not change ABI
+exports, status values, token parsing or decision behavior.
+
 Baseline (pinned 2026-10-01): biscuit-auth 6.0.0, bridge 0.1.0, ABI 1,
 Rust 1.89.0 via `rust-toolchain.toml` (auto-installs through rustup).
 Upstream source commit: `0f0b4e0e6fe07220c1ba6b51bff21d450d94a975` —

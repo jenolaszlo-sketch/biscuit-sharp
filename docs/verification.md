@@ -1,5 +1,28 @@
 # Verification
 
+## M3.2 local typed-failure verification — 2026-10-02
+
+Implemented against the working tree based on f057b1c. This section supersedes
+the older 201-entry surface for current development preview.2. The published
+preview.1 and its evidence are unchanged.
+
+| Windows x64 check | Result |
+| --- | --- |
+| dotnet build BiscuitSharp.slnx | Pass, zero warnings/errors |
+| cargo build --locked --manifest-path native/Cargo.toml | Pass, real debug bridge rebuilt |
+| cargo test --locked --lib --manifest-path native/Cargo.toml | Pass, 49/49 native tests; 16 authorizer tests |
+| cargo fmt / all-target clippy with -D warnings | Pass |
+| BiscuitSharp.Tests on net8.0 and net10.0 | Pass, all typed mappings, live fact/iteration/time starvation, expression error, ordinary denials and malformed/unknown/absent reasons |
+| BiscuitSharp.ApiSurface on net8.0 and net10.0 | Pass, reviewed 210-entry inventory |
+| eng/Build-Native.ps1 -Rid win-x64 | Pass, locked release staging and legal material |
+| Single-RID smoke pack and Verify-NuGetPackage.ps1 -Rids win-x64 | Pass, archive/native/manifest/legal/symbol checks |
+| Test-PackagedConsumer.ps1 net8.0 / net10.0 and net10 NativeAOT win-x64 | Pass, isolated caches and selected package archive comparison; typed failure and closed-decision markers |
+
+Local package output: artifacts/hufu-budget-reasons. It contains only win-x64;
+it is not the three-RID release artifact. The enum/property are generic wrapper
+diagnostics; this is not Hufu adapter implementation or Hufu workload qualification.
+Current full cross-platform CI evidence is pending. No new package was published.
+
 ## Published preview and restored baseline — 2026-10-02
 
 BiscuitSharp 0.1.0-preview.1 is [available on NuGet.org](https://www.nuget.org/packages/BiscuitSharp/0.1.0-preview.1).

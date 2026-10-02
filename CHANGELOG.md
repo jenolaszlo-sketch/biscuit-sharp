@@ -2,6 +2,11 @@
 
 ## Unreleased — 0.1.0-preview.2
 
+- Add typed authorization evaluation reasons for fact, iteration and time limit
+  exhaustion; keep expression/query/other runtime errors distinct and fail closed.
+- Exercise these reasons in real bridge tests and isolated packaged consumers,
+  including NativeAOT; document the Hufu failure-code mapping.
+
 - Restore package compatibility validation against published 0.1.0-preview.1.
 - Fix automatic CI discovery for github-script v9 and verify the real SDK route.
 

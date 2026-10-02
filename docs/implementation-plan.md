@@ -209,14 +209,16 @@ registered-token design, not a production Hufu host or a dependency of Hufu core
   11 cases pass on each, including authority/request/scope fact pollution and
   read-only attenuation. This evidence does not qualify the complete adapter.
 
-### M3.2: generic wrapper prerequisites — pending
+### M3.2: generic wrapper prerequisites — implemented, qualification in progress
 
-- [ ] Add additive machine-readable reasons for fact, iteration and time limit
-  exhaustion; distinguish other evaluation failures and keep every failure closed.
-- [ ] Preserve existing public constructors/members, the 201-entry reviewed
-  surface unless deliberately amended, and binary compatibility with preview.1.
-- [ ] Run meaningful native/managed reason-mapping regressions, published-baseline
-  validation and the full release matrix for any wrapper behavior change.
+- [x] Add machine-readable reasons for fact, iteration and time limit exhaustion;
+  distinguish expression/query/other evaluation failures and keep failures closed.
+- [x] Review the new enum/property and update the API inventory to 210 entries.
+  The maintainer has explicitly deprioritized additional compatibility work
+  during early adoption; the existing package gate remains in place.
+- [x] Run native and both-TFM managed reason-mapping regressions on Windows.
+- [ ] Complete isolated package/NativeAOT consumer and full release-matrix checks;
+  record exact evidence in verification.md before qualifying this candidate.
 
 Gate: the adapter can produce AuthorizationBudgetExceeded from typed evidence.
 Until then evaluation_failure maps to AuthorizationFailure. Typed request/

@@ -765,6 +765,52 @@ try
         Check(Throws<BiscuitBridgeException>(() => BiscuitAuthorizer.ParseResult(invalid.RootElement)),
             "contradictory policy indices reject as bridge error");
     }
+    // Typed reasons come from structured fields, never upstream display messages.
+    var reasonCases = new (string Wire, BiscuitEvaluationFailureReason Expected)[]
+    {
+        ("fact_limit_exceeded", BiscuitEvaluationFailureReason.FactLimitExceeded),
+        ("iteration_limit_exceeded", BiscuitEvaluationFailureReason.IterationLimitExceeded),
+        ("time_limit_exceeded", BiscuitEvaluationFailureReason.TimeLimitExceeded),
+        ("expression_error", BiscuitEvaluationFailureReason.ExpressionError),
+        ("unexpected_query_result", BiscuitEvaluationFailureReason.UnexpectedQueryResult),
+        ("other", BiscuitEvaluationFailureReason.Other),
+        ("future_runtime_failure", BiscuitEvaluationFailureReason.Other),
+    };
+    foreach ((string wire, BiscuitEvaluationFailureReason expected) in reasonCases)
+    {
+        using JsonDocument response = JsonDocument.Parse($$"""
+            {"decision":"deny","errors":[{"code":"evaluation_failure",
+             "message":"time limit exceeded (display text must not determine the reason)",
+             "evaluation_failure_reason":"{{wire}}"}]}
+            """);
+        BiscuitAuthorizationResult result = BiscuitAuthorizer.ParseResult(response.RootElement);
+        Check(!result.IsAuthorized && result.Errors.Single().EvaluationFailureReason == expected,
+            $"structured evaluation reason: {wire}");
+    }
+    foreach (string reasonField in new[] { "", ""","evaluation_failure_reason":null""" })
+    {
+        using JsonDocument response = JsonDocument.Parse(
+            """{"decision":"deny","errors":[{"code":"evaluation_failure","message":"time limit exceeded" """
+            + reasonField + "}]}");
+        Check(BiscuitAuthorizer.ParseResult(response.RootElement).Errors.Single().EvaluationFailureReason is null,
+            "missing reason does not guess budget exhaustion from message");
+    }
+    foreach (string invalidFinding in new[]
+    {
+        """{"code":"evaluation_failure","message":"bad","evaluation_failure_reason":42}""",
+        """{"code":"evaluation_failure","message":"bad","evaluation_failure_reason":{}}""",
+        """{"code":"evaluation_failure","message":"bad","evaluation_failure_reason":""}""",
+        """{"code":"evaluation_failure","message":"bad","evaluation_failure_reason":" "}""",
+        """{"code":"failed_check","message":"bad","evaluation_failure_reason":"time_limit_exceeded"}""",
+        """{"message":"bad","evaluation_failure_reason":"fact_limit_exceeded"}""",
+    })
+    {
+        using JsonDocument response = JsonDocument.Parse(
+            """{"decision":"deny","errors":[""" + invalidFinding + "]}");
+        Check(Throws<BiscuitBridgeException>(() => BiscuitAuthorizer.ParseResult(response.RootElement)),
+            "malformed or inconsistent evaluation reason is a bridge failure");
+    }
+
     const string validInspection = """
         {"block_count":1,"is_sealed":false,"signature_algorithm":"ed25519",
          "root_key_algorithm":"ed25519","revocation_ids":["AQ=="],"block_sources":["f(1)"],
@@ -846,6 +892,47 @@ try
         .Authorize();
     Check(starved.Decision == BiscuitDecision.Deny, "exhausted limits deny");
     Check(starved.Errors.Any(e => e.Code == "evaluation_failure"), "limit breach is an evaluation failure");
+    Check(starved.Errors.Single().EvaluationFailureReason == BiscuitEvaluationFailureReason.TimeLimitExceeded,
+        "zero-time limit has typed time exhaustion");
+    Check(Throws<BiscuitAuthorizationException>(() => { starved.RequireAuthorized(); return null; }),
+        "typed budget failure cannot pass enforcement");
+
+    BiscuitToken diagnosticToken = BiscuitTokenBuilder.Create().AddFact("seed(0)").Build(edKey);
+    BiscuitAuthorizationResult factStarved = BiscuitAuthorizer.For(diagnosticToken)
+        .AddRule("derived($x) <- seed($x);")
+        .AddPolicy("allow if derived(0);")
+        .WithLimits(new(1, 100, TimeSpan.FromMinutes(1))).Authorize();
+    Check(!factStarved.IsAuthorized && factStarved.Errors.Single().Code == "evaluation_failure"
+        && factStarved.Errors.Single().EvaluationFailureReason == BiscuitEvaluationFailureReason.FactLimitExceeded,
+        "derived facts exceed fact budget with typed failure");
+
+    BiscuitAuthorizationResult iterationStarved = BiscuitAuthorizer.For(diagnosticToken)
+        .AddRule("tick1(true) <- seed(0);")
+        .AddRule("tick2(true) <- tick1(true);")
+        .AddRule("tick3(true) <- tick2(true);")
+        .AddPolicy("allow if tick3(true);")
+        .WithLimits(new(1000, 1, TimeSpan.FromMinutes(1))).Authorize();
+    Check(!iterationStarved.IsAuthorized && iterationStarved.Errors.Single().Code == "evaluation_failure"
+        && iterationStarved.Errors.Single().EvaluationFailureReason == BiscuitEvaluationFailureReason.IterationLimitExceeded,
+        "rule chain exceeds iteration budget with typed failure");
+
+    BiscuitAuthorizationResult expressionFailed = BiscuitAuthorizer.For(diagnosticToken)
+        .AddRule("broken(true) <- seed(0), 1 / 0 == 1;")
+        .AddPolicy("allow if broken(true);")
+        .WithLimits(new(1000, 100, TimeSpan.FromMinutes(1))).Authorize();
+    Check(!expressionFailed.IsAuthorized && expressionFailed.Errors.Single().Code == "evaluation_failure"
+        && expressionFailed.Errors.Single().EvaluationFailureReason == BiscuitEvaluationFailureReason.ExpressionError,
+        "expression failure stays distinct from budget exhaustion");
+
+    foreach (BiscuitAuthorizationResult ordinaryDeny in new[] {
+        denyResult,
+        BiscuitAuthorizer.For(diagnosticToken).AddCheck("check if missing(true);")
+            .AddPolicy("allow if true;").Authorize(),
+        BiscuitAuthorizer.For(diagnosticToken).AddPolicy("deny if true;").Authorize(),
+    })
+        Check(!ordinaryDeny.IsAuthorized && ordinaryDeny.Errors.All(e => e.EvaluationFailureReason is null),
+            "ordinary denial has no evaluation failure reason");
+
     BiscuitAuthorizationResult roomy = BiscuitAuthorizer
         .For(token)
         .AddFact("""operation("read")""")

@@ -20,7 +20,16 @@ public sealed record BiscuitAuthorizationError(
     string? Code = null,
     uint? BlockId = null,
     uint? CheckId = null,
-    string? Rule = null);
+    string? Rule = null)
+{
+    /// <summary>
+    /// Typed cause when <see cref="Code"/> is <c>evaluation_failure</c>.
+    /// Null when no reason was supplied. Unknown future reasons map to
+    /// <see cref="BiscuitEvaluationFailureReason.Other"/>.
+    /// Never infer budget exhaustion from <see cref="Message"/>.
+    /// </summary>
+    public BiscuitEvaluationFailureReason? EvaluationFailureReason { get; init; }
+}
 
 /// <summary>
 /// Authorization outcome. A Deny is an ordinary result, never a bridge failure.
@@ -236,12 +245,16 @@ public sealed class BiscuitAuthorizer
                     $"The native {operation} response errors must be objects.");
             }
 
+            string? code = OptionalString(error, "code", operation);
             findings.Add(new BiscuitAuthorizationError(
                 BridgeJson.RequiredString(error, "message", operation),
-                OptionalString(error, "code", operation),
+                code,
                 OptionalUInt32(error, "block_id", operation),
                 OptionalUInt32(error, "check_id", operation),
-                OptionalString(error, "rule", operation)));
+                OptionalString(error, "rule", operation))
+            {
+                EvaluationFailureReason = ParseEvaluationFailureReason(error, code, operation),
+            });
         }
 
         if (decision == BiscuitDecision.Allow && findings.Count != 0)
@@ -255,6 +268,32 @@ public sealed class BiscuitAuthorizer
             throw new BiscuitBridgeException("The native authorization response has inconsistent policy indices.");
 
         return new BiscuitAuthorizationResult(decision, findings, allowIndex, denyIndex);
+    }
+
+    private static BiscuitEvaluationFailureReason? ParseEvaluationFailureReason(
+        JsonElement error, string? code, string operation)
+    {
+        string? reason = OptionalString(error, "evaluation_failure_reason", operation);
+        if (reason is null)
+        {
+            return null;
+        }
+
+        if (code != "evaluation_failure" || string.IsNullOrWhiteSpace(reason))
+        {
+            throw new BiscuitBridgeException(
+                $"The native {operation} response has an inconsistent evaluation failure reason.");
+        }
+
+        return reason switch
+        {
+            "fact_limit_exceeded" => BiscuitEvaluationFailureReason.FactLimitExceeded,
+            "iteration_limit_exceeded" => BiscuitEvaluationFailureReason.IterationLimitExceeded,
+            "time_limit_exceeded" => BiscuitEvaluationFailureReason.TimeLimitExceeded,
+            "expression_error" => BiscuitEvaluationFailureReason.ExpressionError,
+            "unexpected_query_result" => BiscuitEvaluationFailureReason.UnexpectedQueryResult,
+            _ => BiscuitEvaluationFailureReason.Other,
+        };
     }
 
     private static uint? OptionalUInt32(JsonElement root, string field, string operation)

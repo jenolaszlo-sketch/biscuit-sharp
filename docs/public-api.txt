@@ -12,6 +12,7 @@ type BiscuitSharp.BiscuitAuthorizationError [class; abstract=False; sealed=True]
   public System.Nullable<System.UInt32> BlockId { public get; public init;  }
   public System.Nullable<System.UInt32> CheckId { public get; public init;  }
   public System.String? Code { public get; public init;  }
+  public System.Nullable<BiscuitSharp.BiscuitEvaluationFailureReason> EvaluationFailureReason { public get; public init;  }
   public System.String Message { public get; public init;  }
   public System.String? Rule { public get; public init;  }
 type BiscuitSharp.BiscuitAuthorizationException [class; abstract=False; sealed=True] : BiscuitSharp.BiscuitException, System.Runtime.Serialization.ISerializable
@@ -75,6 +76,14 @@ type BiscuitSharp.BiscuitEngine [class; abstract=True; sealed=True] : System.Obj
   public const System.UInt32 AbiVersion = 1
   public const System.String BridgeVersion = "0.1.0"
   public static BiscuitSharp.BiscuitSharpVersionInfo GetVersion()
+type BiscuitSharp.BiscuitEvaluationFailureReason [enum; abstract=False; sealed=True] : System.Enum, System.IComparable, System.IConvertible, System.IFormattable, System.ISpanFormattable
+  public const BiscuitSharp.BiscuitEvaluationFailureReason ExpressionError = 4
+  public const BiscuitSharp.BiscuitEvaluationFailureReason FactLimitExceeded = 1
+  public const BiscuitSharp.BiscuitEvaluationFailureReason IterationLimitExceeded = 2
+  public const BiscuitSharp.BiscuitEvaluationFailureReason Other = 0
+  public const BiscuitSharp.BiscuitEvaluationFailureReason TimeLimitExceeded = 3
+  public const BiscuitSharp.BiscuitEvaluationFailureReason UnexpectedQueryResult = 5
+  public System.Int32 value__
 type BiscuitSharp.BiscuitException [class; abstract=False; sealed=False] : System.Exception, System.Runtime.Serialization.ISerializable
   public ctor(System.String message)
   public ctor(System.String message, System.Exception? inner)

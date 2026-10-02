@@ -8,9 +8,11 @@ proposal is preserved [verbatim](archive/hufu-biscuit-integration-proposal-2026-
 ## Current evidence and qualification
 
 BiscuitSharp 0.1.0-preview.1 is published and qualified on win-x64, linux-x64 and
-osx-arm64 with .NET 8/10. Development 0.1.0-preview.2 passed the restored binary
-baseline and full 19-job matrix at a67b29a / CI 36968484267; it is not published.
-See [wrapper verification](verification.md) for artifacts and release hashes.
+osx-arm64 with .NET 8/10. The earlier development 0.1.0-preview.2 passed the full
+19-job matrix at a67b29a / CI 36968484267. The current candidate adds typed runtime
+reasons and has passed native/managed/packaged-consumer/NativeAOT Windows checks;
+its complete cross-platform CI is pending. It is not published.
+See [wrapper verification](verification.md) for exact candidate evidence.
 
 The latest release-record commit inspected before this documentation work was
 cbfbeb2. None of that wrapper evidence qualifies a Hufu adapter. The Hufu checkout
@@ -46,15 +48,17 @@ all component outcomes.
 | Attenuation | Attenuate(BiscuitBlock.Create(source)); Seal | Fixed typed restrictions, parent/current subset proof and exact child registration |
 | Trusted request evaluation | For(token), AddFact/Check/Rule/Policy, AddTimeFact, Authorize | Authorizer/source APIs are string-only: qualify a literal writer or add a separately reviewed typed substitution feature |
 | Explicit limits | WithLimits(new BiscuitAuthorizerLimits(ulong, ulong, TimeSpan)) | Positive configured values, checked conversion and integral milliseconds |
-| Precise budget diagnostics | Errors.Code = evaluation_failure for multiple runtime errors | Wrapper needs additive machine-readable fact/iteration/time reason before full adapter budget conformance |
+| Precise budget diagnostics | Development preview.2 adds Errors[].EvaluationFailureReason | Only FactLimitExceeded, IterationLimitExceeded, TimeLimitExceeded map to AuthorizationBudgetExceeded; all other/null reasons map to AuthorizationFailure. Preview.1 lacks this feature |
 | Cancellation/metrics | Native calls synchronous; no per-budget counters | Check cancellation before/after calls; do not promise interruption or invent usage figures |
 | Structured token profile | Inspect prints source, not a verified AST/query interface | v1 exact-byte trusted registration; no regex recognition of arbitrary logic |
 
-A future wrapper budget enhancement should preserve existing public constructors
-and members and pass the published baseline. Extending a record's primary
-constructor by replacing its signature can break existing binaries; do not
-treat an optional C# argument as automatic binary compatibility. Unknown reasons
-still fail closed. This handoff requests no wrapper API change in this task.
+The generic wrapper reason enhancement is implemented in development preview.2.
+Native/managed tests distinguish all three budgets from expression errors,
+unexpected query cardinality and other failures. Unknown reasons remain Other;
+missing reasons remain null. No message parsing is permitted. The reviewed
+surface is 210 entries. The maintainer has deprioritized additional compatibility
+work during early adoption. See verification.md for exact candidate qualification;
+the earlier a67b29a run does not cover this enhancement.
 
 ## Implementation sequence
 
@@ -71,11 +75,12 @@ still fail closed. This handoff requests no wrapper API change in this task.
    Validate request/attenuation literal construction using quotes, slashes,
    newlines, Unicode and malformed inputs against the pinned upstream parser.
    Registration prevents unsupported token logic from entering this profile.
-4. **Add precise wrapper runtime reasons.** Distinguish fact/iteration/time
-   exhaustion from expression and other runtime failures with machine-readable
-   data, meaningful native/managed regressions and published-baseline checks.
-   Until then evaluation_failure is AuthorizationFailure, never guessed budget
-   exhaustion. Do not claim the full budget conformance suite is satisfied.
+4. **Consume precise wrapper runtime reasons.** The development preview.2
+   enhancement supplies the reason enum. Select its qualified package/artifact
+   and map only the three limit reasons to AuthorizationBudgetExceeded.
+   ExpressionError, UnexpectedQueryResult, Other and null map to
+   AuthorizationFailure. Preview.1 cannot satisfy budget-specific conformance.
+   Complete host-policy measurements and adapter budget tests independently.
 5. **Compose authorization.** Verify, validate registration/profile, check every
    revocation ID, resolve current snapshot/resource, evaluate Biscuit and preserve
    the current Hufu/Cedar all-layer decision. Record required evidence. Failed or
@@ -125,11 +130,11 @@ native evaluation and actual provider/start integration, not only mocks.
 
 ## Review boundary
 
-This task changes specification and handoff documentation only. No Hufu source,
-published wrapper behavior, package version or root-key settings are changed.
-The specification selects the first transport design; it does not declare its
-implementation prerequisites complete or approve an unimplemented host for
-production use.
+The original design activity changed documentation only. The follow-up wrapper
+activity adds generic typed runtime reasons and package-consumer dogfooding;
+no Hufu source, published package or root-key settings are changed. The Hufu
+adapter and host/store/start/provider prerequisites remain unimplemented by this
+wrapper change and are not approved for production use.
 
 ## Executed documentation checks
 

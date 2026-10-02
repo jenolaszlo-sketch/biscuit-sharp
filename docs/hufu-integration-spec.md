@@ -374,11 +374,18 @@ The adapter MUST NOT infer typed reasons by parsing exception messages or printe
 Datalog. Workflow mismatch attribution comes from trusted binding validation;
 it cannot reliably be inferred from a generic no-matching-policy result.
 
-Preview.1 uses evaluation_failure for budget exhaustion and other runtime
-errors. Map it conservatively to AuthorizationFailure until a wrapper supplies
-a machine-readable reason. An implementation claiming all budget-specific
-conformance cases MUST first qualify that wrapper enhancement. Do not label
-all evaluation failures AuthorizationBudgetExceeded.
+The development preview.2 wrapper supplies
+Errors[].EvaluationFailureReason. Map FactLimitExceeded,
+IterationLimitExceeded and TimeLimitExceeded to AuthorizationBudgetExceeded.
+Map ExpressionError, UnexpectedQueryResult, Other or a null reason to
+AuthorizationFailure. Preserve the original findings for required evidence;
+do not label all evaluation_failure findings as budget exhaustion.
+
+Published preview.1 lacks these typed reasons and therefore maps every
+evaluation_failure conservatively to AuthorizationFailure. Budget-specific
+adapter conformance requires a qualified candidate containing the new reasons;
+see wrapper verification for its current evidence. This distinction does not
+remove host budget measurements or the complete adapter acceptance suite.
 
 Production configuration requires positive finite fact/iteration/time ceilings
 chosen and measured by the host. MaxFacts/MaxIterations map by checked conversion

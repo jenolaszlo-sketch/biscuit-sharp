@@ -4,6 +4,45 @@ Contract for the M1 functional surface (keys, tokens, authorization live).
 This document is the compatibility baseline enforced by package validation and
 integration tests from the first preview onward.
 
+## Typed evaluation failures — development preview.2
+
+Authorization findings expose nullable
+BiscuitAuthorizationError.EvaluationFailureReason. The native engine supplies
+the reason for evaluation_failure; display messages are diagnostic prose, never
+a classification API.
+
+| BiscuitEvaluationFailureReason | Meaning |
+| --- | --- |
+| FactLimitExceeded | Datalog fact ceiling exceeded |
+| IterationLimitExceeded | Rule-application iteration ceiling exceeded |
+| TimeLimitExceeded | Datalog execution time ceiling exceeded |
+| ExpressionError | Runtime expression error, including division by zero |
+| UnexpectedQueryResult | Upstream query result cardinality mismatch |
+| Other | Another or unrecognized future runtime failure |
+
+Only the first three values identify budget exhaustion. Failed checks, explicit
+denies, no matching policy and invalid block rules have no evaluation reason.
+An absent/null reason remains null and must not be guessed from the message;
+unknown nonempty strings map to Other. Malformed types, empty reasons or reasons
+attached to a different error code throw BiscuitBridgeException. No failure
+becomes an authorized result.
+
+For example, a consumer can classify the result using typed findings:
+
+~~~csharp
+bool budgetExceeded = result.Errors.Any(error =>
+    error.Code == "evaluation_failure" &&
+    error.EvaluationFailureReason is
+        BiscuitEvaluationFailureReason.FactLimitExceeded or
+        BiscuitEvaluationFailureReason.IterationLimitExceeded or
+        BiscuitEvaluationFailureReason.TimeLimitExceeded);
+~~~
+
+This feature is in the development preview.2 candidate; the published preview.1
+does not expose it. Limits, rounding, ordinary Deny behavior and exception
+taxonomy are unchanged.
+
+
 ## Result semantics
 
 - `BiscuitToken.Parse(token, root)` verifies the cryptographic token against the
