@@ -1,5 +1,20 @@
 # Independent self-audit and release handoff
 
+## M3.3 local Hufu adapter — 2026-10-02
+
+Implemented the optional registered online adapter and SQLite start composition
+in the sibling Hufu checkout. Sixty-three adapter cases and 95 existing Hufu
+cases pass per TFM on Windows x64. Tests consume the exact reviewed preview.2
+package and real Cedar/disk SQLite; start acquisition is a SQL fixture.
+Required dual evidence, same-transaction revocation/key retirement and receipt
+replay are exercised. Host/provider qualification, actual Luban I/O, custody,
+measured limits, adapter freeze/publication and governed outcome recovery remain
+open. Hufu has no committed HEAD; its entire existing prototype remains local.
+
+The [integration handoff](hufu-integration-handoff.md#m33-local-implementation-and-next-handoff)
+records the completed code, executed checks, precise limits and next activities.
+BiscuitSharp runtime/API/package contents are unchanged by this continuation.
+
 ## M3.2 typed runtime reasons — 2026-10-02
 
 Development preview.2 now exposes

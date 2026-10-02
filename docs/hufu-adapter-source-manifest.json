@@ -1,0 +1,146 @@
+{
+  "description": "Local uncommitted Hufu adapter qualification inputs; hashes identify source, not release authenticity.",
+  "date": "2026-10-02",
+  "profile": "hufu-biscuit-v1",
+  "wrapperCommit": "f89285702ebade4b7fe92e4bfb2f72080c8d72ab",
+  "wrapperCiRun": "36979786333",
+  "wrapperPackageSha256": "c5f0c94aa14cf82b68239ed49314a3cf468780337432cdff89975beed6ead3b1",
+  "files": [
+    {
+      "path": "Directory.Build.props",
+      "sha256": "3765d7cd77dc73cc4235ff8892e5699b72fba9f177b7915bec9c81d73432e62e"
+    },
+    {
+      "path": "eng/Restore-BiscuitCandidate.ps1",
+      "sha256": "476542e3993b3d5e7337cb51114e7607b76354d6707a67ab1e90d823f51c08f2"
+    },
+    {
+      "path": "nuget.config",
+      "sha256": "f90da135bb5809aec521fdec6deee0cb65ec41d74551e28a67f6fff0e30357f5"
+    },
+    {
+      "path": "Penghou.Hufu.slnx",
+      "sha256": "99ad380e94e81a5110049f97754fe12d6f01a0c194f921bea8ea0968010a9555"
+    },
+    {
+      "path": "src/Penghou.Hufu.Biscuit.Sqlite/BiscuitSqliteDecisionRecorder.cs",
+      "sha256": "6e86b262ad95dcc8021c3db00f3b56df8ba49b30f372da208b319df184f41795"
+    },
+    {
+      "path": "src/Penghou.Hufu.Biscuit.Sqlite/BiscuitSqliteStartParticipant.cs",
+      "sha256": "2669a1edf28c0e5715e2bd86f5b706f08d325f4fefad72e26363dafc2cdb7a15"
+    },
+    {
+      "path": "src/Penghou.Hufu.Biscuit.Sqlite/Penghou.Hufu.Biscuit.Sqlite.csproj",
+      "sha256": "9afda95c9767ac64eb79aaf27573e5997b3b3bfd1c1670cbaa178901189fa276"
+    },
+    {
+      "path": "src/Penghou.Hufu.Biscuit.Sqlite/SqliteBiscuitCredentialRegistry.cs",
+      "sha256": "4af98b1b3effbc8d1d137c97faad83ef1f856ee2fcc2acfb9ba5d178b4d4692b"
+    },
+    {
+      "path": "src/Penghou.Hufu.Biscuit.Sqlite/SqliteBiscuitRegistryEvidence.cs",
+      "sha256": "3ee6e4c691086fcc6664187d4b261d2a9c01de6f49685deb3f756dc607a73124"
+    },
+    {
+      "path": "src/Penghou.Hufu.Biscuit.Sqlite/SqliteBiscuitRegistryStorage.cs",
+      "sha256": "5a3dd75ee745a9f22d302894e184e0275859d4c944d741f6557a2789f10aa624"
+    },
+    {
+      "path": "src/Penghou.Hufu.Biscuit/BiscuitAuthorityService.cs",
+      "sha256": "2d08cc211ec598cf41ad8fd5378e735840753cb3143bde6a6ed4f3202fd38761"
+    },
+    {
+      "path": "src/Penghou.Hufu.Biscuit/BiscuitCodec.cs",
+      "sha256": "7dc7a6da849739d5534ac2f51fa24eeb74d7903f7c4c5cefe2fa60563f6d975d"
+    },
+    {
+      "path": "src/Penghou.Hufu.Biscuit/BiscuitContracts.cs",
+      "sha256": "8ed3ea7ce68bc12ce8043d9df143fe2f63a577fe8c5423e8616311887f8fc9ed"
+    },
+    {
+      "path": "src/Penghou.Hufu.Biscuit/BiscuitCredentialRegistration.cs",
+      "sha256": "41dfc54205882cd0688386920b5dd79921b89a60384f5fa7b9ef3b637a6641a6"
+    },
+    {
+      "path": "src/Penghou.Hufu.Biscuit/BiscuitKeyRing.cs",
+      "sha256": "46373dc5135ed0a2459e97f843647a455a756bf9764117dde0814c2ffb179b31"
+    },
+    {
+      "path": "src/Penghou.Hufu.Biscuit/BiscuitProfile.cs",
+      "sha256": "b89609411956c4ab817224ad6af69cec29a2eb9bda2d9c8df42cff41e24d3dd2"
+    },
+    {
+      "path": "src/Penghou.Hufu.Biscuit/DatalogLiteral.cs",
+      "sha256": "544ac99044d20634fee0c569018e0cf6a313d61b855e49270477b58593a121c1"
+    },
+    {
+      "path": "src/Penghou.Hufu.Biscuit/Penghou.Hufu.Biscuit.csproj",
+      "sha256": "8ce71ba4c5b7f7c33e73ecb6765107213500cf80ec9bb1fdbcd03f12e057879f"
+    },
+    {
+      "path": "src/Penghou.Hufu.Cedar/AssemblyInfo.cs",
+      "sha256": "e3c78b0f229e2590dfeaff2eb01723bd8539b12d0f93ad6fb719b7407e3610b5"
+    },
+    {
+      "path": "src/Penghou.Hufu.Cedar/CedarAuthorityEvaluator.cs",
+      "sha256": "6615f740726812b4d047a0425a620babed3f87ff6adcd752533fc81b7b6a69a8"
+    },
+    {
+      "path": "src/Penghou.Hufu.Cedar/Penghou.Hufu.Cedar.csproj",
+      "sha256": "7c75f1de979cb5b4ad382fb7ca8711e09c82806b5d4693f9859cb62cd82c72e4"
+    },
+    {
+      "path": "src/Penghou.Hufu.Sqlite/Penghou.Hufu.Sqlite.csproj",
+      "sha256": "1d0cae449313b43794479a255d73da975cb6cf0071e344ae733ad31a6179252c"
+    },
+    {
+      "path": "src/Penghou.Hufu.Sqlite/SqliteAuthorityOperationStartGate.cs",
+      "sha256": "1d440662fed8b756e40d4a1456450c7f046956536160d634bbff5822ad12ba33"
+    },
+    {
+      "path": "src/Penghou.Hufu.Sqlite/SqliteAuthorityStore.cs",
+      "sha256": "3326a4b486a37e6408805cd6942aa20176218890e4322f070ac22be3c8b59f4d"
+    },
+    {
+      "path": "src/Penghou.Hufu.Sqlite/StoreCodec.cs",
+      "sha256": "2551c491a7d5c47ef8566fe7ed90abea84b617f09be54d5914469dc4f77f97d0"
+    },
+    {
+      "path": "src/Penghou.Hufu/AuthorityModel.cs",
+      "sha256": "b7aa5f7c551bb76f0b4b57b04111fb104ee56122361ec8cc5bc28aeeac511765"
+    },
+    {
+      "path": "src/Penghou.Hufu/AuthorityOperationStart.cs",
+      "sha256": "30ab31ff9c27cfbc0f85465d917684ba1d0c62ea8316f9f40433bb0a69bcc372"
+    },
+    {
+      "path": "src/Penghou.Hufu/AuthorityStore.cs",
+      "sha256": "b8b297761da505eb92083326ca5ca3f96bef2eb9b7ef34796b85f9db48fbda8f"
+    },
+    {
+      "path": "src/Penghou.Hufu/Penghou.Hufu.csproj",
+      "sha256": "806ab7289996b39a26a050089529150a60ef456037b58f255f5d79300a746beb"
+    },
+    {
+      "path": "tests/Penghou.Hufu.Biscuit.Tests/BiscuitAuthorityIntegrationTests.cs",
+      "sha256": "05fba285e2d2d43da81c63cffce7e7faa131c58f7a25512053df6a529c9c5e13"
+    },
+    {
+      "path": "tests/Penghou.Hufu.Biscuit.Tests/BiscuitIntegrationFixture.cs",
+      "sha256": "bb0e56d21e85e2186ebcfa2049b14db8bb241ca24b303ec1b45a621ff19f3bc1"
+    },
+    {
+      "path": "tests/Penghou.Hufu.Biscuit.Tests/BiscuitOperationStartTests.cs",
+      "sha256": "f9db77210f9b15b30a97f6f11ae4876b7a9765165560a82b3cfb8c1741bba9bf"
+    },
+    {
+      "path": "tests/Penghou.Hufu.Biscuit.Tests/BiscuitProfileTests.cs",
+      "sha256": "83e65e8c959510d53391866d1bffbdcef03ca542900f6d46bf78d31e368ed3f7"
+    },
+    {
+      "path": "tests/Penghou.Hufu.Biscuit.Tests/Penghou.Hufu.Biscuit.Tests.csproj",
+      "sha256": "7158703fc478394571dcd8e58fb0ba03af98154541a584d7b4030cfab0dedb5f"
+    }
+  ]
+}

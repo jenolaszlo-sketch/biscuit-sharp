@@ -1,5 +1,23 @@
 # Verification
 
+## M3.3 Hufu adapter consumption — 2026-10-02
+
+The sibling local Hufu adapter consumes the exact CI 36979786333 preview.2 nupkg;
+the restored cache archive hash matches c5f0c94aa14cf82b68239ed49314a3cf468780337432cdff89975beed6ead3b1.
+No wrapper project reference or native-path override is used. On Windows x64,
+63 adapter cases pass on net8.0 and net10.0, plus 95 existing Hufu cases per TFM.
+These exercise real native Biscuit, real all-layer Cedar and disk SQLite,
+including dual required evidence, concurrent writer ordering for revocation/key
+retirement, exact start binding and non-dispatching receipt replay. The runtime
+participant is a SQL fixture; actual resource/provider integration is pending.
+Solution restore and its transitive vulnerability inventory pass after aligning
+Hufu's SQLite bundle with Zhinu's 2.1.12 pin.
+
+This is local consumer evidence, not wrapper code changes, package publication
+or a qualified production Hufu boundary. See the
+[integration handoff](hufu-integration-handoff.md#m33-local-implementation-and-next-handoff)
+and sibling Hufu qualification record for scope and remaining gates.
+
 ## M3.2 typed-failure qualification — 2026-10-02
 
 Implementation f89285702ebade4b7fe92e4bfb2f72080c8d72ab passed all 19 jobs in

@@ -1,6 +1,6 @@
 # Hufu Biscuit integration handoff
 
-Updated 2026-10-02. Documentation is finalized; the adapter is unimplemented.
+Updated 2026-10-02. The optional Hufu adapter and SQLite start composition are implemented locally; real provider qualification remains open.
 Start with the [specification](hufu-integration-spec.md) and
 [ADR 0003](decisions/0003-hufu-integration-profile.md). The original supplied
 proposal is preserved [verbatim](archive/hufu-biscuit-integration-proposal-2026-10-02.md).
@@ -16,26 +16,73 @@ The exact CI package also passed 13 fixed-policy checks per TFM on Windows.
 It is not published.
 See [wrapper verification](verification.md) for exact candidate evidence.
 
-The latest release-record commit inspected before this documentation work was
-cbfbeb2. None of that wrapper evidence qualifies a Hufu adapter. The Hufu checkout
-has no committed HEAD: its prototype source/docs are uncommitted local input.
-The source hashes below identify that snapshot; future implementers must recheck
-current contracts before adopting this profile.
+The wrapper qualification above remains separate from Hufu enforcement. The
+Hufu checkout has no committed HEAD: its existing prototype and new adapter are
+local, uncommitted source. This work does not initialize or publish that tree.
+The [adapter source inventory](hufu-adapter-source-manifest.json) records SHA-256 identities for 34 local code/test/configuration inputs after formatting.
 
-The reviewed Hufu profile uses AuthenticatedAuthorityContext with TenantId,
-SubjectId, RunId, RevisionId and FenceId; AuthorityRequest adds AuthorityAction,
-WorkspaceId, RelativePath and RequestIdentity. Workflow/activity/audience/key/
-credential/envelope contracts from the proposal are not existing Hufu APIs.
-They require explicit trusted host integration rather than guessed field aliases.
-ScopeId is an adapter-issued immutable reference to the registered typed Hufu
-scope/exclusions; Hufu currently exposes AuthorityScope rather than that ID.
+## M3.3 local implementation and next handoff
+
+The sibling Hufu solution now includes Penghou.Hufu.Biscuit and the optional
+Penghou.Hufu.Biscuit.Sqlite composition. The former implements bounded owned
+envelopes, required host authentication/issuance/derivation/resource gates,
+immutable grant selection, Ed25519 signing-lease contracts, exact registered
+canonical token bytes, the fixed origin-scoped policy, typed same-context
+attenuation and real current all-layer Cedar evaluation. Scope identifiers refer
+to trusted registered typed grants; token text is never parsed as a permission
+model.
+
+The SQLite composition persists immutable grant-version meaning, authenticated
+registration lineage, required verification evidence, per-block revocation and
+realm-wide key-retirement tombstones. Both core and Biscuit evidence writes must
+succeed before verification can return Permit. Start compares the complete
+canonical evidence in both stores, then checks exact request/start binding,
+trusted engine/mapping/evaluator identities, lineage, current validity and
+revocation in the same physical WAL/FULL writer transaction as runtime
+acquisition and required start journaling. Partial preflight writes cannot start.
+AlreadyStarted is a receipt and never invokes the runtime participant again.
+
+Local Windows x64 qualification: 63 adapter tests pass on each of net8.0 and
+net10.0 (24 profile/key/literal cases and 39 authority/registry/evidence/start
+cases). The existing 95 Hufu tests also pass on each TFM. Tests use the real
+reviewed BiscuitSharp package, real Cedar and disk-backed SQLite. Concurrent
+revocation/key-retirement cases prove that earlier committed starts may finish
+and acknowledged tombstones block later fresh starts. Rollback tests cover failed
+runtime acquisition, required start evidence and expiry before commit.
+
+The restored global-cache nupkg hash matches the exact CI artifact listed in
+verification.md; no Biscuit native override or wrapper project reference was
+used. Hufu's restore maps BiscuitSharp to its local artifact feed, bootstrapped
+by eng/Restore-BiscuitCandidate.ps1. Preview.2 remains unpublished. Source mapping
+does not independently validate a pre-existing NuGet cache: check its archive
+hash or restore into a new isolated cache when qualifying another machine.
+
+During restore, an advisory rejected Hufu's inherited SQLite native dependency.
+Hufu now pins SQLitePCLRaw.bundle_e_sqlite3 2.1.12, matching Zhinu's existing
+corrected pin. Solution restore and the transitive vulnerability inventory pass.
+See [the upstream maintenance release](https://github.com/ericsink/SQLitePCL.raw/releases/tag/v2.1.12).
+
+Read the Hufu [profile](../../Penghou.Hufu/docs/biscuit-integration-profile.md),
+[qualification](../../Penghou.Hufu/docs/biscuit-integration-qualification.md) and
+[ADR 0010](../../Penghou.Hufu/docs/decisions/0010-registered-biscuit-profile.md)
+before composing a host. Authentication, issuer ceilings, key custody,
+provider/object identity, administrative retirement policy and actual dispatch
+remain trusted host responsibilities. The tested concrete keyring remains
+internal; hosts currently supply IBiscuitKeyProvider.
+
+Next: connect a real Windows Luban read consumer, including concrete metadata,
+traversal/content and release checks; qualify link/junction/alias races and exact
+start-to-effect binding. The current runtime participant is a SQL fixture.
+Production identity/approval hosts, measured policy/concurrency limits, durable
+credential custody, governed mutations, terminal outcome recovery, cross-platform
+Hufu consumers and adapter NativeAOT execution remain open. Neither adapter
+freezing nor package publication is authorized by these local results.
 
 Hufu's current IAuthorityEvaluator/AuthorityDecision and Cedar adapter already
 compose layered authority, validity and mandatory policy. AuthorityStatus uses
-Permit/Deny/Unavailable; the specification's detailed failure codes are proposed
-integration codes, not new existing enum members. Preserve the neutral status
-and detailed evidence rather than pretending the public model already exposes
-all component outcomes.
+Permit/Deny/Unavailable; the detailed adapter failure codes are implemented in
+BiscuitVerificationResult. Preserve the neutral core status
+and detailed component outcomes; core AuthorityDecision remains unchanged.
 
 ## Compatibility with published BiscuitSharp
 
@@ -132,11 +179,12 @@ native evaluation and actual provider/start integration, not only mocks.
 
 ## Review boundary
 
-The original design activity changed documentation only. The follow-up wrapper
-activity adds generic typed runtime reasons and package-consumer dogfooding;
-no Hufu source, published package or root-key settings are changed. The Hufu
-adapter and host/store/start/provider prerequisites remain unimplemented by this
-wrapper change and are not approved for production use.
+The original design and wrapper prerequisite activities are complete. The current
+continuation changes local Hufu adapter/composition code and its documentation,
+and updates this wrapper handoff. It does not publish a package, create a
+production host or qualify actual protected I/O. The Hufu source hashes below
+identify the original reviewed inputs; the new adapter is covered by the sibling
+qualification record and tests.
 
 ## Executed documentation checks
 

@@ -3,11 +3,13 @@
 Status 2026-10-02: preview graduation is complete. 0.1.0-preview.1 is published
 from 7892458 / CI 36946889887 and all six public-feed consumers passed.
 The 201-entry contract is re-frozen against that published baseline.
-Development 0.1.0-preview.2 passed the full 19-job matrix at a67b29a /
-CI 36968484267; it has not been published. Detailed milestones below retain
-their implementation history. M3.1 integration specification/handoff is complete;
-M3.2 wrapper prerequisites and M3.3/M3.4 adapter qualification remain pending.
-Current evidence and stable-release requirements are in ROADMAP.md and
+Development 0.1.0-preview.2 passed the full 19-job matrix at f892857 /
+CI 36979786333; it has not been published. Its reviewed API inventory is 210
+entries. M3.1 design and M3.2 wrapper prerequisites are complete. M3.3's optional
+Hufu adapter/start composition is implemented locally; production host and M3.4
+real-provider qualification remain pending. Detailed milestones retain their
+implementation history. Current evidence and stable-release requirements are in
+ROADMAP.md and
 verification.md. For scope see
 
 [architecture](architecture.md), [native boundary](native-boundary.md),
@@ -193,7 +195,8 @@ Exit: preview published; `verification.md` holds the exact evidence.
 ## M3: consumers and later
 
 Status 2026-10-02: the optional Hufu integration design is finalized at 69ff07a;
-the adapter is not implemented. Use the [specification](hufu-integration-spec.md),
+the optional adapter and SQLite start composition are implemented locally.
+Use the [specification](hufu-integration-spec.md),
 [source-reviewed handoff](hufu-integration-handoff.md) and
 [ADR 0003](decisions/0003-hufu-integration-profile.md). This selects an online,
 registered-token design, not a production Hufu host or a dependency of Hufu core.
@@ -227,21 +230,27 @@ Other/null reasons and preview.1 evaluation_failure map to AuthorizationFailure.
 Typed request/attenuation substitution is a separately reviewed wrapper option;
 a qualified centralized adapter literal writer is also permitted by the specification.
 
-### M3.3: Hufu adapter and authoritative host composition — pending
+### M3.3: Hufu adapter/start prototype — implemented; host qualification pending
 
-- [ ] Define trusted workflow/activity/realm/audience bindings, grant-version/
+- [x] Define trusted workflow/activity/realm/audience contracts, grant-version/
   layer selection, exact effect identity and provider-object bindings.
-- [ ] Supply Ed25519 signing-key leases and realm-scoped verification lookup;
-  implement bounded envelopes, protected credential custody and authenticated
-  issuance/derivation registration.
-- [ ] Implement only the closed profile's fixed facts/policy and structured
+- [x] Implement Ed25519 signing-lease/provider contracts, bounded owned envelopes
+  and authenticated immutable issuance/derivation registration. Hosts supply keys.
+- [ ] Qualify production key/credential custody and authentication/issuer policy.
+- [x] Implement only the closed profile's fixed facts/policy and structured
   same-context restrictions. Reject unknown logic, profile or lineage.
-- [ ] Compose current authority, every revocation ID, scope/exclusions, time,
+- [x] Compose current authority, every revocation ID, scope/exclusions, time,
   Biscuit and complete Hufu/Cedar layer checks with mandatory durable evidence.
 - [ ] Set host-owned evaluation limits using real policy/concurrency measurements.
-- [ ] Order credential revocation and key retirement with final Hufu operation
-  start, current versions/fences/policy and exact resource/effect checks.
-- [ ] Retain AlreadyStarted as historical/idempotent evidence, without redispatch.
+- [x] Order credential revocation/key retirement with co-located SQLite start,
+  current authority and exact host-provided start/evidence bindings.
+- [ ] Qualify the actual provider-object/effect binding and dispatch boundary.
+- [x] Retain AlreadyStarted as historical/idempotent evidence, without redispatch.
+
+Local evidence: 63 adapter tests and 95 existing Hufu tests pass per TFM on
+Windows x64 against real Biscuit/Cedar/disk SQLite. Start uses a SQL runtime
+fixture; actual provider qualification and measured host budgets are open.
+See the [updated handoff](hufu-integration-handoff.md#m33-local-implementation-and-next-handoff).
 
 Owner: Penghou.Hufu.Biscuit and trusted Hufu host/store/enforcement composition.
 Keep workflow policy, grants, approval, resource canonicalization, evidence

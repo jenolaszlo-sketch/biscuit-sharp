@@ -56,7 +56,7 @@ Design activity completed on 2026-10-02 in commit 69ff07a. See the
 [specification](docs/hufu-integration-spec.md), [handoff](docs/hufu-integration-handoff.md)
 and [ADR 0003](docs/decisions/0003-hufu-integration-profile.md).
 The [implementation plan](docs/implementation-plan.md#m3-consumers-and-later)
-defines the delivery gates. The adapter remains unimplemented.
+defines the delivery gates. The optional adapter and SQLite start prototype are implemented locally; real provider qualification remains open.
 
 - [x] Finalize the source-reviewed specification and handoff; archive the original
   proposal and document security-sensitive amendments.
@@ -67,16 +67,24 @@ defines the delivery gates. The adapter remains unimplemented.
   f892857 / 36979786333, including typed packaged-consumer/NativeAOT checks.
   The exact CI package passed 13 Hufu fixed-policy checks per TFM on Windows.
   Development preview.2 remains unpublished.
-- [ ] Define Hufu's trusted workflow/activity/realm/audience bindings, immutable
+- [x] Define Hufu's trusted workflow/activity/realm/audience contracts, immutable
   grant versions and exact request/provider identities.
-- [ ] Implement signing-key leases, bounded immutable envelopes, authenticated
+- [x] Implement signing-lease contracts, bounded owned envelopes, authenticated
   issuance/derivation registration and realm-scoped revocation storage.
-- [ ] Qualify safe request/attenuation Datalog construction and explicit budgets;
-  preserve Hufu's complete authority-layer/Cedar/evidence composition.
-- [ ] Order per-block revocation and key retirement with exact durable operation
+- [x] Implement and test bounded literal construction, positive host-owned budgets
+  and complete authority-layer/Cedar/required-evidence composition locally.
+- [ ] Measure actual host policy/concurrency budgets and qualify key custody.
+- [x] Order per-block revocation and key retirement with exact durable operation
   start; prove receipt replay never redispatches.
 - [ ] Qualify one real Hufu Windows read consumer and the integration conformance
   suite before freezing or publishing the adapter separately.
+
+The local Windows adapter suite passes 63 cases per TFM using the exact reviewed
+CI package, real Cedar and disk SQLite; the 95 existing Hufu cases also pass per
+TFM. The runtime start participant is a SQL fixture. See the
+[handoff](docs/hufu-integration-handoff.md#m33-local-implementation-and-next-handoff)
+for the remaining real-provider, authentication/custody and release gates.
+Hufu source remains an uncommitted prototype; no adapter package was published.
 
 Hufu owns adapter and host/provider delivery. BiscuitSharp owns only generic
 wrapper enhancements needed by that consumer. This optional integration does

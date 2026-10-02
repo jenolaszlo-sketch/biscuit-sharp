@@ -1,7 +1,6 @@
 # ADR 0003: optional, registered Hufu Biscuit integration profile
 
-Status: selected documentation design, 2026-10-02. Runtime adoption, adapter
-implementation and qualification remain pending. This decision does not change
+Status: selected design, 2026-10-02. The optional Hufu adapter and co-located SQLite start prototype are implemented locally; actual host/provider qualification remains pending. This decision does not change
 the published BiscuitSharp API or Hufu's current optional-transport status.
 
 ## Context
