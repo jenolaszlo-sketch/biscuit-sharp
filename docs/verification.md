@@ -2,10 +2,25 @@
 
 ## Second-audit fixes — 2026-10-02
 
-F09–F12 have implementation/regression fixes. The old selected artifact below
-is superseded: it predates the closed parameter API, complete inventory and
-source-bound legal validation. Select a new artifact only after the complete
-19-job matrix passes at the new implementation SHA.
+F09–F12 and the process-RID, budget and package-reference NativeAOT improvements
+are qualified by all 19 successful jobs at
+112bdffaaa933da594588ba256ea0db6efbb211f
+([run 36943970067](https://github.com/jenolaszlo-sketch/biscuit-sharp/actions/runs/36943970067)).
+The complete three-RID legal/source/tamper gates, both-TFM inventory/compile
+rejection/budget tests, all six package consumers, net10 package-reference
+NativeAOT on each RID, compatibility and strict Valgrind passed.
+
+| Selected artifact | SHA-256 |
+| --- | --- |
+| BiscuitSharp.0.1.0-preview.1.nupkg | 84d0b440502d48486a2b7099a0f5286f10e5fad6eb9c4d3d238769d06ec732a2 |
+| BiscuitSharp.0.1.0-preview.1.snupkg | 61790753fcf27985954f3015df4371903924449f1b01a980b6b27e4fb06f39c8 |
+
+These artifacts were downloaded and fingerprinted locally; both portable PDB
+SourceLink mappings were reverified against the full selected SHA. The old
+5dd9e19 artifact below is superseded. After protected-environment configuration,
+publish.yml and verify-published.yml must use run 36943970067 and the full SHA
+above. Public-feed qualification and baseline restoration remain pending.
+
 
 Local Windows evidence: both managed TFMs pass, including all four parameter
 factory round-trips/byte ownership and malformed inspection decoding. Windows
@@ -16,7 +31,7 @@ external-consumer subclass rejection and process-RID mapping run on both TFMs.
 The 201-entry API inventory matches both TFMs. Four concurrent hostile default
 workloads fail closed on both TFMs with sampled memory observations. Clean
 Windows package-reference NativeAOT publish/run passes without a native override.
-Cross-platform qualification of these changes remains a CI step.
+Cross-platform qualification is complete in the selected run above.
 
 ## Superseded preview candidate qualification — 2026-10-02
 

@@ -1,17 +1,19 @@
 # Review findings and disposition
 
-Updated 2026-10-02. The complete 19-job release matrix at 412f25f passed:
-[run 36934972104](https://github.com/jenolaszlo-sketch/biscuit-sharp/actions/runs/36934972104).
+Updated 2026-10-02. The complete 19-job matrix passed at
+112bdffaaa933da594588ba256ea0db6efbb211f:
+[run 36943970067](https://github.com/jenolaszlo-sketch/biscuit-sharp/actions/runs/36943970067).
 The original review and evidence are preserved in self-audit-handoff.md.
 This ledger describes current status.
+
 
 ## Second-audit corrections
 
 F09–F12 are fixed in code and covered by regressions: source-bound legal
 material/coverage validation, sealed factory-only BiscuitParam, public operator
 and protected-member inventory coverage, and strict inspection ranges/arrays.
-Process-architecture selection is corrected. The new implementation requires
-a fresh complete matrix and a newly selected candidate artifact. Historical
+Process-architecture selection is corrected. The corrected implementation passed
+the newly qualified matrix and selected candidate recorded above. Historical
 successful runs do not qualify the changed code.
 
 ## Resolved before preview
@@ -39,7 +41,7 @@ successful runs do not qualify the changed code.
 
 ## Release steps still open
 
-- Full matrix on the final preview-preparation commit.
+- Public-feed qualification after publication; the implementation matrix is green.
 - Protected release environment, trusted publishing and preview publication.
 - Public-feed consumers/content identity on all supported RID/TFM combinations.
 - Published preview compatibility baseline and final contract re-freeze.

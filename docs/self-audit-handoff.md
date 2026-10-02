@@ -2,7 +2,7 @@
 
 Audit date: 2026-10-01 (Asia/Manila).
 Repository: C:\Users\Laszlos\source\repos\biscuit-sharp
-Original reviewed HEAD: fb82be79737396da5cb4823072a94738eabd118b. Latest reviewed HEAD: cf4c56c1d96a3aa0a7fcb097e72e054ba7080a76 (second review below).
+Original reviewed HEAD: fb82be79737396da5cb4823072a94738eabd118b. Latest corrected implementation: 112bdffaaa933da594588ba256ea0db6efbb211f (qualified fix follow-up below).
 Original audit scope: managed public API and contract, native boundary, authorization semantics, provenance, packaging/CI, structure, and consumer usability. The follow-up below records implementation changes made after the review; publication remains pending.
 
 
@@ -10,14 +10,19 @@ Original audit scope: managed public API and contract, native boundary, authoriz
 
 The four new P2 findings are fixed in implementation. This section supersedes
 the open-finding status and selected-candidate instructions in the second
-review below. The old 5dd9e19 artifact must be replaced after a fresh full matrix.
+review below. All 19 jobs passed at 112bdffaaa933da594588ba256ea0db6efbb211f
+([run 36943970067](https://github.com/jenolaszlo-sketch/biscuit-sharp/actions/runs/36943970067)). This selected candidate replaces the old 5dd9e19 artifact.
 
 | Finding | Change | Regression evidence |
 | --- | --- | --- |
-| F09 | Shared CargoLegal resolver reads legal bytes directly from checksum-verified crate archives. Full crate-relative paths replace ambiguous basenames. Staging and package verification independently require source coverage and compare shipped bytes with archive content. | Genuine Windows staging/smoke package pass. Altered text, text plus changed inventory hash, and removed file plus inventory entry are rejected in both paths. Three-RID qualification remains a new CI gate. |
-| F10 | BiscuitParam is a sealed immutable class with private construction and four factories; byte values remain snapshots. This deliberately removes the unpublished record inheritance/equality surface. | External consumer must fail derivation with CS0509 on both TFMs. All four factory values survive native issuance/parsing/authorization; mutation of the input byte array does not change the value. |
+| F09 | Shared CargoLegal resolver reads legal bytes directly from checksum-verified crate archives. Full crate-relative paths replace ambiguous basenames. Staging and package verification independently require source coverage and compare shipped bytes with archive content. | Genuine Windows staging/smoke package pass. Altered text, text plus changed inventory hash, and removed file plus inventory entry are rejected in both paths. Three-RID staging, package/source binding and all tamper cases pass in the qualified run. |
+| F10 | BiscuitParam is a sealed immutable class with private construction and four factories; byte values remain snapshots. This deliberately removes the unpublished record inheritance/equality surface. | External consumer rejects derivation with CS0509 on both TFMs across all three platforms. All four factory values survive native issuance/parsing/authorization; mutation of the input byte array does not change the value. |
 | F11 | Inventory includes public operators and externally accessible protected/protected-internal members, accessor visibility and selected contract attributes. One renderer drives inventory and regression checks. | Removing an operator or protected constructor changes the rendered surface on both TFMs. Published-package binary compatibility remains a separate post-publication gate. |
 | F12 | Internal inspection parser checks object shape, managed count/size ranges and revocation/source/version array consistency. | Valid response passes; oversized counts/sizes, malformed base64, non-object roots and inconsistent arrays throw BiscuitBridgeException on both TFMs. |
+
+The negative compile gate initially leaked its expected compiler exit status to
+the CI wrapper. Commit 112bdff normalizes success only after CS0509 is verified;
+the corrected complete run is green.
 
 Luna handled the scoped API gate, external compile rejection and process-RID
 mapping work. Asset selection now uses ProcessArchitecture; mapping tests cover
@@ -43,8 +48,20 @@ These P3 opportunities were not declared preview blockers.
 
 
 Publication remains pending the protected-environment reviewer/self-review
-configuration, a new qualified artifact, public-feed verification and baseline
+configuration, publication of the selected qualified artifact, public-feed verification and baseline
 restoration. No publication is part of this correction.
+
+
+Selected candidate artifact SHA-256:
+
+- BiscuitSharp.0.1.0-preview.1.nupkg:
+  84d0b440502d48486a2b7099a0f5286f10e5fad6eb9c4d3d238769d06ec732a2
+- BiscuitSharp.0.1.0-preview.1.snupkg:
+  61790753fcf27985954f3015df4371903924449f1b01a980b6b27e4fb06f39c8
+
+Both portable PDB SourceLink mappings were independently rechecked locally
+against the selected full SHA. The final handoff update is documentation only;
+retain the exact qualified run/artifact above for publishing.
 
 
 ## Second solution review — 2026-10-02
