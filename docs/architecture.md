@@ -47,6 +47,9 @@ BiscuitSharp does NOT own: workflow authority, grant issuance policy, revocation
 storage, workflow revisions, human approval, delegation policy, Hufu authority
 envelopes. Those belong to Hufu. The eventual Hufu adapter (`Penghou.Hufu.Biscuit`)
 maps Hufu grants into Biscuit facts/checks; that mapping must not live here.
+The [integration specification](hufu-integration-spec.md) selects an optional,
+online registered-token profile. Its [handoff](hufu-integration-handoff.md)
+separates documented design from unimplemented host/runtime prerequisites.
 
 ## Semantics and errors
 

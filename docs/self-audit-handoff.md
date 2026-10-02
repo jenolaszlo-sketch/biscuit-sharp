@@ -6,6 +6,34 @@ Original reviewed HEAD: fb82be79737396da5cb4823072a94738eabd118b. Published rele
 Original audit scope: managed public API and contract, native boundary, authorization semantics, provenance, packaging/CI, structure, and consumer usability. The release record below supersedes historical pending steps and candidate selections.
 
 
+## Hufu integration specification follow-up — 2026-10-02
+
+The maintainer's supplied proposal is archived unchanged. The
+[finalized specification](hufu-integration-spec.md), [handoff](hufu-integration-handoff.md)
+and [ADR 0003](decisions/0003-hufu-integration-profile.md) now define the optional
+Hufu adapter profile. The source review found that current Hufu contracts use
+tenant/subject/run/string-revision/fence bindings, layered current authority,
+workspace-relative paths and ordered operation start; its workflow/activity/
+audience/envelope/Biscuit-registry contracts remain future integration work.
+
+Explicit design amendments close the original ambiguities: host-authenticated
+bearer context, one grant version per token, realm-scoped envelope key hints
+bound to signed facts, signing-key leases, closed registered canonical transport,
+fixed origin-scoped policy, same-context attenuation, positive explicit budgets
+and block-new-start revocation semantics with required evidence before dispatch.
+
+Published preview.1 cannot distinguish budget exhaustion from other runtime
+errors under evaluation_failure. The adapter must fail closed as
+AuthorizationFailure until typed reasons are implemented; it cannot infer
+AuthorizationBudgetExceeded by parsing prose. Non-exportable signing, arbitrary
+offline attenuation and cross-subject/workflow rebinding are separate profiles.
+
+The documented policy passed 11 real native checks on both managed frameworks,
+including attenuation authority/request/scope pollution and read-only narrowing.
+This is documentation/policy evidence, not a qualified Hufu adapter. No Hufu
+source or published wrapper runtime behavior changed. Implementation and complete
+integration conformance remain open in the handoff.
+
 ## Published preview and restored baseline — 2026-10-02
 
 BiscuitSharp 0.1.0-preview.1 is [available on NuGet.org](https://www.nuget.org/packages/BiscuitSharp/0.1.0-preview.1).

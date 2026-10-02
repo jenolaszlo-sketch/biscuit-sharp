@@ -88,6 +88,9 @@ BiscuitSharp verifies tokens and evaluates authorization. Your application owns 
 issuance policy, revocation storage, workflow revisions, human approval, delegation
 policy, auditing, and enforcement at the resource boundary. Revocation intentionally
 requires external state; this library exposes the identifiers, Hufu owns the store.
+The [Hufu integration specification](docs/hufu-integration-spec.md) defines the
+optional adapter profile; its [handoff](docs/hufu-integration-handoff.md) records
+implementation prerequisites and acceptance tests. The adapter remains unimplemented.
 
 ## Compatibility (target)
 

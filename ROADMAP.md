@@ -45,6 +45,8 @@ See docs/verification.md for exact artifacts, hashes and historical evidence.
 
 - [ ] Require complete public XML documentation before 1.0 and validate the
   stable candidate through the same release gates.
+- [x] Finalize the optional Hufu integration specification and source-reviewed
+  handoff; preserve the original proposal and explicit design amendments.
 - [ ] Integrate separately into Penghou.Hufu.Biscuit; measure its real policies
   and choose explicit budgets. Integration is not a wrapper correctness gate.
 
