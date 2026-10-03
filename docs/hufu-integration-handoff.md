@@ -23,21 +23,51 @@ RA-5B under the [corrective ledger](../../Penghou/docs/resource-abstractions-cor
 and selected [resource ADR](../../Penghou/docs/decisions/0003-replaceable-resource-providers.md).
 VFS remains deferred.
 
-The final Windows x64 solution run passed with zero failures/skips on each
-net8.0 and net10.0:
+The isolated Windows x64 candidate-package run passed with no IO/Luban source checkout and a fresh cache, with zero failures/skips on each net8.0 and net10.0:
 
 | Suite | Cases per framework |
 | --- | ---: |
 | Biscuit adapter, Local/Luban and Hufu.IO read composition | 93 |
-| Existing Hufu/Cedar/SQLite/Zhinu/Luban integration | 99 |
+| Existing Hufu/Cedar/SQLite/Zhinu/Luban integration | 101 |
 | IO resource integration | 19 |
 
-422 cases executed across both frameworks. Source remains local/uncommitted:
+426 cases executed across both frameworks. Source remains local/uncommitted:
 Hufu has no committed HEAD. The [source inventory](hufu-adapter-source-manifest.json)
-hashes 320 local/sibling code/configuration inputs, six restored package archives
-and the two final measurement reports. These are input identities, not a release
+hashes 337 Hufu/Zhinu code/configuration inputs, seven package archives and three reports (the existing two measurements plus the isolated candidate-package result). These are input identities, not a release
 attestation. Earlier source tables/counts later in this document are historical.
 
+## Resource publication checkpoint — 2026-10-03
+
+The exact IO release tag v0.1.0-preview.1 points to
+468dde33f0cda8f8f26a734abd0e512cea70d138. [Release run 37084905564](https://github.com/jenolaszlo-sketch/penghou/actions/runs/37084905564)
+passes Windows tests, Linux builds, package checks and isolated consumption.
+Publication stops before login/push at missing NUGET_USER. The three corrected
+IO versions and Luban preview.1 are not yet available on NuGet.org.
+
+Luban's finalized API passes 338 tests per framework and [CI 37085937530](https://github.com/jenolaszlo-sketch/penghou-luban/actions/runs/37085937530)
+at 26f4ad943a0f4370627574c43d2a78bd2c14b54d. Its patch types now belong to
+Penghou.Luban.Changes, with a checked-in enforced API baseline. The OIDC release
+workflow and public-dependency smoke mode are committed/pushed.
+
+Hufu now selects exact Penghou.Luban [0.1.0-preview.1] by default and excludes
+Luban source from its normal solution. Both source switches remain explicit
+development options. Genuine v2 read/diff documents are rejected before
+authority/evidence access; Hufu remains a v1 language-policy consumer.
+
+The complete 93/101/19 matrix above uses exact IO release artifacts and the
+finalized Luban package. [Recorded sources and archive hashes](../../Penghou.Hufu/docs/qualification/candidate-resource-packages.json)
+prove fresh-cache candidate-only consumption. The repeatable
+[qualification tool](../../Penghou.Hufu/eng/Test-PublishedResourcePackages.ps1)
+defaults to public IO/Luban dependencies and produces separate public evidence
+only after successful producer publication and all six test suites.
+
+Resume the [resource release handoff](../../Penghou/docs/resource-package-release-handoff.md)
+and [Luban release handoff](../../Penghou.Luban/docs/release-handoff.md):
+configure each repository's publishing identity, retry the validated IO job,
+qualify/publish Luban from public IO, then run Hufu's default isolated public
+qualification. RA-5B/RA-5C remain open until that actual public-feed evidence exists.
+The earlier capacity measurements remain historical measurements of the same
+fixed policy; IO/package adoption alone does not require rerunning them.
 ## Implemented adapter and current qualification
 
 BiscuitKeyRing is public: hosts may supply explicitly owned Ed25519 keys or

@@ -1,5 +1,5 @@
 {
-  "description": "Local uncommitted qualification inputs after 93 Biscuit / 99 existing Hufu / 19 IO cases per framework. Hashes identify inputs; they do not attest a release.",
+  "description": "Local uncommitted inputs after isolated candidate-package qualification: 93 Biscuit / 101 core / 19 IO cases per framework. Hashes identify source and archives; they do not attest a release.",
   "date": "2026-10-03",
   "profile": "hufu-biscuit-v1",
   "mapping": "hufu-biscuit-mapping-v2:f0225d72eda1bbfab9bf3274ed53cda6aa482f01913e036be7f3d2d8a8a25f21",
@@ -13,11 +13,12 @@
       "net10.0"
     ],
     "biscuitCases": 93,
-    "coreCases": 99,
+    "coreCases": 101,
     "ioCases": 19,
     "failures": 0,
     "skips": 0,
-    "ioSource": "local candidate package cache; no published adoption"
+    "ioSource": "Exact IO release run 37084905564 candidate artifacts in an isolated fresh cache; no published adoption",
+    "lubanSource": "Finalized API candidate package; no Luban source in the qualified dependency closure"
   },
   "packages": [
     {
@@ -33,134 +34,155 @@
     {
       "id": "penghou.io.abstractions",
       "version": "0.1.0-preview.1",
-      "sha256": "4219444768fca38c1a974b9e1ff1acf546414ba53146480ffbfdb866f16b1e10"
+      "sha256": "c00a68a0d15bc3861ead0da2f32020a7fcd6379fd0501b1054a52407d8df7250"
     },
     {
       "id": "penghou.io.protocols",
       "version": "0.1.0-preview.1",
-      "sha256": "51b5beabb4cbfba9f0a9fb4e2c4505208c5eb946ce6a820d0640bba3d622b20a"
+      "sha256": "b5ea0004e89dd69069953122c1eed054b6e74dddc846925b1e3ce8f22cbe25ff"
     },
     {
       "id": "penghou.io.local",
       "version": "0.1.0-preview.1",
-      "sha256": "28c0af53ed6dfdd1f3b080aac17249edd8d78e8306e466ab20e155cfb47aad1b"
+      "sha256": "da2a3b0c94b381f964c52d4a034dbd76e51a90b012b0f18594ac426b4a37ac63"
     },
     {
       "id": "sqlitepclraw.bundle_e_sqlite3",
       "version": "2.1.12",
       "sha256": "a9a06e6b5a313f6ef3675f91997d012adeffe8aa9e1ffd69ed46a4e685b054e1"
+    },
+    {
+      "id": "penghou.luban",
+      "version": "0.1.0-preview.1",
+      "sha256": "075f24e84517e9d55f5c4c180b92b4a1a72244f6521f51e5eccebac9ea08a79e"
     }
   ],
   "reports": [
+    {
+      "path": "docs/qualification/biscuit-budget-net10.0.json",
+      "sha256": "3631b47e2fb9648f37589f4a97e6a73d40c0d7c06d1789d3673e38e957e52d7e"
+    },
     {
       "path": "docs/qualification/biscuit-budget-net8.0.json",
       "sha256": "6dc34198de897ec8b84e32cb0b7fe017fb91d395a2d398d6d9c27b2202a4d989"
     },
     {
-      "path": "docs/qualification/biscuit-budget-net10.0.json",
-      "sha256": "3631b47e2fb9648f37589f4a97e6a73d40c0d7c06d1789d3673e38e957e52d7e"
+      "path": "docs/qualification/candidate-resource-packages.json",
+      "sha256": "39d7698f7c90b52ed485c3938dad18f484e8d1d16119691acbd1dd9a9cf318db"
     }
   ],
   "files": [
     {
-      "path": "../Penghou.Luban/Directory.Build.props",
-      "sha256": "6bec27c7e27f95542fd8c35feafcc4cc0fdc80a1ad0c1f67680d1f791d411be8"
-    },
-    {
-      "path": "../Penghou.Luban/src/Penghou.Luban/Changes/PatchContracts.cs",
-      "sha256": "9e1830d3b4ccb5f38d2ba8d13854feb79431fce975e487ff07bd7ce87b78973e"
-    },
-    {
-      "path": "../Penghou.Luban/src/Penghou.Luban/Changes/TextChangeModel.cs",
-      "sha256": "f20b0dc360030a95172484780e1e920bf8577b968284ab0214974f4cf2bbaefe"
-    },
-    {
-      "path": "../Penghou.Luban/src/Penghou.Luban/Changes/TextChangeTransport.cs",
-      "sha256": "5de6bb0c5d34ef5df5646b44e998cc83f430c231471d451898bae02dfd9414ed"
-    },
-    {
-      "path": "../Penghou.Luban/src/Penghou.Luban/Changes/TextDiffEngine.cs",
-      "sha256": "9faee8486377a7136609bc61779d542929938da8f6f57fe9f92ed75a5e9f426c"
-    },
-    {
-      "path": "../Penghou.Luban/src/Penghou.Luban/Changes/TextMergeEngine.cs",
-      "sha256": "977239ac55f6c3e813950e3ea93a98a4b206603a3acc947db4aec9ed084e66f2"
-    },
-    {
-      "path": "../Penghou.Luban/src/Penghou.Luban/Changes/TextUnifiedDiff.cs",
-      "sha256": "e0008bbe560b6583ab00652c40c115a39ca98c52ae735fb205decbec9720bf33"
-    },
-    {
-      "path": "../Penghou.Luban/src/Penghou.Luban/Changes/TextUnifiedImport.cs",
-      "sha256": "be40704ed9ddb6c39a5ecf55730a8f5bbb3ee0689987ad1c89489057a0a02ea4"
-    },
-    {
-      "path": "../Penghou.Luban/src/Penghou.Luban/Changes/Utf8PatchMaterializer.cs",
-      "sha256": "2a41ed64c214e399d3ce4ea9ceb8c5e9f942bd87715323837eaf84a3ef467e32"
-    },
-    {
-      "path": "../Penghou.Luban/src/Penghou.Luban/Execution/BatchPatchExecutor.cs",
-      "sha256": "f6c605396d3f9a6ac97ea48bc73b8975ab895b537a5963bcd25967cf227039ff"
-    },
-    {
-      "path": "../Penghou.Luban/src/Penghou.Luban/Execution/SinglePatchExecutor.cs",
-      "sha256": "be9b43f7ea496fce26b3d5cad7fba5ade67920cb4edc0b7a0053b5b784d5e946"
-    },
-    {
-      "path": "../Penghou.Luban/src/Penghou.Luban/Language/LanguageCompiler.cs",
-      "sha256": "eafc26158f187e7f57848a10fa16a551b2d90d2b80091fdef30653b1bb978430"
-    },
-    {
-      "path": "../Penghou.Luban/src/Penghou.Luban/Language/LanguageGlob.cs",
-      "sha256": "9f0b0d43e7ec7aff8b85c4861578ef4ebc0c6d325f33c0fb9f75a3c65321c1e8"
-    },
-    {
-      "path": "../Penghou.Luban/src/Penghou.Luban/Language/LanguageModel.cs",
-      "sha256": "0d408cf7bca46abc6be96806ad2c6723e2fc6be2b6c7312fd2c5225d8dae3e47"
-    },
-    {
-      "path": "../Penghou.Luban/src/Penghou.Luban/Language/LanguagePaths.cs",
-      "sha256": "253170ac0dc9cd4b2f02a43961cab76fb7556714d5af2c485b394611cfd099fc"
-    },
-    {
-      "path": "../Penghou.Luban/src/Penghou.Luban/Language/LanguageRuntime.cs",
-      "sha256": "b6b9b699618fd8e243245d5d9d4b8445b2cc807aad865e21b8930e6bc8c4e550"
-    },
-    {
-      "path": "../Penghou.Luban/src/Penghou.Luban/Language/LanguageToolRuntime.cs",
-      "sha256": "0bc2551ca08219887b2e3e3b8df0d7a40a382c85e49df60a94111c84bae873bf"
-    },
-    {
-      "path": "../Penghou.Luban/src/Penghou.Luban/Language/SemanticIdentity.cs",
-      "sha256": "ec033c3ddfceab9cb01519db93a60603d635bdbf9c103317bff15c20bff1c70b"
-    },
-    {
-      "path": "../Penghou.Luban/src/Penghou.Luban/Penghou.Luban.csproj",
-      "sha256": "fa350a948a6d603fec0ba64960b7492b8154ce6a48583dd487108ed41abf5a76"
-    },
-    {
-      "path": "../Penghou.Luban/src/Penghou.Luban/Resolution/PreviewCompiler.cs",
-      "sha256": "cb8900ed6ec6d30b88d42511259df77c3edf8e70b2cbb18b270e8ad090fd07a6"
-    },
-    {
-      "path": "../Penghou.Luban/src/Penghou.Luban/Resolution/PreviewIdentity.cs",
-      "sha256": "9bfd9aa2cfc555221a3d6f7ff5f056d1fe5b9bf161f69078f1c21098ee5d36c3"
-    },
-    {
-      "path": "../Penghou.Luban/src/Penghou.Luban/Resolution/PreviewModel.cs",
-      "sha256": "19bba9ab64477ecc4b7975ffea64e1cd15f6bcd45cb192233e428bd89826c4f1"
-    },
-    {
-      "path": "../Penghou.Luban/src/Penghou.Luban/Resolution/PreviewRuntime.cs",
-      "sha256": "fcd3fb6041d6206215f42a2f6037bbc5a1db76a694f0cf17f2e1f856a4f886a3"
-    },
-    {
-      "path": "../Penghou.Luban/src/Penghou.Luban/Runtime/FileEffectRuntime.cs",
-      "sha256": "0711f61cd8b99b65de042ea8dde992cf2a55aa91debd45499c135cad26f2a7b2"
-    },
-    {
       "path": "../Penghou.Zhinu/Directory.Build.props",
       "sha256": "2988dbef3580f1dc12c2e5721ea9e729b086879f35bc4d2b5841735a8ee0d330"
+    },
+    {
+      "path": "../Penghou.Zhinu/src/Penghou.Zhinu.Agents/AgentStepOptions.cs",
+      "sha256": "2d02898b2c74627c248a3a3afd7bc51d0a5c654095912340ebac68618eced3e5"
+    },
+    {
+      "path": "../Penghou.Zhinu/src/Penghou.Zhinu.Agents/AgentWorkflowExecutionException.cs",
+      "sha256": "201eaa25b6e643c22d5173bd3684d1a8759b06717397fc011cf6ac4e92b44b43"
+    },
+    {
+      "path": "../Penghou.Zhinu/src/Penghou.Zhinu.Agents/Penghou.Zhinu.Agents.csproj",
+      "sha256": "f6e72b75061435a952828ec7381c4dcafae168d38a9bce3737b2421347f60026"
+    },
+    {
+      "path": "../Penghou.Zhinu/src/Penghou.Zhinu.Agents/PublicAPI.Shipped.txt",
+      "sha256": "a81539ad21c673adc66d302bf1d16d1e1ebab1a56429a410031edca4c82c6466"
+    },
+    {
+      "path": "../Penghou.Zhinu/src/Penghou.Zhinu.Agents/PublicAPI.Unshipped.txt",
+      "sha256": "8c3771f3d39da78539543fcd28347012346297e153555b2b23368e78507e1097"
+    },
+    {
+      "path": "../Penghou.Zhinu/src/Penghou.Zhinu.Agents/ServiceCollectionExtensions.cs",
+      "sha256": "d3a066e653da0137c4d519de79f9a1cd4a7d24ffaf4e3718507ec763b116b5ac"
+    },
+    {
+      "path": "../Penghou.Zhinu/src/Penghou.Zhinu.Agents/SqliteJsonCheckpointStore.cs",
+      "sha256": "b7b58690d531030a90ffe5331d040f874689585d63fb65fcdcbcf82a9641567a"
+    },
+    {
+      "path": "../Penghou.Zhinu/src/Penghou.Zhinu.Agents/WorkflowContextAgentExtensions.cs",
+      "sha256": "99637ff0a222a197985b88cd53c57567d14b392d3d03d87d320b0d233193677a"
+    },
+    {
+      "path": "../Penghou.Zhinu/src/Penghou.Zhinu.Cli/AssemblyInfo.cs",
+      "sha256": "3e8ebe54075a092a8593e661d169121c38dbeaea51f43fa5ffef568937d21789"
+    },
+    {
+      "path": "../Penghou.Zhinu/src/Penghou.Zhinu.Cli/CliApp.cs",
+      "sha256": "469d6e485109b58f04fa8a297bc1225c00ce6b787919c282633c4435987f1b5a"
+    },
+    {
+      "path": "../Penghou.Zhinu/src/Penghou.Zhinu.Cli/CliOutput.cs",
+      "sha256": "2a8ff9fb4e94efdb323e98773c61d31b21de530bdc6d0b13de10d20c10ca3ee3"
+    },
+    {
+      "path": "../Penghou.Zhinu/src/Penghou.Zhinu.Cli/Penghou.Zhinu.Cli.csproj",
+      "sha256": "ec18775e1506134352cb022105fe36f5c263a374c4354c0871874d0c10b7733a"
+    },
+    {
+      "path": "../Penghou.Zhinu/src/Penghou.Zhinu.Cli/Program.cs",
+      "sha256": "96bdfe1fde2e3d94a9d2fe2a2f5311fff04f10bbd3b6d38e5f8c9323e471c806"
+    },
+    {
+      "path": "../Penghou.Zhinu/src/Penghou.Zhinu.Hosting.AspNetCore/Penghou.Zhinu.Hosting.AspNetCore.csproj",
+      "sha256": "565daceb5de59fd3677f37687517c914ae5e7bb858f7db780d386a5ba30461d7"
+    },
+    {
+      "path": "../Penghou.Zhinu/src/Penghou.Zhinu.Hosting.AspNetCore/PublicAPI.Shipped.txt",
+      "sha256": "58fa93a057366299bab105489f5913c6acf8ba5129dbc7f80609d551d149e71c"
+    },
+    {
+      "path": "../Penghou.Zhinu/src/Penghou.Zhinu.Hosting.AspNetCore/PublicAPI.Unshipped.txt",
+      "sha256": "21d444754414af86b3d669e9ea73b41a57ece5a5d721ce7546c4fa73831b333a"
+    },
+    {
+      "path": "../Penghou.Zhinu/src/Penghou.Zhinu.Hosting.AspNetCore/WorkflowEngineEndpoints.cs",
+      "sha256": "0030ddc84a7d04444727ca860c9c867a0d6e711d6d9f8b5b44fb723eeda092aa"
+    },
+    {
+      "path": "../Penghou.Zhinu/src/Penghou.Zhinu.Hosting/Penghou.Zhinu.Hosting.csproj",
+      "sha256": "04f3c9cad457d77f192d148105eb5e93ba516d292686554711d6e49cf72245aa"
+    },
+    {
+      "path": "../Penghou.Zhinu/src/Penghou.Zhinu.Hosting/PublicAPI.Shipped.txt",
+      "sha256": "b3fb270598d9e01fc423bf1eed8d7f512093443609199c3881a0a14fcf455d0c"
+    },
+    {
+      "path": "../Penghou.Zhinu/src/Penghou.Zhinu.Hosting/PublicAPI.Unshipped.txt",
+      "sha256": "bd2fb18dbfbe6e63d5219f30cd3401aef099ffb4dd9bc608f08374adb5a45de7"
+    },
+    {
+      "path": "../Penghou.Zhinu/src/Penghou.Zhinu.Hosting/ServiceCollectionExtensions.cs",
+      "sha256": "f1ea271ed96c4f3c42661132ab4a1749d69ad78522ead75eca8b938ce4b24766"
+    },
+    {
+      "path": "../Penghou.Zhinu/src/Penghou.Zhinu.Hosting/ServiceProviderWorkflowStepResolver.cs",
+      "sha256": "c66318b9459c83f54b04d39ef4566038ffdf8ed047c97ba78f1518043b5b832c"
+    },
+    {
+      "path": "../Penghou.Zhinu/src/Penghou.Zhinu.Hosting/ZhinuHostedService.cs",
+      "sha256": "48e0820e081a9dfba2a358cbfb47de62c8028ea4ab94617327a3cb7795714cf5"
+    },
+    {
+      "path": "../Penghou.Zhinu/src/Penghou.Zhinu.OpenTelemetry/OpenTelemetryBuilderExtensions.cs",
+      "sha256": "ca0a4e8f7fc9f0e99bce80ccd601070066d5c9b28b693426629e4f362478bcf1"
+    },
+    {
+      "path": "../Penghou.Zhinu/src/Penghou.Zhinu.OpenTelemetry/Penghou.Zhinu.OpenTelemetry.csproj",
+      "sha256": "0c12c278d53361ff9c09e895cf2dec14ab793563434ddd5ca4bd0e33855fc90c"
+    },
+    {
+      "path": "../Penghou.Zhinu/src/Penghou.Zhinu.OpenTelemetry/PublicAPI.Shipped.txt",
+      "sha256": "f739a4ae086fa5d7f9297bdd5736c0a70d415b5fe9337ab2c47b9597d79df1a2"
+    },
+    {
+      "path": "../Penghou.Zhinu/src/Penghou.Zhinu.OpenTelemetry/PublicAPI.Unshipped.txt",
+      "sha256": "21d444754414af86b3d669e9ea73b41a57ece5a5d721ce7546c4fa73831b333a"
     },
     {
       "path": "../Penghou.Zhinu/src/Penghou.Zhinu.Sqlite/IZhinuSqliteDatabase.cs",
@@ -487,6 +509,14 @@
       "sha256": "e8b300b08408ed1e34ff6160e16373c87a7a3c0a2657f265f1c1c22d85830019"
     },
     {
+      "path": "../Penghou.Zhinu/src/Penghou.Zhinu.Sqlite/PublicAPI.Shipped.txt",
+      "sha256": "f0addde5f29e3897f26d6bb3fb99ab9b479078dd55a8192f16cd27723f561199"
+    },
+    {
+      "path": "../Penghou.Zhinu/src/Penghou.Zhinu.Sqlite/PublicAPI.Unshipped.txt",
+      "sha256": "3d0b2451d4e4ca21f5481dacdf698f0d753613fae5690b7e3b99716fa284471e"
+    },
+    {
       "path": "../Penghou.Zhinu/src/Penghou.Zhinu.Sqlite/ServiceCollectionExtensions.cs",
       "sha256": "7665e048fc2bab003405fa688e93f41c736638b064e42602114ac20425591c8f"
     },
@@ -517,6 +547,42 @@
     {
       "path": "../Penghou.Zhinu/src/Penghou.Zhinu.Sqlite/ZhinuSqliteOptions.cs",
       "sha256": "b87c06f01b21c1efb92bfc2355bea4e671a456b931b454c9006b79fd89ff0551"
+    },
+    {
+      "path": "../Penghou.Zhinu/src/Penghou.Zhinu.Testing/IWorkflowStoreFixture.cs",
+      "sha256": "a3c02dd1364cc57c8cf53bc8d1e9aa695e458474febd8fd73583dec6ad1085ba"
+    },
+    {
+      "path": "../Penghou.Zhinu/src/Penghou.Zhinu.Testing/Penghou.Zhinu.Testing.csproj",
+      "sha256": "f767ee8880c05418b0271a18af5e102f596d9e2e92505bdab0c25f8b1cc7179b"
+    },
+    {
+      "path": "../Penghou.Zhinu/src/Penghou.Zhinu.Testing/PublicAPI.Shipped.txt",
+      "sha256": "c54837f32152fc213b9220701b9160b5eefe6310a3155c2f2cb4390febb94b07"
+    },
+    {
+      "path": "../Penghou.Zhinu/src/Penghou.Zhinu.Testing/PublicAPI.Unshipped.txt",
+      "sha256": "6ef313c04aa2ca0dabb8ee8a10fa68c8065a445d129ca71d0a34ac774925aa33"
+    },
+    {
+      "path": "../Penghou.Zhinu/src/Penghou.Zhinu.Testing/TestTimeProvider.cs",
+      "sha256": "42db9b5c1b439973036f1c33642913a78e509c12a883789a83f12ac98d84e5c2"
+    },
+    {
+      "path": "../Penghou.Zhinu/src/Penghou.Zhinu.Testing/WorkflowStoreConformance.cs",
+      "sha256": "bf1b3c56e207ba5bbac5c6b0101a3d84ec7bbbbab2fa3cc6472134dd2171f818"
+    },
+    {
+      "path": "../Penghou.Zhinu/src/Penghou.Zhinu.Testing/WorkflowStoreConformanceReport.cs",
+      "sha256": "b75c976dee54a2a67f72661a82f055098425367ff2831e775e1c50b4c82c3295"
+    },
+    {
+      "path": "../Penghou.Zhinu/src/Penghou.Zhinu.Testing/WorkflowStoreConformanceSuite.cs",
+      "sha256": "7e1686e1ebba55676a27536d73c374815893cc43664c23a8ad272ca9629453eb"
+    },
+    {
+      "path": "../Penghou.Zhinu/src/Penghou.Zhinu.Testing/ZhinuTestHost.cs",
+      "sha256": "dfe95c8a88e66308741412a96ca18ad8eb1c4af6a4180160bfaad3e116331da9"
     },
     {
       "path": "../Penghou.Zhinu/src/Penghou.Zhinu/AssemblyInfo.cs",
@@ -797,6 +863,14 @@
     {
       "path": "../Penghou.Zhinu/src/Penghou.Zhinu/Penghou.Zhinu.csproj",
       "sha256": "2d025d534c46b11265bda537fdb57a329115b84221a03cf571b07e53b05a8bab"
+    },
+    {
+      "path": "../Penghou.Zhinu/src/Penghou.Zhinu/PublicAPI.Shipped.txt",
+      "sha256": "11f9c15e0f37ff569c21065eaa2d0af6d970a7b8da5740b84189a7bcb4aca315"
+    },
+    {
+      "path": "../Penghou.Zhinu/src/Penghou.Zhinu/PublicAPI.Unshipped.txt",
+      "sha256": "dcc464390c57ac74a0d876d5484f9e9ff5b249b712377ec14dadec2ce456fb22"
     },
     {
       "path": "../Penghou.Zhinu/src/Penghou.Zhinu/RestartPlan.cs",
@@ -1095,12 +1169,16 @@
       "sha256": "476542e3993b3d5e7337cb51114e7607b76354d6707a67ab1e90d823f51c08f2"
     },
     {
+      "path": "eng/Test-PublishedResourcePackages.ps1",
+      "sha256": "7b39ee984db84c0a2a2fd393298000350ce6e1e45a2d7e36ace1190a012c92a9"
+    },
+    {
       "path": "nuget.config",
       "sha256": "f90da135bb5809aec521fdec6deee0cb65ec41d74551e28a67f6fff0e30357f5"
     },
     {
       "path": "Penghou.Hufu.slnx",
-      "sha256": "a199b18c67515cc8a2bd92d6dae316f7ad60a4408328569df888d5b8e3d8dab0"
+      "sha256": "7f8a1014b6bfcbe6ff17fed5dd4648a81dfbd89d36b5d5736561b98705944e60"
     },
     {
       "path": "src/Penghou.Hufu.Biscuit.Sqlite/BiscuitSqliteDecisionRecorder.cs",
@@ -1192,7 +1270,7 @@
     },
     {
       "path": "src/Penghou.Hufu.Luban/Penghou.Hufu.Luban.csproj",
-      "sha256": "518a2090fd83f1ce764bf5953156ef86d75e5ddcdd16dfd1823f9f5f43e3c94e"
+      "sha256": "e5769071922ec65df8e36330c4e90802b84c1b50beb529b035a289b7e495ef4e"
     },
     {
       "path": "src/Penghou.Hufu.Sqlite/Penghou.Hufu.Sqlite.csproj",
@@ -1320,7 +1398,7 @@
     },
     {
       "path": "tests/Penghou.Hufu.Tests/HufuLanguageAuthorizerTests.cs",
-      "sha256": "e1b4b1a1056ec5b2b50a6fb801f1d01c096019199fca0dfb74c112d3c5c8d075"
+      "sha256": "50699d95c2dfefad04d3ce5eee4a408ad1034b3f8a2844490cf5f444b5620065"
     },
     {
       "path": "tests/Penghou.Hufu.Tests/Penghou.Hufu.Tests.csproj",

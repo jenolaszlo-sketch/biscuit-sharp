@@ -3,7 +3,7 @@
 ## Current Hufu consumer continuation — 2026-10-03
 
 The [handoff](hufu-integration-handoff.md) supersedes historical Hufu counts below:
-93 Biscuit, 99 existing Hufu and 19 IO cases pass per framework on Windows x64.
+93 Biscuit, 101 existing Hufu and 19 IO cases pass per framework on Windows x64.
 Real Local/Luban/Hufu.IO read authorization components and explicit local
 fixed-policy/host measurements are covered. The source inventory is refreshed.
 Atomic start-to-read ordering, actual governed mutations, production host

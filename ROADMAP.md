@@ -3,7 +3,7 @@
 ## Current Hufu consumer slice — 2026-10-03
 
 The public keyring, async verification and corrected Local/Luban/Hufu.IO read
-authorization components pass 93 Biscuit, 99 existing Hufu and 19 IO cases per
+authorization components pass 93 Biscuit, 101 existing Hufu and 19 IO cases per
 framework on Windows. Fixed-policy/host budgets are measured; full preflight
 remains sequential per shared database in this qualified local composition.
 The [handoff](docs/hufu-integration-handoff.md) records the findings and exact
@@ -93,7 +93,7 @@ defines the delivery gates. The optional adapter and SQLite start prototype are 
   published IO adoption and host custody/authentication before adapter freeze.
 
 The local Windows Biscuit suite passes 93 cases per TFM using the exact reviewed
-CI package, real Cedar and disk SQLite; the 99 existing Hufu and 19 IO cases also pass per
+CI package, real Cedar and disk SQLite; the 101 existing Hufu and 19 IO cases also pass per
 TFM. The runtime start participant is a SQL fixture. See the
 [handoff](docs/hufu-integration-handoff.md#implemented-adapter-and-current-qualification)
 for the remaining real-provider, authentication/custody and release gates.

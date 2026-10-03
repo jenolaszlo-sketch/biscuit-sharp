@@ -249,7 +249,7 @@ a qualified centralized adapter literal writer is also permitted by the specific
 - [ ] Qualify the actual provider-object/effect binding and dispatch boundary.
 - [x] Retain AlreadyStarted as historical/idempotent evidence, without redispatch.
 
-Local evidence: 93 Biscuit tests, 99 existing Hufu tests and 19 IO tests pass per TFM on
+Local evidence: 93 Biscuit tests, 101 existing Hufu tests and 19 IO tests pass per TFM on
 Windows x64 against real Biscuit/Cedar/disk SQLite. Start uses a SQL runtime
 fixture; the read components and local budgets are qualified; complete host/start and
 published-provider qualification remain open.
